@@ -414,3 +414,69 @@ word-anchored registration matches anywhere.
 `LXJ312` is Flexjet, and NetJets' `EJA…` would too. §3.2's letter holds (these are
 not tail numbers), but these are arguably the private jets its spirit is aimed at.
 See the question raised with him on 2026-10-14.
+
+## 2026-10-14 · Captions never contain a raw callsign (SPEC §3.2 amended)
+
+**The question Mohammad asked:** fractional-jet operators file ICAO-pattern callsigns,
+so the classifier called them airlines. Should Flexjet and NetJets be reclassified as
+private? He asked for an outside opinion, then for me to verify it and decide.
+
+**The reframe, which came from the consultation and which I had missed:** for an
+airline we never show the callsign either — we show "United to Chicago". `LXJ489` only
+reaches a screen because the operator lookup failed and the fallback was "print the
+raw string". So the defect is not misclassification; it is **an unresolved identifier
+leaking verbatim.** Fix the fallback and the classification question largely dissolves.
+
+**Where I did not follow the advice.** It proposed gating on "scheduled commercial
+operators", resolved through an operator table, and asserted that `MTN` would resolve
+to Mountain Air Cargo. I checked, with six live adsbdb lookups:
+
+| callsign       | adsbdb                                         |
+| -------------- | ---------------------------------------------- |
+| UAL554         | United Airlines · New York → Dallas-Fort Worth |
+| GJS4562        | GoJet Airlines · New York → Greensboro         |
+| EJA837         | **NetJets · Bedford → Palm Springs**           |
+| MTN8979        | **unknown callsign**                           |
+| LXJ489, CXK369 | unknown callsign                               |
+
+Two corrections. `MTN` does **not** resolve — the claim was wrong. And NetJets resolves
+_with a route_, so a resolve-based gate would have published "NetJets from Bedford to
+Palm Springs" — naming a fractional operator and its trip, which is worse on precisely
+the axis the gate existed to protect.
+
+**The gate I chose instead, from noticing why that route is dangerous.** Neither
+endpoint is Newark. adsbdb infers routes from callsign history and NetJets reuses
+callsigns across unrelated trips, so that route almost certainly is not this flight —
+§14's "route enrichment wrong" risk. So: **name the operator and route only when a
+route resolves AND one of its endpoints matches the airport we actually observed.**
+
+That is a correctness check which happens to solve the privacy problem. It needs **no
+maintained operator list**, cannot go stale, and is what §14 already asked for. It also
+rejects the consultant's own option 2 (a charter denylist) for the reason the
+consultant gave: unbounded, fails open, and no signal when stale.
+
+Everything else is described in plain English by aircraft type, with emitter category
+as the fallback. The callsign stays server-side for track keying and is stripped at the
+WebSocket boundary, not merely hidden in the UI — otherwise devtools recovers it in
+thirty seconds.
+
+**What it costs:** per-note auditability, which is a genuine loss for a piece whose
+first principle is that every sound is true. Verifiability moves up a level instead.
+
+**One artistic point from the consultation worth keeping, because it is better than
+anything in my framing:** Newark's airspace carries both the cheapest seats in the
+country and the most expensive, and Teterboro is six miles away. A ticker that says
+"a private jet departing Teterboro" in the same breath as "light rail arriving at
+Warren St/NJIT" makes that stratification audible without editorialising. The
+discipline is to let the juxtaposition do the work — "a private jet" is factual;
+anything that scores a point would date badly and make the piece partisan.
+
+**Also adopted:** routes are worth having for scheduled flights and are the most
+evocative field in the piece — use city names, not airport codes. Give private
+aviation a distinct timbre instead of an identifier, so "rewarding when you pay
+attention" is recovered in the music rather than in the text.
+
+**No code changes now.** Captions and the WebSocket payload are Phase 1. Recordings
+are unaffected: private (tail-number) callsigns are already discarded, and
+airline-pattern callsigns stay in the local, gitignored recordings for provenance and
+tuning, where they are never published.

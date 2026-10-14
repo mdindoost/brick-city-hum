@@ -28,7 +28,14 @@
  * ~91 MB/day measured, and §11.3 caps the rolling window at 30 days (~2.7 GB).
  */
 
-import { createReadStream, createWriteStream, mkdirSync, type WriteStream } from 'node:fs';
+import {
+  accessSync,
+  constants as fsConstants,
+  createReadStream,
+  createWriteStream,
+  mkdirSync,
+  type WriteStream,
+} from 'node:fs';
 import { createInterface } from 'node:readline';
 import { join } from 'node:path';
 import { createGunzip, gzipSync } from 'node:zlib';
@@ -59,6 +66,22 @@ export class Recorder {
   constructor(private readonly options: RecorderOptions) {
     this.now = options.now ?? Date.now;
     mkdirSync(options.directory, { recursive: true });
+    // Fail at boot, not per-write. Recording IS the Phase 0 deliverable (§13 needs
+    // 48 unbroken hours), so a server that cannot write is not worth starting — and
+    // discovering it one failed write at a time buries the cause in log noise.
+    // This failed for real on the first containerised run: the image's `node` user
+    // is uid 1000 and the host user is 1001, so the bind mount was unwritable.
+    try {
+      accessSync(options.directory, fsConstants.W_OK);
+    } catch (cause) {
+      throw new Error(
+        `Recordings directory ${options.directory} is not writable. ` +
+          `In Docker this usually means the container's user id does not match the ` +
+          `owner of the bind-mounted directory — set HOST_UID and HOST_GID in .env ` +
+          `(see .env.example).`,
+        { cause },
+      );
+    }
   }
 
   private streamFor(kind: RecordKind, epochMs: number): WriteStream | undefined {

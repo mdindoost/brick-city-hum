@@ -113,6 +113,46 @@ Do **not** assume which runway is in use or which direction traffic flows. Runwa
 
 **Privacy rule:** show airline flights by flight number and route. For non-airline aircraft (private, general aviation), show only the aircraft type (e.g. "a small private jet"), never the tail number or owner.
 
+**How this is implemented (decided 2026-10-14, see `docs/decisions.md`):** a caption
+**never contains a raw callsign.** This is the structural form of the rule, and it
+came out of discovering that the original phrasing was being satisfied in letter
+against its own purpose — fractional-jet operators (Flexjet `LXJ`, NetJets `EJA`)
+file ICAO-pattern callsigns, so a pattern match called them airlines and would have
+captioned a Gulfstream as "LXJ489 departing EWR". Note that an airline caption never
+shows the callsign either: it shows "United to Chicago". So the defect was not
+misclassification but an unresolved identifier leaking verbatim.
+
+A caption names an operator and a route **only when all three hold**:
+
+1. the operator resolves (adsbdb returns an airline name), **and**
+2. a route resolves, **and**
+3. **one endpoint of that route matches the airport we actually observed.**
+
+Rule 3 is a correctness check that happens to solve the privacy problem, and it
+needs no maintained list of operators. Verified against live lookups on 2026-10-14:
+`UAL554` → New York→Dallas-Fort Worth (origin matches EWR, shown); `GJS4562` →
+New York→Greensboro (shown); `EJA837` → **Bedford→Palm Springs** (neither endpoint is
+Newark, so the route does not describe this flight — discarded, and the operator is
+not named either). It is also exactly what §14 already asks for: "show the route only
+when confident".
+
+Everything else is described in **plain English by aircraft type** — "a private jet",
+"a large private jet", "a light propeller plane", "a cargo plane", "a helicopter" —
+keyed on the ICAO type code with emitter category as the fallback (A1 light, A2 small,
+A3/A5 large/heavy, B2 helicopter). Spotter-grade detail (`GLF4`, `E55P`) is noise to a
+listener; "a Gulfstream" is legible, "GLF4" is not.
+
+The callsign is kept **server-side only**, for track keying and provenance, and is
+stripped at the WebSocket boundary — not merely omitted from the UI. A callsign that
+rides along in the payload for internal use is recoverable from devtools in thirty
+seconds and by anyone scraping the endpoint.
+
+**What this costs, stated plainly:** per-note auditability. Today a sceptic could paste
+a callsign into a flight tracker and confirm the piece is not lying, which is a real
+asset for a project whose first principle is that every sound is true. Verifiability
+moves up a level instead: airline captions stay checkable, the about page names every
+data source, and aggregate counts can be published.
+
 ### 3.3 Rail: event detection
 
 - Emit `train_arrival` / `train_departure` at Newark Penn, Newark Broad St, Warren St/NJIT and the other Newark Light Rail stations, and PATH Newark.

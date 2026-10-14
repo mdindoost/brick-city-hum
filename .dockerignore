@@ -1,0 +1,12 @@
+node_modules
+dist
+data
+lab/renders
+.git
+.env
+.env.*
+!.env.example
+*.log
+docs
+*.md
+!README.md

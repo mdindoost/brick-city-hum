@@ -1,0 +1,54 @@
+# Run with:  docker compose -p brick-city-hum up -d
+#
+# The project name is pinned in .env / the -p flag deliberately. This machine also
+# runs another project's database container, and an unscoped compose command in the
+# wrong directory is how someone else's data gets stopped. See CLAUDE.md.
+
+services:
+  server:
+    build: .
+    image: brick-city-hum:local
+    container_name: brick-city-hum
+    # SPEC §11.1: survive a crash and come back after a host reboot. This restarts
+    # the CONTAINER only — it never restarts the host.
+    restart: unless-stopped
+    # Run as the host user so the bind-mounted recordings are writable.
+    # The image's own `node` user is uid 1000; this host is uid 1001, and a 775
+    # directory owned by 1001 is not writable by 1000 — which cost a failed first
+    # run with EACCES on every write. Set HOST_UID/HOST_GID in .env (`id -u`, `id -g`).
+    user: '${HOST_UID:-1000}:${HOST_GID:-1000}'
+    ports:
+      # Bound to localhost: the only public route is the Cloudflare tunnel (§11.3,
+      # "only the app port is exposed through the tunnel"). Nothing listens on the
+      # LAN.
+      - '127.0.0.1:${PORT:-8080}:8080'
+    environment:
+      PORT: 8080
+      RECORDINGS_DIR: /data/recordings
+      CONFIG_DIR: /app/config
+      # Supplied from .env, which is gitignored (SPEC §9.1). Absent is survivable:
+      # the server warns loudly and identifies as "unconfigured".
+      CONTACT_EMAIL: ${CONTACT_EMAIL:-}
+      TZ: America/New_York
+      # /app is root-owned and read-only to us now that we run as the host user,
+      # so anything wanting a cache or temp file must be pointed at /tmp.
+      # The host uid has no home directory inside the image, so anything that wants
+      # one must be pointed somewhere writable or it fails with EACCES on /.
+      HOME: /tmp
+      XDG_CACHE_HOME: /tmp
+      TMPDIR: /tmp
+    volumes:
+      # Recordings live on the host so a container rebuild never costs recorded
+      # history — §13 needs 48 unbroken hours and they are not reproducible.
+      - ./data/recordings:/data/recordings
+      # Config is read-only in the container: changes belong in git, not in a
+      # running container.
+      - ./config:/app/config:ro
+    logging:
+      # Logs rotated (§11.3). Without this, a container that runs for months fills
+      # the disk the recordings are also competing for.
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
+    stop_grace_period: 30s
