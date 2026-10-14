@@ -7,13 +7,13 @@ makes the NJIT affiliation verifiable rather than asserted.
 Log replies here with the date, and update `docs/verification.md` and SPEC §3.1 when
 an answer changes a source's status.
 
-| # | To | Purpose | Sent | Reply |
-|---|---|---|---|---|
-| 1 | OpenSky Network | written licence for operational use | — | — |
-| 2 | airplanes.live | API access for a non-commercial project | — | — |
-| 3 | adsb.lol | exact ODbL attribution wording (§12) | — | — |
-| 4 | adsb.fi | exact attribution wording + confirm 1 req/s (§12) | — | — |
-| 5 | adsbdb | licence clarification: MIT vs the route-data restriction | — | — |
+| #   | To              | Purpose                                                  | Sent | Reply |
+| --- | --------------- | -------------------------------------------------------- | ---- | ----- |
+| 1   | OpenSky Network | written licence for operational use                      | —    | —     |
+| 2   | airplanes.live  | API access for a non-commercial project                  | —    | —     |
+| 3   | adsb.lol        | exact ODbL attribution wording (§12)                     | —    | —     |
+| 4   | adsb.fi         | exact attribution wording + confirm 1 req/s (§12)        | —    | —     |
+| 5   | adsbdb          | licence clarification: MIT vs the route-data restriction | —    | —     |
 
 ---
 
@@ -49,7 +49,7 @@ an answer changes a source's status.
 > not your data. We also follow a privacy rule of our own: for non-airline aircraft we
 > show only the aircraft type, never a tail number or an owner.
 >
-> We would of course cite Schäfer et al., *Bringing up OpenSky* (IPSN 2014), and
+> We would of course cite Schäfer et al., _Bringing up OpenSky_ (IPSN 2014), and
 > credit the OpenSky Network on our attributions page, and send you a link to the
 > finished piece. We would also keep OpenSky-derived data out of our permanent
 > recordings, in line with §4(ii).
@@ -113,14 +113,14 @@ an answer changes a source's status.
 
 **adsb.lol and adsb.fi** — SPEC §12 requires exact attribution wording on our
 `/attributions` page, and neither project publishes it anywhere we could find. Ask
-both: *"What wording would you like for attribution? We will use yours rather than
+both: _"What wording would you like for attribution? We will use yours rather than
 guess. The project is a free non-commercial student art piece at NJIT; we poll one
-point/radius query every 10 seconds from a single server."* For adsb.lol, also ask
+point/radius query every 10 seconds from a single server."_ For adsb.lol, also ask
 whether the ODbL attribution has a preferred form, and about the feeding programme
 that their README says will earn an API key.
 
 **adsbdb** — one GitHub issue, politely: the repository states an MIT licence, yet
-also says the route data *"may not be copied, published, or incorporated into other
-databases without the explicit permission"* of the named contributors. Ask which
+also says the route data _"may not be copied, published, or incorporated into other
+databases without the explicit permission"_ of the named contributors. Ask which
 governs a short-lived in-memory cache of callsign→route lookups for a non-commercial
 project. Until answered we keep that cache **in memory only, never written to disk**.

@@ -20,19 +20,19 @@ Docs: <https://api.adsb.lol/docs> · repo: <https://github.com/adsblol/api>
 
 **Per-aircraft fields** (counts out of 114 observed, so absence is normal and must be handled):
 
-| Field | Type | Seen | Meaning |
-|---|---|---|---|
-| `hex` | string | 114 | ICAO 24-bit address — our track key |
-| `flight` | string | 108 | callsign, **space-padded** (`"UAL1810 "`) — must trim |
-| `alt_baro` | int \| `"ground"` | 46 int / 68 `"ground"` | barometric altitude in **feet**, or the **string** `"ground"` |
-| `alt_geom` | int | 51 | geometric altitude; **absent on the ground** |
-| `baro_rate` | int | 41 | barometric vertical rate |
-| `geom_rate` | int | 30 | geometric vertical rate |
-| `category` | string | 113 | emitter category, e.g. `"A3"`, `"A2"` |
-| `lat`,`lon` | float | 114 | position |
-| `gs` | float | 114 | ground speed |
-| `t`, `r` | string | — | **type code** and **registration** — see privacy note |
-| others | — | — | `dir`, `dst`, `track`, `seen`, `seen_pos`, `squawk`, `rssi`, `nav_*`, `mlat`, `tisb`, … |
+| Field       | Type              | Seen                   | Meaning                                                                                 |
+| ----------- | ----------------- | ---------------------- | --------------------------------------------------------------------------------------- |
+| `hex`       | string            | 114                    | ICAO 24-bit address — our track key                                                     |
+| `flight`    | string            | 108                    | callsign, **space-padded** (`"UAL1810 "`) — must trim                                   |
+| `alt_baro`  | int \| `"ground"` | 46 int / 68 `"ground"` | barometric altitude in **feet**, or the **string** `"ground"`                           |
+| `alt_geom`  | int               | 51                     | geometric altitude; **absent on the ground**                                            |
+| `baro_rate` | int               | 41                     | barometric vertical rate                                                                |
+| `geom_rate` | int               | 30                     | geometric vertical rate                                                                 |
+| `category`  | string            | 113                    | emitter category, e.g. `"A3"`, `"A2"`                                                   |
+| `lat`,`lon` | float             | 114                    | position                                                                                |
+| `gs`        | float             | 114                    | ground speed                                                                            |
+| `t`, `r`    | string            | —                      | **type code** and **registration** — see privacy note                                   |
+| others      | —                 | —                      | `dir`, `dst`, `track`, `seen`, `seen_pos`, `squawk`, `rssi`, `nav_*`, `mlat`, `tisb`, … |
 
 **⚠ There is no boolean ground field.** Ground state is `alt_baro === "ground"` — a
 string in a field that is otherwise an integer. A naive numeric parse yields `NaN`
@@ -41,7 +41,7 @@ most likely source of false departure events, so it gets its own test (P0-5).
 
 Observed on the ground: `alt_baro: "ground"`, `gs: 2.2`, and `alt_geom`, `baro_rate`,
 `geom_rate` **all absent**. Observed airborne: `alt_baro: 27025`, `alt_geom: 28250`,
-`geom_rate: -1152`, `baro_rate` **absent** — so the detector must accept *either*
+`geom_rate: -1152`, `baro_rate` **absent** — so the detector must accept _either_
 rate field and must not require both.
 
 **Rate limits:** **no rate-limit headers at all** in the response (only `date`,
@@ -79,7 +79,7 @@ not be read.
 - **The envelope differs**: the aircraft list is `aircraft`, **not `ac`**, and
   `msg` / `total` / `ctime` are absent (`now`, `aircraft`, `resultCount`, `ptime`).
 
-**Consequence:** one parser serves both *if* it reads the list as `ac ?? aircraft`
+**Consequence:** one parser serves both _if_ it reads the list as `ac ?? aircraft`
 and does not depend on envelope metadata. That is a one-line adapter, and it is
 exactly the kind of thing §14's "adapters isolated per source" is for. Worth knowing
 now rather than at 3 a.m. when A1 fails over.
@@ -96,17 +96,19 @@ reading in both directions.
 Docs: <https://openskynetwork.github.io/opensky-api/rest.html> ·
 terms: <https://opensky-network.org/about/terms-of-use>
 
-**Basic auth really is gone.** Docs, verbatim: *"Basic authentication with username
-and password is no longer accepted."* The **March 2026 date SPEC cites is not stated
+**Basic auth really is gone.** Docs, verbatim: _"Basic authentication with username
+and password is no longer accepted."_ The **March 2026 date SPEC cites is not stated
 on the page** — `inconclusive`, though immaterial since the removal is confirmed.
 
 **OAuth2 client credentials — confirmed:**
+
 ```
 POST https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token
 Content-Type: application/x-www-form-urlencoded
 grant_type=client_credentials&client_id=…&client_secret=…
 → then:  Authorization: Bearer <token>  on  /api/states/all?lamin=..&lamax=..&lomin=..&lomax=..
 ```
+
 **Token lifetime 30 minutes**; on 401, request a new one — no refresh grant. (Their
 own Python example re-requests 30 s before expiry.) Not executed: we have no
 credentials. Which account page issues them, and whether registration is free:
@@ -124,26 +126,26 @@ interval. Our ≥ 25 s third-tier polling is comfortably compatible.
 
 **⚠ Units differ from adsb.lol — `/states/all` is a positional array in metres:**
 
-| idx | field | type | unit |
-|---|---|---|---|
-| 0 | `icao24` | string | — |
-| 1 | `callsign` | string | — |
-| 2 | `origin_country` | string | — |
-| 3 | `time_position` | int, nullable | unix s |
-| 4 | `last_contact` | int | unix s |
-| 5 | `longitude` | float, nullable | deg |
-| 6 | `latitude` | float, nullable | deg |
-| 7 | **`baro_altitude`** | float, nullable | **METRES** |
-| 8 | `on_ground` | bool | — |
-| 9 | `velocity` | float | **m/s** |
-| 10 | `true_track` | float | deg |
-| 11 | **`vertical_rate`** | float | **m/s** (+climb) |
-| 12 | `sensors` | int[] \| null | — |
-| 13 | **`geo_altitude`** | float, nullable | **METRES** |
-| 14 | `squawk` | string, nullable | — |
-| 15 | `spi` | bool | — |
-| 16 | `position_source` | int | — |
-| 17 | `category` | int 0–20 | — |
+| idx | field               | type             | unit             |
+| --- | ------------------- | ---------------- | ---------------- |
+| 0   | `icao24`            | string           | —                |
+| 1   | `callsign`          | string           | —                |
+| 2   | `origin_country`    | string           | —                |
+| 3   | `time_position`     | int, nullable    | unix s           |
+| 4   | `last_contact`      | int              | unix s           |
+| 5   | `longitude`         | float, nullable  | deg              |
+| 6   | `latitude`          | float, nullable  | deg              |
+| 7   | **`baro_altitude`** | float, nullable  | **METRES**       |
+| 8   | `on_ground`         | bool             | —                |
+| 9   | `velocity`          | float            | **m/s**          |
+| 10  | `true_track`        | float            | deg              |
+| 11  | **`vertical_rate`** | float            | **m/s** (+climb) |
+| 12  | `sensors`           | int[] \| null    | —                |
+| 13  | **`geo_altitude`**  | float, nullable  | **METRES**       |
+| 14  | `squawk`            | string, nullable | —                |
+| 15  | `spi`               | bool             | —                |
+| 16  | `position_source`   | int              | —                |
+| 17  | `category`          | int 0–20         | —                |
 
 adsb.lol gives **feet** and **ft/min**; OpenSky gives **metres** and **m/s**, and its
 `category` is an **integer** where adsb.lol's is a string like `"A3"`. Our §3.2
@@ -180,6 +182,7 @@ Repo: <https://github.com/mrjackwills/adsbdb>
   "destination":{"iata_code":"IAD","icao_code":"KIAD","name":"Washington Dulles International Airport",…}
 }}}
 ```
+
 Airports carry **both** IATA and ICAO codes plus a human name and municipality —
 everything §6.4 captions need ("United to Chicago"). Airline name is `airline.name`.
 
@@ -198,17 +201,29 @@ which a Newark-departure caption would have to be careful with.
 
 **⚠ Licence contradiction, both quotes from the same repo page:** licence stated as
 **MIT**, yet route data is credited to named individuals with the restriction that it
-*"may not be copied, published, or incorporated into other databases without the
-explicit permission"*. Our per-callsign daily cache is arguably a copy. Flagged below.
+_"may not be copied, published, or incorporated into other databases without the
+explicit permission"_. Our per-callsign daily cache is arguably a copy. Flagged below.
 
 **⚠ Privacy — this one changes our code.** `GET /v0/aircraft/{hex}` returns type
 **and** registration **and** owner in a single response:
+
 ```jsonc
-{"response":{"aircraft":{
-  "type":"R44 Astro","icao_type":"R44","manufacturer":"Robinson","mode_s":"A0B1C2",
-  "registration":"N144CD","registered_owner":"Blue Ridge Helicopter Services Inc",
-  "registered_owner_country_name":"United States","url_photo":"https://…" }}}
+{
+  "response": {
+    "aircraft": {
+      "type": "R44 Astro",
+      "icao_type": "R44",
+      "manufacturer": "Robinson",
+      "mode_s": "A0B1C2",
+      "registration": "N144CD",
+      "registered_owner": "Blue Ridge Helicopter Services Inc",
+      "registered_owner_country_name": "United States",
+      "url_photo": "https://…",
+    },
+  },
+}
 ```
+
 There is **no type-only endpoint**. SPEC §3.2 forbids showing tail numbers or owners
 for non-airline aircraft, so the collector must **strip `registration`,
 `registered_owner*`, `mode_s` and the photo URLs at the normalizer boundary** — before
@@ -231,8 +246,8 @@ Same applies to adsb.lol's own `r` (registration) and `t` (type) fields.
    deep; (c) keep A3 but gate it behind a config flag, off by default, pending
    permission. **My recommendation: (b) for now with (a) started in parallel** — the
    fallback chain stays honest, nothing blocks Phase 0, and if OpenSky says yes we
-   flip a flag. *Note: this contradicts SPEC §3.1 row A3 and §14's A1→A2→A3 chain,
-   so SPEC.md needs an edit once you decide.*
+   flip a flag. _Note: this contradicts SPEC §3.1 row A3 and §14's A1→A2→A3 chain,
+   so SPEC.md needs an edit once you decide._
 2. **adsbdb licence (A4): MIT vs. the route-data restriction.** Options: ask the
    maintainer; or cache in memory only for the session and never persist routes;
    or caption by airline alone and skip routes entirely. **My recommendation: ask
@@ -253,6 +268,7 @@ Same applies to adsb.lol's own `r` (registration) and `t` (type) fields.
 Source: <https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/>
 
 Still stated today, verbatim:
+
 > "Quick Tunnels have no uptime guarantee."
 > "Each Quick Tunnel supports up to 200 in-flight requests. Additional requests return a `429` response."
 > "Quick Tunnels do not support Server-Sent Events (SSE)."
@@ -262,8 +278,8 @@ So SPEC §11.1's limits are accurate. Two refinements:
 
 **Does an open WebSocket occupy one of the 200 slots? `inconclusive`.** No Cloudflare
 page defines "in-flight", and none addresses upgraded WebSockets. The only WebSocket
-statement found is on the general Tunnel FAQ — *"Yes. Cloudflare Tunnel has full
-support for Websockets."* — which is about Cloudflare Tunnel **in general, not Quick
+statement found is on the general Tunnel FAQ — _"Yes. Cloudflare Tunnel has full
+support for Websockets."_ — which is about Cloudflare Tunnel **in general, not Quick
 Tunnels**. SPEC §11.1 asserts "WebSockets work" under the Quick Tunnel heading; that
 is true of Tunnel generally but not separately documented for Quick Tunnels. No
 GitHub issue or forum thread reporting 429s from long-lived WebSockets on a Quick
@@ -273,14 +289,15 @@ settle it is our own Phase 1 load test, not more reading.**
 
 **⚠ New finding SPEC does not mention — an idle timeout that will disconnect listeners.**
 <https://developers.cloudflare.com/network/websockets/>:
+
 > "Cloudflare will close a WebSocket connection when no data is transmitted in either
 > direction for a period of time."
 
 **No numeric value is published** (configurable only for Enterprise). A community
 thread reports ~100 s, unverified. Separately, Cloudflare documents a Proxy Read
 Timeout of 125 s, Enterprise-configurable; whether it applies to idle WebSockets is
-`inconclusive`. Cloudflare's own advice is to *"implement a client-side heartbeat
-(ping/pong) mechanism"*, with no interval given.
+`inconclusive`. Cloudflare's own advice is to _"implement a client-side heartbeat
+(ping/pong) mechanism"_, with no interval given.
 
 **Why this is good news for us:** SPEC §9.4 already pings every 30 s for clock sync,
 which doubles as that heartbeat and sits comfortably under even the pessimistic
@@ -288,8 +305,8 @@ which doubles as that heartbeat and sits comfortably under even the pessimistic
 connection survival, not just clock accuracy, and anyone tempted to relax it later
 should know that. Worth a comment in `clocksync.ts`.
 
-Also documented: *"When Cloudflare releases new code to its global network, we may
-restart servers, which terminates WebSockets connections."* Unscheduled drops are
+Also documented: _"When Cloudflare releases new code to its global network, we may
+restart servers, which terminates WebSockets connections."_ Unscheduled drops are
 normal, so **auto-reconnect with backoff belongs in every client**, not only in
 lounge mode (§2.2). No max connection duration or bandwidth cap is stated.
 
@@ -315,13 +332,13 @@ treat as unconfirmed rather than assumed.
 Checked against Wikipedia infoboxes (DMS → decimal) and the FAA-derived airnav record
 for EWR. Errors are the distance from SPEC's value to the reference.
 
-| Point | SPEC value | Reference | Error | Verdict |
-|---|---|---|---|---|
-| NJIT (origin) | 40.7420, −74.1790 | 40.74194, −74.17889 | ~11 m | **confirmed** |
-| EWR ARP | 40.6925, −74.1687 | 40.69248, −74.16869 (airnav/FAA) | ~2–8 m | **confirmed** |
-| Newark Penn | 40.7345, −74.1638 | 40.73472, −74.16417 | ~39 m | **confirmed** |
-| Prudential Center | 40.7335, −74.1711 | 40.73361, −74.17111 | ~12 m | **confirmed** |
-| **Port Newark** | **40.68, −74.15** | **40.6816, −74.1505** | **~180 m** | **changed** |
+| Point             | SPEC value        | Reference                        | Error      | Verdict       |
+| ----------------- | ----------------- | -------------------------------- | ---------- | ------------- |
+| NJIT (origin)     | 40.7420, −74.1790 | 40.74194, −74.17889              | ~11 m      | **confirmed** |
+| EWR ARP           | 40.6925, −74.1687 | 40.69248, −74.16869 (airnav/FAA) | ~2–8 m     | **confirmed** |
+| Newark Penn       | 40.7345, −74.1638 | 40.73472, −74.16417              | ~39 m      | **confirmed** |
+| Prudential Center | 40.7335, −74.1711 | 40.73361, −74.17111              | ~12 m      | **confirmed** |
+| **Port Newark**   | **40.68, −74.15** | **40.6816, −74.1505**            | **~180 m** | **changed**   |
 
 All four confirmed values are inside their reference's own precision and are fine as
 written. **Use 40.6816, −74.1505 for Port Newark** — only a Phase 3 concern (ships),
@@ -331,14 +348,14 @@ worse number into `config/places.yaml`.
 **EWR runway geometry** (airnav, FAA-derived; single-source for the 11/29 pair, so
 treat as good-enough-for-sanity-checks rather than survey truth):
 
-| Runway | Threshold | True hdg | Length |
-|---|---|---|---|
-| 04L | 40.675381, −74.179449 | 026° | 11,000 ft |
-| 22R | 40.702560, −74.162172 | 206° | 11,000 ft |
-| 04R | 40.677584, −74.174245 | 026° | 9,999 ft |
-| 22L | 40.702289, −74.158537 | 206° | 9,999 ft |
-| 11 | 40.702804, −74.180707 | 095° | 6,725 ft |
-| 29 | 40.701199, −74.156543 | 275° | 6,725 ft |
+| Runway | Threshold             | True hdg | Length    |
+| ------ | --------------------- | -------- | --------- |
+| 04L    | 40.675381, −74.179449 | 026°     | 11,000 ft |
+| 22R    | 40.702560, −74.162172 | 206°     | 11,000 ft |
+| 04R    | 40.677584, −74.174245 | 026°     | 9,999 ft  |
+| 22L    | 40.702289, −74.158537 | 206°     | 9,999 ft  |
+| 11     | 40.702804, −74.180707 | 095°     | 6,725 ft  |
+| 29     | 40.701199, −74.156543 | 275°     | 6,725 ft  |
 
 Two parallels on ~026/206 plus one crosswind on ~095/275. **This is for sanity
 checks only — §3.2 forbids assuming a flow direction, and that still holds**: flow
@@ -355,6 +372,7 @@ their FAQ in full (both 403 to a plain fetch; readable with a browser User-Agent
 The earlier entry above rested on a search snippet; this supersedes it.
 
 **Terms §3 "USE RESTRICTIONS" (vi), verbatim:**
+
 > "The REST API is provided for non-profit research and educational use only. Use of
 > the REST API in any operational capacity — including but not limited to integration
 > into a live product, service, or automated system — requires a written license from
@@ -363,11 +381,12 @@ The earlier entry above rested on a search snippet; this supersedes it.
 **Terms §1 "LICENSE":** grants a licence "solely for the purpose of non-profit
 research and non-profit education", adds that operational use "also requires a
 written license, regardless of the entity's non-profit status", and closes:
+
 > "No license is granted for any other purpose and there are no implied licenses in
 > this AGREEMENT."
 
 The same requirement appears a third time in the page's own Tl;dr. Their FAQ Q7 is
-looser — *"You can freely use the API for personal and non-profit applications"* —
+looser — _"You can freely use the API for personal and non-profit applications"_ —
 and **contradicts the Terms**. The Terms declare themselves "legally binding under
 the laws of the Swiss Confederation" and are the more specific text on operational
 use, so they control. Relying on the FAQ sentence would be relying on the weaker of
@@ -375,7 +394,7 @@ two conflicting statements.
 
 Our use — a server polling on a schedule and feeding a live public WebSocket — is
 squarely "a live product, service, or automated system". NJIT affiliation does not
-help by itself: the allowance is for *research and education*, and a public art
+help by itself: the allowance is for _research and education_, and a public art
 installation is neither as the text is written.
 
 **Two further clauses that constrain the architecture, not just the paperwork:**
@@ -387,7 +406,7 @@ installation is neither as the text is written.
   must never be written into the permanent recordings** — they would have to be
   deletable, and our recordings are deliberately append-only.
 - **§4(i) names web pages explicitly.** Any publication "including web pages" using
-  their data must cite Schäfer et al., *Bringing up OpenSky*, IPSN 2014, and OpenSky
+  their data must cite Schäfer et al., _Bringing up OpenSky_, IPSN 2014, and OpenSky
   must be sent a copy or link. A §12 obligation if we ever enable it.
 - **§3(iii)** forbids passing "the data set(s)" to anyone not "employed by your
   institute". It draws **no raw-vs-derived distinction**, so whether abstracted
@@ -395,8 +414,8 @@ installation is neither as the text is written.
   requires a licence.
 
 **Licence requests:** `contact@opensky-network.org`, with a brief description of the
-use. Their FAQ adds: *"If you are from an eligible institution, please use an
-affiliated email address!"* — so this one request is materially stronger from an
+use. Their FAQ adds: _"If you are from an eligible institution, please use an
+affiliated email address!"_ — so this one request is materially stronger from an
 `@njit.edu` address than from a personal one.
 
 **Verdict: `requires written permission`.** SPEC §3.1 row A3 and §14's A1→A2→A3 chain
@@ -409,18 +428,19 @@ cannot be relied on until OpenSky grants a licence.
 Checked 2026-10-14. Searched for a third fallback whose licence clearly permits a
 live, public, non-commercial project.
 
-| Candidate | Access today | Licence fit | Verdict |
-|---|---|---|---|
-| **airplanes.live** | **HTTP 403 — gated** (see below) | guide header says "Non-Commercial Use" | **ask first** |
-| adsb.one | appears archived ~April 2026, merged into airplanes.live | — | not viable |
-| ADS-B Exchange | commercial licence language; free feeder key disputed | "commercial use, for-profit **or non-profit**, requires a written license" | ask first / unclear |
-| FlightAware AeroAPI | paid, ~$0.05 per result set; $5/mo free credit | free tier limited to "personal or academic" derivative works | not viable — per-query cost alone rules out 10 s polling |
-| HexDB.io | keyless | — | not viable: **no positions**, metadata only |
-| plane.watch · theairtraffic.com | no consumer read API found (feed-in only) | — | not viable |
-| Planefinder · Wingbits · Aviation Edge | commercial | — | inconclusive, likely paid |
+| Candidate                              | Access today                                             | Licence fit                                                                | Verdict                                                  |
+| -------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------- |
+| **airplanes.live**                     | **HTTP 403 — gated** (see below)                         | guide header says "Non-Commercial Use"                                     | **ask first**                                            |
+| adsb.one                               | appears archived ~April 2026, merged into airplanes.live | —                                                                          | not viable                                               |
+| ADS-B Exchange                         | commercial licence language; free feeder key disputed    | "commercial use, for-profit **or non-profit**, requires a written license" | ask first / unclear                                      |
+| FlightAware AeroAPI                    | paid, ~$0.05 per result set; $5/mo free credit           | free tier limited to "personal or academic" derivative works               | not viable — per-query cost alone rules out 10 s polling |
+| HexDB.io                               | keyless                                                  | —                                                                          | not viable: **no positions**, metadata only              |
+| plane.watch · theairtraffic.com        | no consumer read API found (feed-in only)                | —                                                                          | not viable                                               |
+| Planefinder · Wingbits · Aviation Edge | commercial                                               | —                                                                          | inconclusive, likely paid                                |
 
 **airplanes.live is no longer keyless.** A single live probe of
 `https://api.airplanes.live/v2/point/40.742/-74.179/25` returned **HTTP 403**:
+
 > `{"error": "Please contact us at contact@airplanes.live. Your email MUST include any links, a description of the project, and any information you deem appropriate."}`
 
 So its `category` field could not be confirmed, which matters: §3.2's `helicopter`
@@ -430,7 +450,7 @@ a real response.
 
 **The pattern is the finding.** OpenSky requires a written licence; airplanes.live
 gates on an emailed project description; ADS-B Exchange's wording covers non-profits
-too; and adsb.lol's own README says a key *"will"* be required, obtainable by feeding
+too; and adsb.lol's own README says a key _"will"_ be required, obtainable by feeding
 them. Free, unconditional, keyless ADS-B is disappearing. §14 anticipated this for
 adsb.lol specifically; it is in fact the whole market.
 

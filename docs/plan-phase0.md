@@ -29,7 +29,8 @@ Sequential effort is ~1.5–2 days; the calendar is ~3 days because of the recor
 
 ## Tasks
 
-### P0-1 · Toolchain scaffold — *implementer* · ~2 h
+### P0-1 · Toolchain scaffold — _implementer_ · ~2 h
+
 Repo layout per §5.1 (only the directories Phase 0 actually fills). Node 22 + ESM,
 TypeScript **strict** on both sides, Vite client, one lint config, one test runner
 (`node:test` or vitest — pick one and justify it in `docs/decisions.md`),
@@ -37,7 +38,8 @@ TypeScript **strict** on both sides, Vite client, one lint config, one test runn
 **Accept:** clean `npm install`, `lint` and `test` pass on an empty suite, `build`
 emits, no `any` in the template files.
 
-### P0-2 · Places config + geo math — *implementer* · ~2 h
+### P0-2 · Places config + geo math — _implementer_ · ~2 h
+
 `config/places.yaml` (NJIT origin, EWR, Penn Station, Prudential, Port Newark —
 **values from `docs/verification.md`, not from SPEC's approximations**). A tiny geo
 module: haversine distance, initial bearing, point-in-radius.
@@ -47,7 +49,8 @@ pinned by a test so nothing silently mirrors the stereo field later.
 **Why first:** the collector and detector both depend on it, and a wrong bearing
 convention would put every plane on the wrong side of the city.
 
-### P0-3 · adsb.lol collector + normalizer + recorder — *implementer* · ~4 h
+### P0-3 · adsb.lol collector + normalizer + recorder — _implementer_ · ~4 h
+
 Poll per `config/sources.yaml` (10 s, jittered), timeout, exponential backoff on
 429/5xx, honest `User-Agent` with contact [HUMAN — see questions], health state per
 §3.5. Normalize to the §4 event schema. Keep a per-ICAO ring buffer of the last ~10
@@ -60,16 +63,18 @@ without a restart; no tail numbers for non-airline aircraft anywhere in the file
 **Note:** record the **raw** API response too, not just normalized events — the
 detector thresholds in §3.2 are explicitly starting values to be tuned, and
 re-tuning against normalized output only would mean re-recording for another 48 h.
-*(Proposed addition to the spec — confirm.)*
+_(Proposed addition to the spec — confirm.)_
 
-### P0-4 · Docker + compose — *implementer* · ~1 h
+### P0-4 · Docker + compose — _implementer_ · ~1 h
+
 Single Node service, `restart: unless-stopped` (§11.1), recordings on a mounted
 volume, logs rotated, recordings capped at 30 days (§11.3).
 **Accept:** `docker compose up -d` survives `docker kill` and a host reboot with the
 ndjson intact and no duplicate or lost poll at the seam.
 **Why here and not Phase 1:** it is what makes the 48-hour recording survive a crash.
 
-### P0-5 · Event detector — *implementer* · ~5 h
+### P0-5 · Event detector — _implementer_ · ~5 h
+
 `ewr_departure`, `ewr_arrival`, `overflight_city`, `helicopter` per §3.2, with
 `heavy` as a modifier. Thresholds from `config/sources.yaml`. Fire-once semantics per
 aircraft per event. **Derive direction from the data — never assume runway flow** (§3.2).
@@ -79,17 +84,19 @@ an EWR movement, a helicopter, an aircraft that disappears mid-climb, duplicate 
 out-of-order observations, and a track that re-enters the radius (must not re-fire).
 Replaying one recorded day emits a plausible count with no duplicate ids.
 
-### P0-6 · Simulator + replay — *implementer* · ~3 h
+### P0-6 · Simulator + replay — _implementer_ · ~3 h
+
 `server/src/sim/` replays a recording at real time or faster, and generates synthetic
 days from recorded statistics (§3.5). Everything it emits carries `sim: true`.
 **Accept:** a replay of a recorded day reproduces the same event sequence
 deterministically from a fixed seed; no emitted event is missing `sim: true`;
 captions say "replay" (§3.5).
 
-### P0-7 · Listening-lab skeleton + probe voice — *implementer* · ~7 h
+### P0-7 · Listening-lab skeleton + probe voice — _implementer_ · ~7 h
+
 **P0-7a · the interface (do this first, ~1 h).** Define the event→voice interface that
 every Phase 1 voice will implement, and the master chain it feeds (compressor +
-−1 dBTP limiter, §6.8). This is the one piece of Phase 0 audio design that is *not*
+−1 dBTP limiter, §6.8). This is the one piece of Phase 0 audio design that is _not_
 disposable — Phase 1's aircraft voices implement it — so it is worth getting right
 and worth a reviewer pass of its own.
 
@@ -117,7 +124,8 @@ reason logged in `docs/decisions.md`. The hash is then recorded as the renderer'
 **regression fixture** — a later mismatch means the renderer changed, not the music.
 **Blocked on:** ffmpeg installed.
 
-### P0-8 · Detector validation — *api-scout* (gather) + **M** (judge) · ~2 h
+### P0-8 · Detector validation — _api-scout_ (gather) + **M** (judge) · ~2 h
+
 Pick 20 detected events spread across dayparts from the real recording; for each,
 produce timestamp, callsign, position, altitude, vertical rate and our
 classification, formatted for quick comparison against a public flight tracker.
@@ -125,18 +133,20 @@ classification, formatted for quick comparison against a public flight tracker.
 **[HUMAN]:** "precision looks right" is your judgment (§13). I will bring the table
 and a recommendation; the call is yours.
 
-### P0-9 · First real render + report — *music-director* (reads) · ~1 h
+### P0-9 · First real render + report — _music-director_ (reads) · ~1 h
+
 Render a 10-minute slice of real recorded data, run the analysis, and have the music
 director read the report and the spectrogram. Not for tuning yet — Phase 0 only
 proves the loop works end to end.
 **Accept:** `lab/reports/` holds one real report; the music director's first
 observations are logged in `docs/music/decisions.md` as a Phase 1 starting point.
 
-### P0-10 · Gate report — *me* · ~1 h
+### P0-10 · Gate report — _me_ · ~1 h
+
 Re-read the §13 criteria, state pass or fail per criterion with evidence, list known
 weaknesses, then **stop for your go/no-go**.
 
-**Review:** *reviewer* runs on P0-2, P0-3, P0-5, P0-6 and P0-7 before each commit.
+**Review:** _reviewer_ runs on P0-2, P0-3, P0-5, P0-6 and P0-7 before each commit.
 It has fresh eyes and no write access by design.
 
 ---
@@ -152,6 +162,7 @@ probe is demoted to a regression fixture rather than deleted. Full reasoning in
 `docs/decisions.md`; SPEC §13 updated. See P0-7 above.
 
 ## Dependencies outside the code
+
 - **ffmpeg** — not installed; P0-7 is blocked without it.
 - **Contact email** for the `User-Agent` (§9.1) — P0-3 ships a placeholder until you
   give me one, and every poll we make until then is slightly impolite.

@@ -1,0 +1,49 @@
+/* SPEC §10: dark, calm, minimal. Full visual design arrives in Phase 1. */
+:root {
+  color-scheme: dark;
+  --bg: #0b0d10;
+  --fg: #e8e6e3;
+  --dim: #8b9199;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--bg);
+  color: var(--fg);
+  font:
+    16px/1.6 system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  text-align: center;
+}
+
+h1 {
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  margin: 0 0 0.4em;
+}
+
+.status {
+  color: var(--dim);
+  font-size: 0.9rem;
+}
+
+/* SPEC §10: respect prefers-reduced-motion, and never flash faster than 3 Hz. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

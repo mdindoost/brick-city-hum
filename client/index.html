@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Brick City Hum</title>
+    <meta
+      name="description"
+      content="A live radio that turns Newark into music. Planes, trains, weather and tide as one continuous ambient piece."
+    />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main id="app">
+      <h1>Brick City Hum</h1>
+      <p>A live radio that turns Newark into music.</p>
+      <!-- SPEC §2.1: audio never starts before a user gesture. The real start
+           screen and ▶ button arrive in Phase 1. -->
+      <p class="status">Phase 0 — no audio yet.</p>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

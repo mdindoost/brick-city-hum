@@ -4,6 +4,7 @@ description: Writes code for well-specified Brick City Hum tasks — collectors,
 model: sonnet
 tools: Read, Write, Edit, Bash, Glob, Grep, NotebookEdit
 ---
+
 You implement tasks for Brick City Hum, a browser-based generative radio driven by
 live Newark data.
 

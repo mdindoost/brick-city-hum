@@ -23,8 +23,8 @@ What was decided, why, and when (SPEC §0). Newest last. Music decisions live in
 - **Recorder ships before everything else in Phase 0.** §13 needs ≥ 2 days of real
   data, which is 48 h of wall clock that no amount of work compresses. Everything else
   is built while it records. See `docs/plan-phase0.md`.
-- **Record raw API responses alongside normalized events** *(proposed, awaiting
-  confirmation)*. §3.2's thresholds are explicitly starting values to be tuned; if we
+- **Record raw API responses alongside normalized events** _(proposed, awaiting
+  confirmation)_. §3.2's thresholds are explicitly starting values to be tuned; if we
   keep only normalized output, re-tuning means another 48 h wait.
 - **ffmpeg was missing** from the machine; needed for the lab's LUFS and spectrograms
   (§7.3). Mohammad authorized installing it.
@@ -32,8 +32,8 @@ What was decided, why, and when (SPEC §0). Newest last. Music decisions live in
 ## 2026-10-14 · Phase 0 renders through a probe voice (SPEC §13 amended)
 
 **Problem.** §13 required the listening lab in Phase 0 and its gate was "the lab
-renders a 10-minute WAV", but §7.3 defines rendering as replaying *through the client
-audio engine* — which §13 schedules for Phase 1. Phase 0 could not complete as
+renders a 10-minute WAV", but §7.3 defines rendering as replaying _through the client
+audio engine_ — which §13 schedules for Phase 1. Phase 0 could not complete as
 written: circular dependency, a spec bug rather than a misreading.
 
 **Decision (Mohammad, option 2 of three).** Phase 0 builds a deliberately crude
@@ -47,8 +47,8 @@ works and nothing else). SPEC §13 Phase 0 updated accordingly.
 1. **The probe plugs into the real interface, not a side door.** Define the
    event→voice interface Phase 1 voices will implement, and make the probe its first
    implementation. Route its output through the planned master chain (compressor +
-   −1 dBTP limiter). *Rationale: a harness that bypasses the real path lets Phase 1
-   discover interface bugs late, which is the exact cost we were buying our way out of.*
+   −1 dBTP limiter). _Rationale: a harness that bypasses the real path lets Phase 1
+   discover interface bugs late, which is the exact cost we were buying our way out of._
 
 2. **Determinism traps are real and must be handled explicitly.** `Tone.Reverb`
    builds its impulse response from noise generated with `Math.random`, so renders
@@ -60,24 +60,25 @@ works and nothing else). SPEC §13 Phase 0 updated accordingly.
    constructs any audio node, or the IR is already generated from unseeded noise.
    **Acceptance: render the same slice twice → identical SHA-256.** Documented
    fallback: max sample difference below −90 dBFS, with the reason logged here.
-   *Rationale: without this, every later A/B comparison is confounded by renderer
-   noise and we cannot tell a musical change from a rendering artifact.*
+   _Rationale: without this, every later A/B comparison is confounded by renderer
+   noise and we cannot tell a musical change from a rendering artifact._
 
 3. **Demote the probe, do not delete it.** It moves to
    `lab/fixtures/probe-voice.ts`, is excluded from the production client bundle, and
    is retained as the renderer's regression fixture — a CI-style check that the
-   harness still produces the known hash. *Rationale: when something sounds wrong
+   harness still produces the known hash. _Rationale: when something sounds wrong
    months from now, one run distinguishes "the renderer changed" from "the music
-   changed". This supersedes the earlier plan to delete the probe after Phase 1.*
+   changed". This supersedes the earlier plan to delete the probe after Phase 1._
 
 ## 2026-10-14 · Contact address: personal email, kept out of the repo
 
 **Decision (Mohammad).** The §9.1 `User-Agent` contact is his personal address, held
 in `.env` (gitignored) and read at runtime via `process.env.CONTACT_EMAIL`. It is
 **not** shown on the public `/attributions` page — §12 requires crediting the data
-*sources*, and none of them obliges us to publish our own address.
+_sources_, and none of them obliges us to publish our own address.
 
 **What this does and does not hide**, stated plainly so nobody later assumes more:
+
 - Hidden from the public repo and from GitHub scrapers — **yes, completely.**
 - Hidden from the API providers — **no, by design.** adsb.lol and adsb.fi see it in
   their logs, which is the entire point: a maintainer who notices odd traffic emails
@@ -86,7 +87,7 @@ in `.env` (gitignored) and read at runtime via `process.env.CONTACT_EMAIL`. It i
 
 **Guard: `.githooks/pre-commit`.** Git history is permanent; one accidental commit
 would need a history rewrite to undo. The hook blocks any email-shaped string in
-staged *added* lines, and separately blocks the literal `CONTACT_EMAIL` value read
+staged _added_ lines, and separately blocks the literal `CONTACT_EMAIL` value read
 from `.env`. **The hook itself contains no address** — it reads the one to protect
 from `.env` and otherwise matches generically, so the guard cannot leak what it
 guards. Deliberate exceptions go in `.githooks/allowed-emails` (currently only
@@ -104,15 +105,15 @@ script so it is not a thing anyone has to remember.
 **Context.** Verifying SPEC §3.1's fallback chain turned up a market-wide problem
 rather than a per-source one. Full evidence in `docs/verification.md`.
 
-| Source | Status |
-|---|---|
-| adsb.lol (A1) | works, keyless today; README says a key *will* be required, earned by feeding |
-| adsb.fi (A2) | works; envelope key is `aircraft` not `ac` |
-| OpenSky (A3) | **written licence required** for operational use, regardless of non-profit status |
-| airplanes.live | **HTTP 403**, gated on an emailed project description |
-| Flightradar24 | economically impossible: ~258,000 req/month needed vs 30,000 credits on its $9 tier |
-| ADS-B Exchange | commercial-licence wording explicitly covers non-profits |
-| FlightAware AeroAPI | per-query pricing; free tier limited to "personal or academic" |
+| Source              | Status                                                                              |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| adsb.lol (A1)       | works, keyless today; README says a key _will_ be required, earned by feeding       |
+| adsb.fi (A2)        | works; envelope key is `aircraft` not `ac`                                          |
+| OpenSky (A3)        | **written licence required** for operational use, regardless of non-profit status   |
+| airplanes.live      | **HTTP 403**, gated on an emailed project description                               |
+| Flightradar24       | economically impossible: ~258,000 req/month needed vs 30,000 credits on its $9 tier |
+| ADS-B Exchange      | commercial-licence wording explicitly covers non-profits                            |
+| FlightAware AeroAPI | per-query pricing; free tier limited to "personal or academic"                      |
 
 **Decisions (Mohammad):**
 
@@ -120,9 +121,9 @@ rather than a per-source one. Full evidence in `docs/verification.md`.
   1 behind a config flag, default **off**, and stays off until a written licence
   arrives. Writing code is not use. Requesting permission by email from an `@njit.edu`
   address, since their own FAQ asks institutional applicants to do exactly that.
-  *Rejected alternatives: dropping A3 entirely (loses a ready fallback for a request
+  _Rejected alternatives: dropping A3 entirely (loses a ready fallback for a request
   that costs one email) and enabling it now (§1.7 makes zero licensing exposure a
-  principle, not a preference).*
+  principle, not a preference)._
 - **(b) Request access from airplanes.live too.** Its 403 message invites exactly this,
   and its own guide header says "Non-Commercial Use", so the fit is plausible. Two
   emails, sent together. Drafts in `docs/outreach.md`.
@@ -165,14 +166,14 @@ constraint, not altitude**.
 **Correction worth recording.** The costing agent reported that our claim about
 adsb.lol announcing a future API key was unverified. It was looking at the wrong
 repository — `adsblol/feed` rather than `adsblol/api`, where an earlier agent had
-quoted the README verbatim: *"In the future, you will require an API key which you can
-obtain by feeding adsb.lol."* The original claim stands, and §14 is unchanged. Noted
+quoted the README verbatim: _"In the future, you will require an API key which you can
+obtain by feeding adsb.lol."_ The original claim stands, and §14 is unchanged. Noted
 because it is a reminder that a subagent's confident negative needs the same scrutiny
 as its positive.
 
 ## 2026-10-14 · Route caching, raw recording, and a permanent reference library
 
-Three connected decisions, all prompted by Mohammad pushing on *why* we store anything.
+Three connected decisions, all prompted by Mohammad pushing on _why_ we store anything.
 
 **1. Route cache: in memory, scoped to the aircraft's track lifetime.** His point was
 that once a plane has gone its route is useless to us — correct, and it improves on
@@ -187,7 +188,7 @@ we never copy, publish, or incorporate anything into a database.
 
 **On the MIT question** (his reading was that MIT settles it): the reading is
 reasonable and the practical conclusion is the same, but the structure is worth
-recording. MIT covers the repository's *code*. The route data is separately credited
+recording. MIT covers the repository's _code_. The route data is separately credited
 to two named individuals with their own restriction, and a maintainer cannot MIT-license
 someone else's contribution — which is why both statements sit on one page looking
 contradictory. For our actual use (an ephemeral lookup, a caption, then forgotten) none
