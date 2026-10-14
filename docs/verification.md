@@ -345,3 +345,102 @@ checks only — §3.2 forbids assuming a flow direction, and that still holds**:
 flips with the wind, often twice a day. Useful for P0-8 validation ("does this
 detected departure's track actually align with a real runway?") and later for placing
 the runways in the §10 map. Not an input to detection.
+
+---
+
+## A3 (re-check) · OpenSky terms, read in full · **requires written permission — settled**
+
+Checked 2026-10-14 by reading <https://opensky-network.org/about/terms-of-use> and
+their FAQ in full (both 403 to a plain fetch; readable with a browser User-Agent).
+The earlier entry above rested on a search snippet; this supersedes it.
+
+**Terms §3 "USE RESTRICTIONS" (vi), verbatim:**
+> "The REST API is provided for non-profit research and educational use only. Use of
+> the REST API in any operational capacity — including but not limited to integration
+> into a live product, service, or automated system — requires a written license from
+> OpenSky Network, regardless of the entity's non-profit status."
+
+**Terms §1 "LICENSE":** grants a licence "solely for the purpose of non-profit
+research and non-profit education", adds that operational use "also requires a
+written license, regardless of the entity's non-profit status", and closes:
+> "No license is granted for any other purpose and there are no implied licenses in
+> this AGREEMENT."
+
+The same requirement appears a third time in the page's own Tl;dr. Their FAQ Q7 is
+looser — *"You can freely use the API for personal and non-profit applications"* —
+and **contradicts the Terms**. The Terms declare themselves "legally binding under
+the laws of the Swiss Confederation" and are the more specific text on operational
+use, so they control. Relying on the FAQ sentence would be relying on the weaker of
+two conflicting statements.
+
+Our use — a server polling on a schedule and feeding a live public WebSocket — is
+squarely "a live product, service, or automated system". NJIT affiliation does not
+help by itself: the allowance is for *research and education*, and a public art
+installation is neither as the text is written.
+
+**Two further clauses that constrain the architecture, not just the paperwork:**
+
+- **§4(ii) conflicts with our recorder.** All copies of received data must be expunged
+  "upon completion or termination of stated research and/or termination of data access
+  or use." §3.5 keeps `data/recordings/*.ndjson` indefinitely, and the simulator and
+  listening lab are built on it. **Even with a licence, OpenSky-derived observations
+  must never be written into the permanent recordings** — they would have to be
+  deletable, and our recordings are deliberately append-only.
+- **§4(i) names web pages explicitly.** Any publication "including web pages" using
+  their data must cite Schäfer et al., *Bringing up OpenSky*, IPSN 2014, and OpenSky
+  must be sent a copy or link. A §12 obligation if we ever enable it.
+- **§3(iii)** forbids passing "the data set(s)" to anyone not "employed by your
+  institute". It draws **no raw-vs-derived distinction**, so whether abstracted
+  musical events count is genuinely unresolved by the text — moot while §3(vi) already
+  requires a licence.
+
+**Licence requests:** `contact@opensky-network.org`, with a brief description of the
+use. Their FAQ adds: *"If you are from an eligible institution, please use an
+affiliated email address!"* — so this one request is materially stronger from an
+`@njit.edu` address than from a personal one.
+
+**Verdict: `requires written permission`.** SPEC §3.1 row A3 and §14's A1→A2→A3 chain
+cannot be relied on until OpenSky grants a licence.
+
+---
+
+## Alternative aircraft sources, surveyed · **the free-API landscape is closing**
+
+Checked 2026-10-14. Searched for a third fallback whose licence clearly permits a
+live, public, non-commercial project.
+
+| Candidate | Access today | Licence fit | Verdict |
+|---|---|---|---|
+| **airplanes.live** | **HTTP 403 — gated** (see below) | guide header says "Non-Commercial Use" | **ask first** |
+| adsb.one | appears archived ~April 2026, merged into airplanes.live | — | not viable |
+| ADS-B Exchange | commercial licence language; free feeder key disputed | "commercial use, for-profit **or non-profit**, requires a written license" | ask first / unclear |
+| FlightAware AeroAPI | paid, ~$0.05 per result set; $5/mo free credit | free tier limited to "personal or academic" derivative works | not viable — per-query cost alone rules out 10 s polling |
+| HexDB.io | keyless | — | not viable: **no positions**, metadata only |
+| plane.watch · theairtraffic.com | no consumer read API found (feed-in only) | — | not viable |
+| Planefinder · Wingbits · Aviation Edge | commercial | — | inconclusive, likely paid |
+
+**airplanes.live is no longer keyless.** A single live probe of
+`https://api.airplanes.live/v2/point/40.742/-74.179/25` returned **HTTP 403**:
+> `{"error": "Please contact us at contact@airplanes.live. Your email MUST include any links, a description of the project, and any information you deem appropriate."}`
+
+So its `category` field could not be confirmed, which matters: §3.2's `helicopter`
+(A7) and `heavy` (A5) rules depend on emitter category. Its schema is reportedly
+ADSBx v2-compatible like adsb.lol and adsb.fi, but that is inference until we can see
+a real response.
+
+**The pattern is the finding.** OpenSky requires a written licence; airplanes.live
+gates on an emailed project description; ADS-B Exchange's wording covers non-profits
+too; and adsb.lol's own README says a key *"will"* be required, obtainable by feeding
+them. Free, unconditional, keyless ADS-B is disappearing. §14 anticipated this for
+adsb.lol specifically; it is in fact the whole market.
+
+**Which makes our own receiver the only option with no licence question at all:** an
+RTL-SDR dongle (~$85 with a dipole kit; ~$80–160 all in) plus a 1090 MHz antenna,
+running `readsb` (the maintained `dump1090` fork) with `tar1090`. We would own the
+data outright, so no aggregator's terms touch the music. Feeding that data to
+adsb.lol is also exactly how their README says the future API key is earned, which
+closes the §14 risk from the other end. Limitation, unavoidable and physical: one
+receiver needs line of sight, so it will miss low and distant aircraft and cannot
+replace a network view — it is a strong **complement**, not a drop-in substitute.
+Realistic rooftop reception radius in urban Newark: `inconclusive`, no sourced figure
+found.

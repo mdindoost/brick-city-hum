@@ -1,3 +1,9 @@
 # Email addresses that ARE allowed to appear in tracked files, one per line.
 # Everything else is blocked by .githooks/pre-commit. Keep this list short.
 noreply@anthropic.com
+
+# Public contact addresses published by the data providers themselves, recorded in
+# docs/verification.md because they are where we must write to request access.
+# Ours is never listed here — it lives in .env only.
+contact@opensky-network.org
+contact@airplanes.live
