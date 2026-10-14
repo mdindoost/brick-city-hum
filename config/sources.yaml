@@ -43,6 +43,16 @@ aircraft:
 
   # Backoff on 429 or 5xx. These are free services run by volunteers; when they push
   # back we retreat quickly and return slowly.
+  # Wait this long after process start before the first poll, jittered.
+  #
+  # Added after rate-limiting ourselves: backoff state lives in memory, so every
+  # container restart resets it and polls immediately. During development that meant
+  # a dozen restarts in an hour each firing a request, and adsb.lol returned 429.
+  # Under `restart: unless-stopped` a crash loop would do the same unattended. A few
+  # seconds costs nothing and makes a restart storm look like one client, not many.
+  startup_delay_ms: 4000
+  startup_jitter_ms: 4000
+
   backoff:
     initial_ms: 5000
     multiplier: 2

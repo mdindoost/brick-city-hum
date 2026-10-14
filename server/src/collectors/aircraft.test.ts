@@ -49,7 +49,7 @@ describe('AircraftCollector', () => {
   it('builds the URL from config and places, not from hard-coded values', async () => {
     const { collector, urls } = setup({ primary: () => Promise.resolve(AIRCRAFT) });
     collector.start();
-    await vi.advanceTimersByTimeAsync(50);
+    await vi.advanceTimersByTimeAsync(10_000);
     collector.stop();
     expect(urls[0]).toBe('https://primary.invalid/40.74194/-74.17889/25');
   });
@@ -123,7 +123,7 @@ describe('AircraftCollector', () => {
   it('tracks aircraft and records every poll, including empty ones', async () => {
     const { collector, recorder } = setup({ primary: () => Promise.resolve(AIRCRAFT) });
     collector.start();
-    await vi.advanceTimersByTimeAsync(50);
+    await vi.advanceTimersByTimeAsync(10_000);
     collector.stop();
     expect(collector.tracks.size).toBe(1);
     // An empty sky and a stopped collector must be distinguishable in the
@@ -138,7 +138,7 @@ describe('AircraftCollector', () => {
       fallback: () => Promise.resolve(AIRCRAFT),
     });
     collector.start();
-    await vi.advanceTimersByTimeAsync(50);
+    await vi.advanceTimersByTimeAsync(10_000);
     collector.stop();
     expect(health.get('primary')?.state).not.toBe('ok');
     expect(health.get('primary')?.lastError).toMatch(/schema has probably changed/);
@@ -171,5 +171,21 @@ describe('detector state is kept in step with the track store', () => {
     );
     expect(collector.tracks.size).toBe(1);
     expect(collector.detector.trackedAircraft).toBe(1);
+  });
+});
+
+describe('startup politeness', () => {
+  it('does not poll instantly on start', async () => {
+    // Backoff state lives in memory, so a restart forgets it. Under
+    // `restart: unless-stopped` a crash loop would otherwise poll a volunteer-run API
+    // as fast as it could restart — which is how we earned an HTTP 429 from adsb.lol
+    // during development, from repeated manual restarts.
+    const { collector, urls } = setup({ primary: () => Promise.resolve(AIRCRAFT) });
+    collector.start();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(urls).toHaveLength(0);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(urls.length).toBeGreaterThan(0);
+    collector.stop();
   });
 });

@@ -671,10 +671,10 @@ we have not asked, and the point of §13's gate is a human looking at a tracker,
 machine agreeing with itself. Simulated events are excluded, since validating a replay
 against a tracker would be checking our recording against itself.
 
-**On its first run it surfaced a real defect.** Row 3 read *"a small helicopter
-arriving at Newark"* at 40.7304, −74.1169 — a Jersey City heliport, 3.2 nm from EWR.
+**On its first run it surfaced a real defect.** Row 3 read _"a small helicopter
+arriving at Newark"_ at 40.7304, −74.1169 — a Jersey City heliport, 3.2 nm from EWR.
 Inside §3.2's 6 nm arrival gate, and not Newark. The reviewer had flagged this as
-*suspected*; the table confirmed it on real data.
+_suspected_; the table confirmed it on real data.
 
 The fix splits the two arrival branches, which were always doing different jobs: the
 6 nm gate is right for spotting an **approach** — the aircraft is on its way in and
@@ -682,3 +682,28 @@ audibly so — but a **touchdown** must be on the airport. EWR's furthest runway
 threshold is about 1 nm from the airport reference point, so 2 nm covers the field and
 excludes the surrounding heliports. Re-replayed over the real recording afterwards:
 zero touchdowns captioned as Newark from more than 2 nm away.
+
+## 2026-10-14 · We earned an HTTP 429 from adsb.lol, and what it taught us
+
+During P0-6/P0-8 development I rebuilt and force-recreated the container roughly a
+dozen times in an hour. Each restart began polling immediately, and adsb.lol returned
+**HTTP 429**. Entirely self-inflicted — the code was behaving as designed, the design
+had a gap.
+
+**What worked, unprompted:** backoff engaged, adsb.lol was marked `down` after three
+consecutive failures, the supervisor failed over to adsb.fi, and the radio kept
+collecting. §14's fallback chain under real pressure rather than in a test. The
+supervisor's probe then brought us back to adsb.lol when it recovered — the exact
+behaviour whose absence the P0-5 reviewer caught as unreachable code.
+
+**The gap:** backoff state lives in memory, so a restart forgets it. Under
+`restart: unless-stopped` an unattended crash loop would poll a volunteer-run service
+as fast as it could restart — the same mistake as mine, but at machine speed and
+without anyone watching. Added a jittered startup delay (4–8 s) before the first poll.
+A few seconds costs nothing and makes a restart storm look like one client.
+
+**The manners lesson, recorded because it will not be obvious to a future session:**
+these are free services run by volunteers and they return **no rate-limit headers**
+(docs/verification.md), so we cannot see we are being impolite until we are refused.
+Rebuild-and-restart during development is a request to a stranger's server. Prefer
+`npm run check` and the replay harness over restarting the live collector.

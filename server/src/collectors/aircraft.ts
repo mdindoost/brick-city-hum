@@ -230,7 +230,19 @@ export class AircraftCollector {
   start(): void {
     const first = this.activeId;
     if (first === undefined) throw new Error('no enabled aircraft source');
-    this.pollers.get(first)?.start();
+
+    // Hold off briefly before the first request. Backoff state is in memory, so a
+    // restart forgets it — and under `restart: unless-stopped` a crash loop would
+    // otherwise poll a volunteer-run API as fast as it could restart.
+    const config = this.options.sources.aircraft;
+    const delay =
+      config.startup_delay_ms +
+      /* Startup jitter: request timing, not audible output. */
+      // eslint-disable-next-line no-restricted-properties
+      (this.options.deps?.random ?? Math.random)() * config.startup_jitter_ms;
+    setTimeout(() => {
+      this.pollers.get(first)?.start();
+    }, delay);
     // Checked on a slow cadence: failover is not urgent, and §3.5's simulator is the
     // labelled last resort if the whole chain is down.
     this.supervisor = setInterval(() => {

@@ -143,6 +143,8 @@ const sourcesSchema = z.object({
       expire_after_s: z.number().positive(),
     }),
     sources: z.array(sourceSchema).min(1),
+    startup_delay_ms: z.number().min(0),
+    startup_jitter_ms: z.number().min(0),
     backoff: z.object({
       initial_ms: z.number().positive(),
       multiplier: z.number().gt(1),
