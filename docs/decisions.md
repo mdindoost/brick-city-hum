@@ -757,21 +757,22 @@ is treated as no match and the caption stays type-based. Noted here so Phase 1's
 route enrichment is written this way from the start, and so the correctness check that
 §3.2 leans on actually carries the weight it was given.
 
-## 2026-10-14 · [HUMAN] A date-less route lookup was wrong 4 times out of 4
+## 2026-10-14 · [HUMAN] A date-less route lookup was wrong 5 times out of 5
 
 Checking the §13 table against FlightAware settled every row where the callsign-keyed
-schedule database failed to place Newark in the route. In all four the database was
+schedule database failed to place Newark in the route. In all five the database was
 describing a different flight entirely: ASA295 as LAX→SEA when it flew SEA→EWR,
 RPA5829 as JFK→DCA when it flew EWR→BOS, UAL2392 as PHX→SFO when it flew BDA→EWR,
-JZA497 as YSJ→YYZ when it flew EWR→YUL. Two further rows (5, 16) put Newark on the
-opposite side. Six of thirteen callsigns wrong or misleading.
+JZA497 as YSJ→YYZ when it flew EWR→YUL, JBU685 as JFK→RDU when it flew EWR→FLL. Two
+further rows (5, 16) put Newark on the opposite side. Seven of thirteen callsigns
+wrong or misleading.
 
 The cause is structural, not a bad day: the lookup is keyed on callsign alone and
 carries no date, so it returns one leg of a number that an airline reuses across days
 and directions. Nothing we can configure fixes that.
 
 **What held.** §3.2's rule — name operator and route only when an endpoint matches the
-airport we observed — refused all four. Without it we would have captioned an aircraft
+airport we observed — refused all five. Without it we would have captioned an aircraft
 at 900 ft on final approach as "an airliner **to** Seattle". The rule was written for
 privacy and turns out to be the correctness guard as well.
 

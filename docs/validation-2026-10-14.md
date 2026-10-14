@@ -108,7 +108,7 @@ discarded before recording (§3.2), not that we failed to read it.
 | 17  | 16:10:40    | 20:10:40 | `overflight_high` | —        | LJ45 | 40.7441, -74.2111 | 41000    | 0            | ✈ a private jet high above Newark     | ✓ type                |       |                                                       |
 | 18  | 16:13:59    | 20:13:59 | `ewr_arrival`     | GJS4508  | —    | 40.7344, -74.1382 | 900      | −537         | ✈ a small jet arriving at Newark      | ✓ airport+direction   |       |                                                       |
 | 19  | 16:14:23    | 20:14:23 | `overflight_city` | JZA497   | —    | 40.7284, -74.2092 | 6100     | +1924        | ✈ an airliner over the city           | ? no match            | ✅    | FlightAware: EWR→YUL, took off 16:11 EDT.             |
-| 20  | 16:19:30    | 20:19:30 | `ewr_departure`   | JBU685   | —    | 40.6470, -74.1910 | 1800     | +1024        | ✈ an airliner departing Newark        | ? no match            |       |                                                       |
+| 20  | 16:19:30    | 20:19:30 | `ewr_departure`   | JBU685   | —    | 40.6470, -74.1910 | 1800     | +1024        | ✈ an airliner departing Newark        | ? no match            | ✅    | FlightAware: EWR→FLL, off gate 15:57 EDT.             |
 
 ### The five rows that most need a tracker
 
@@ -170,10 +170,10 @@ the ground, so touchdown at about 16:10:30. **✅**
 16:14:23 at 6 100 ft: 203 seconds after lift-off, an average climb of 1 803 ft/min
 against the 1 924 ft/min we read at that instant. **✅**
 
-### The schedule database was wrong four times out of four
+### The schedule database was wrong five times out of five
 
 Every row where that date-less database failed to put Newark in the route has now been
-checked, and in all four the database was simply describing a different flight:
+checked, and in all five the database was simply describing a different flight:
 
 | Callsign | The database | What actually flew |
 | -------- | ------------ | ------------------ |
@@ -181,16 +181,25 @@ checked, and in all four the database was simply describing a different flight:
 | RPA5829  | JFK→DCA      | **EWR→BOS**        |
 | UAL2392  | PHX→SFO      | **BDA→EWR**        |
 | JZA497   | YSJ→YYZ      | **EWR→YUL**        |
+| JBU685   | JFK→RDU      | **EWR→FLL**        |
 
-Four for four, and two more rows (5 and 16) have Newark on the wrong side, which is
-the same failure in a milder form. Of the thirteen callsigns looked up, six are
+Five for five, and two more rows (5 and 16) have Newark on the wrong side, which is
+the same failure in a milder form. Of the thirteen callsigns looked up, seven are
 demonstrably describing some other leg or some other day.
+
+The seven rows where it _did_ agree with us are not thereby worthless. The failure we
+observed is "describes a different flight", which produces **disagreement**; for a
+wrong entry to agree with both the airport and the direction we independently measured
+would take a coincidence. Agreement is still evidence. But it is weaker evidence than
+this column implied when it was written, and rows 5 and 16 — Newark on the wrong side
+— are now better read as two more of the same failure than as anything about our
+detection.
 
 This matters for Phase 1, where §3.2 promises the route for airline flights. A
 callsign-keyed route lookup with no date is not a source of truth — and the only thing
 that stopped us announcing "an airliner to Seattle" over an aircraft on final approach
 from Seattle is §3.2's requirement that an endpoint match the airport we observed. It
-suppressed all four. Two conclusions, both for Mohammad:
+suppressed all five. Two conclusions, both for Mohammad:
 
 - **Keep the endpoint-match rule, and tighten it** as already logged: the matching
   endpoint must be on the correct side (destination for an arrival, origin for a
