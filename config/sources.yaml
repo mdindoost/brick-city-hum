@@ -143,6 +143,28 @@ detection:
   heavy:
     emitter_category: A5
 
+  # Distance rings around the listener (SPEC §6.4, §6.5).
+  #
+  # Measured on the 14/10 recording: 331 aircraft an hour come inside 46 km, 212 inside
+  # 20 km, 61 inside 5 km — and only 8 inside the 3 km circle the old rules used. The
+  # city was speaking 1.4 times a minute against §6.5's target band of 6–14, and the
+  # other 95% of the sky was being thrown away.
+  #
+  # A ring fires when an aircraft crosses it **inward**, once per ring per track. Since
+  # Newark airport is 5.57 km from the origin, every arrival and departure crosses the
+  # 20 km and 10 km rings on its way, which gives an approach its own approach: a
+  # distant tone, then a nearer one, then the figure. That build is the point as much
+  # as the density is.
+  # A fixed exit band is wrong for a 20 km ring: an aircraft wandering around the
+  # boundary re-fired, and 1075 far-ring events came from 908 aircraft — the same
+  # plane announced twice from the same direction, which is a small lie. The band
+  # scales with the ring instead.
+  ring_hysteresis_fraction: 0.08
+  rings:
+    sky_far: 20
+    sky_mid: 10
+    sky_near: 5
+
 # How precisely an event reports itself, in decimal places.
 #
 # Accuracy beyond what a listener can perceive is not a goal, and reporting it is a
@@ -160,6 +182,12 @@ precision:
 # highest-salience events when the city is busier than the comfortable band and
 # demotes the rest to texture, so these are a priority order as much as a loudness.
 salience:
+  # Far events are texture, near ones are the subject (§6.5). The governor keeps the
+  # highest-salience events when the city is busy, so this is a priority order first
+  # and a loudness second.
+  sky_far: 0.15
+  sky_mid: 0.28
+  sky_near: 0.45
   ewr_departure: 0.7
   ewr_arrival: 0.6
   overflight_city: 0.5
@@ -367,6 +395,15 @@ captions:
   overflight_high: '✈ {aircraft} high above {place}'
   # Its own glyph: a helicopter captioned with ✈ appeared in the real recordings.
   helicopter: '🚁 {aircraft} crossing {place}'
+  # Ring crossings name a direction rather than a place: it is what a person standing
+  # on campus would actually say, and it gives the ticker the variety that "an airliner
+  # arriving at Newark", twenty times an hour, does not.
+  sky_far: '✈ {aircraft} far to the {direction}'
+  sky_mid: '✈ {aircraft} passing to the {direction}'
+  sky_near: '✈ {aircraft} close by to the {direction}'
+  # Eight points, indexed from the bearing. Spoken English, not navigation: a listener
+  # hears "north-east", never "045°".
+  compass: [north, north-east, east, south-east, south, south-west, west, north-west]
   # Appended when, and only when, the operator resolves to a scheduled airline above.
   # A suffix rather than an inline word on purpose: "an airliner" carries its own
   # article, and splicing an operator into it produces "an United airliner".

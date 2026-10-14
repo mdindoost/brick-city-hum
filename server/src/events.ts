@@ -8,26 +8,21 @@
  */
 
 import { z } from 'zod';
-import type { PublicEvent } from '../../shared/protocol.js';
+import { EVENT_TYPES as EVENT_TYPE_LIST, type PublicEvent } from '../../shared/protocol.js';
 
 export type { PublicEvent };
 
-export const EVENT_TYPES = [
-  'ewr_departure',
-  'ewr_arrival',
-  'overflight_city',
-  'overflight_high',
-  'helicopter',
-] as const;
-
-export type EventType = (typeof EVENT_TYPES)[number];
+// One list, in shared/, for the same reason `PublicEvent` lives there: the server
+// validates against it and the client switches on it, and two copies drift.
+export { EVENT_TYPES } from '../../shared/protocol.js';
+export type { EventType } from '../../shared/protocol.js';
 
 export const eventSchema = z.object({
   /** ULID. Sortable by creation time, which makes recordings easy to reason about. */
   id: z.string().min(1),
   /** Server epoch ms when the event happened — best estimate (SPEC §4). */
   t: z.number().int().positive(),
-  type: z.enum(EVENT_TYPES),
+  type: z.enum(EVENT_TYPE_LIST),
   source: z.string().min(1),
   geo: z.object({
     lat: z.number().min(-90).max(90),

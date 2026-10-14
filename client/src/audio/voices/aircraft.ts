@@ -284,6 +284,50 @@ class HelicopterVoice extends AircraftVoice {
   }
 }
 
+/**
+ * Ring crossings: one soft tone as an aircraft comes in from the horizon.
+ *
+ * Deliberately the plainest voice in the set. There are three or four of these for
+ * every named event, so anything with a shape of its own would become the piece
+ * within a minute — §6.5's "demote the rest to texture", built in rather than applied
+ * by the governor afterwards.
+ */
+class SkyVoice extends AircraftVoice {
+  readonly name = 'sky';
+  private static readonly GAIN_KEY = {
+    sky_far: 'gain_far',
+    sky_mid: 'gain_mid',
+    sky_near: 'gain_near',
+  } as const;
+
+  handles(event: PublicEvent): boolean {
+    return event.type in SkyVoice.GAIN_KEY;
+  }
+
+  schedule(event: PublicEvent, context: VoiceContext, output: VoiceOutput): number {
+    const params = this.audio.voices.sky;
+    const key = SkyVoice.GAIN_KEY[event.type as keyof typeof SkyVoice.GAIN_KEY];
+    const heavy = this.heavy(event);
+    const midi = midiFor(event, context, heavy.octaves);
+    const start = onGrid(context.playAt, context, this.audio.transport.quantize_beats);
+    const release = params.release_s * heavy.release;
+
+    const synth = new Tone.Synth({
+      oscillator: { type: 'sine' },
+      envelope: { attack: this.attack(params.attack_s), decay: 0.2, sustain: 0.6, release },
+      volume: Tone.gainToDb(params[key]),
+    });
+    synth.connect(output.destination as Tone.InputNode);
+    this.nodes.push(synth);
+    synth.triggerAttackRelease(
+      Tone.Frequency(midi, 'midi').toFrequency(),
+      this.attack(params.attack_s) + 0.4,
+      start + drag(context.random, 25),
+    );
+    return this.attack(params.attack_s) + release;
+  }
+}
+
 /** Every aircraft voice, in the order the engine should try them. */
 export function aircraftVoices(audio: AudioConfig): Voice[] {
   return [
@@ -292,5 +336,6 @@ export function aircraftVoices(audio: AudioConfig): Voice[] {
     new OverflightVoice(audio),
     new HighOverflightVoice(audio),
     new HelicopterVoice(audio),
+    new SkyVoice(audio),
   ];
 }

@@ -186,6 +186,24 @@ export class Detector {
       events.push(this.buildEvent('overflight_high', current, distanceToOrigin, heavy));
     }
 
+    // --- Distance rings ------------------------------------------------------
+    // An aircraft crossing inward through a ring, once per ring per track. The old
+    // rules heard 1.4 events a minute from a sky that delivers 5.5 (measured on the
+    // 14/10 recording), because everything outside 3 km was discarded. Newark is
+    // 5.57 km away, so an arrival now crosses 20 km and 10 km on its way in and the
+    // approach gets an approach of its own.
+    for (const [name, radiusKm] of Object.entries(detection.rings)) {
+      const inside = distanceToOrigin <= radiusKm && !current.onGround;
+      const band = Math.max(
+        detection.exit_hysteresis_km,
+        radiusKm * detection.ring_hysteresis_fraction,
+      );
+      const left = current.onGround || distanceToOrigin > radiusKm + band;
+      if (this.crossedInto(name as EventType, state, inside, left)) {
+        events.push(this.buildEvent(name as EventType, current, distanceToOrigin, heavy));
+      }
+    }
+
     // --- Helicopter ----------------------------------------------------------
     // Emitter category alone is not enough. A Bell 407 crossing the city reported
     // category D0 — "reserved", i.e. no category at all — so it was neither
@@ -346,11 +364,17 @@ export class Detector {
    * matches the airport we observed. Until then every caption is type-based, which is
    * the correct degraded form rather than a placeholder.
    */
-  private captionFor(type: EventType, describedAs: string, operator: string | null): string {
+  private captionFor(
+    type: EventType,
+    describedAs: string,
+    operator: string | null,
+    bearingDegrees: number,
+  ): string {
     const templates = this.options.sources.captions;
     const caption = fillCaption(templates[type], {
       aircraft: describedAs,
       place: templates.place,
+      direction: compassPoint(templates.compass, bearingDegrees),
     });
     if (operator === null) return caption;
     return caption + templates.operator_suffix.replace('{operator}', operator);
@@ -364,6 +388,7 @@ export class Detector {
   ): CityEvent {
     const describedAs = this.describe(observation);
     const operator = this.operatorFor(observation);
+    const bearing = bearingDeg(this.origin, observation);
     const precision = this.options.sources.precision;
     return {
       id: this.makeId(),
@@ -372,7 +397,7 @@ export class Detector {
       source: observation.source,
       geo: { lat: observation.lat, lon: observation.lon, alt_ft: observation.altFt },
       rel: {
-        bearing_deg: round(bearingDeg(this.origin, observation), precision.bearing_deg),
+        bearing_deg: round(bearing, precision.bearing_deg),
         distance_km: round(distanceToOrigin, precision.distance_km),
       },
       attrs: {
@@ -385,7 +410,7 @@ export class Detector {
         described_as: describedAs,
       },
       salience: round(this.salienceFor(type, distanceToOrigin, heavy), precision.salience),
-      caption: this.captionFor(type, describedAs, operator),
+      caption: this.captionFor(type, describedAs, operator, bearing),
       sim: false,
       scheduled: false,
     };
@@ -393,6 +418,23 @@ export class Detector {
 }
 
 /** Fill a caption template from config. */
-export function fillCaption(template: string, values: { aircraft: string; place: string }): string {
-  return template.replace('{aircraft}', values.aircraft).replace('{place}', values.place);
+export function fillCaption(
+  template: string,
+  values: { aircraft: string; place: string; direction?: string },
+): string {
+  return template
+    .replace('{aircraft}', values.aircraft)
+    .replace('{place}', values.place)
+    .replace('{direction}', values.direction ?? '');
+}
+
+/**
+ * A bearing as a spoken compass point.
+ *
+ * Eight points, not sixteen: "north-north-east" is navigation, and a caption is
+ * something a person reads in one glance while listening to something else.
+ */
+export function compassPoint(points: readonly string[], bearingDegrees: number): string {
+  const index = Math.round((((bearingDegrees % 360) + 360) % 360) / 45) % points.length;
+  return points[index] ?? points[0] ?? '';
 }

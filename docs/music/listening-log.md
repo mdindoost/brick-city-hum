@@ -45,4 +45,16 @@ self-similarity measure.
 
 Ratings go in the row above; whichever wins becomes the default in `score.yaml`.
 
+**Result: both lost.** Mohammad's verdict, 2026-10-14: _both are boring, there are far
+too few events, and the music should be brighter._ No rating was given for either and
+none was needed — asking which of two beds is better placed is the wrong question when
+the city is only speaking 1.4 times a minute. §1.4 names boredom as the thing to avoid
+and this round found it in ten minutes, which is the listening workflow working
+exactly as §7 intends: the numbers said "A meets the loudness spec" and a person said
+"I would turn it off".
+
+Three directions follow, in his order: **more events first, faster change, then the
+music itself.** The first is measured, not a guess — see `docs/decisions.md`, the
+entry on the sky we were throwing away.
+
 _Phase 1 gate (§13): median "would leave it on" ≥ 3.5/5 across 10–20 testers._

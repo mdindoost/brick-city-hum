@@ -189,6 +189,10 @@ const sourcesSchema = z.object({
       within_km_of_origin: z.number().positive(),
     }),
     heavy: z.object({ emitter_category: z.string().min(1) }),
+    /** Exit band as a fraction of each ring's radius. See sources.yaml. */
+    ring_hysteresis_fraction: z.number().min(0).max(1),
+    /** Ring name -> radius in km, crossed inward. See sources.yaml. */
+    rings: z.record(z.string(), z.number().positive()),
   }),
   precision: z.object({
     bearing_deg: z.number().int().min(0).max(6),
@@ -196,6 +200,9 @@ const sourcesSchema = z.object({
     salience: z.number().int().min(0).max(6),
   }),
   salience: z.object({
+    sky_far: z.number().min(0).max(1),
+    sky_mid: z.number().min(0).max(1),
+    sky_near: z.number().min(0).max(1),
     ewr_departure: z.number().min(0).max(1),
     ewr_arrival: z.number().min(0).max(1),
     overflight_city: z.number().min(0).max(1),
@@ -228,6 +235,10 @@ const sourcesSchema = z.object({
     overflight_city: z.string().min(1),
     overflight_high: z.string().min(1),
     helicopter: z.string().min(1),
+    sky_far: z.string().min(1),
+    sky_mid: z.string().min(1),
+    sky_near: z.string().min(1),
+    compass: z.array(z.string().min(1)).length(8),
     operator_suffix: z.string().min(1),
   }),
 });
@@ -352,6 +363,13 @@ const scoreSchema = z.object({
         hold_s: z.number().min(0),
         release_s: z.number().positive(),
         gain: z.number().min(0).max(1),
+      }),
+      sky: z.object({
+        attack_s: z.number().min(0),
+        release_s: z.number().positive(),
+        gain_far: z.number().min(0).max(1),
+        gain_mid: z.number().min(0).max(1),
+        gain_near: z.number().min(0).max(1),
       }),
       heavy: z.object({
         octave_offset: z.number().int(),

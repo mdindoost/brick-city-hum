@@ -53,6 +53,7 @@ function main(): void {
     void (async () => {
       if (audioConfig === null) return;
       if (audio === null) audio = new RadioAudio(audioConfig);
+
       if (audio.running) {
         audio.stop();
         audio = null;
@@ -72,10 +73,20 @@ function main(): void {
   const radio = new Radio(url, {
     onHello: (hello) => {
       visual = hello.visual;
-      audioConfig = hello.audio;
+      // Version skew is the normal case, not an edge case: a server restarted with a
+      // new protocol while a page sits open for hours, or — as happened on
+      // 2026-10-14 — a page rebuilt against a server that was started before the
+      // field existed. Reading straight through produced an uncaught TypeError and a
+      // button that looked fine and did nothing. The page stays useful in silence.
+      // `audio` is typed as present; an older server simply does not send it.
+      const sent = (hello as { audio?: AudioConfig }).audio;
+      audioConfig = sent?.transport === undefined ? null : sent;
       map.configure(visual);
       captions.configure(visual);
-      if (play !== null) play.disabled = false;
+      if (play !== null) {
+        play.disabled = audioConfig === null;
+        play.title = audioConfig === null ? 'the server sent no score — restart it' : '';
+      }
       text('#origin', hello.origin.name);
       const speed = hello.replay_speed;
       const rate = speed !== null && speed !== 1 ? ` · ${String(speed)}×` : '';

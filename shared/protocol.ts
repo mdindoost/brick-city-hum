@@ -18,6 +18,11 @@ export const EVENT_TYPES = [
   'overflight_city',
   'overflight_high',
   'helicopter',
+  // Ring crossings: an aircraft coming in from the horizon (§6.5). Far ones are
+  // texture, near ones are the subject.
+  'sky_far',
+  'sky_mid',
+  'sky_near',
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -117,6 +122,13 @@ export interface AudioConfig {
       readonly hold_s: number;
       readonly release_s: number;
       readonly gain: number;
+    };
+    readonly sky: {
+      readonly attack_s: number;
+      readonly release_s: number;
+      readonly gain_far: number;
+      readonly gain_mid: number;
+      readonly gain_near: number;
     };
     readonly heavy: {
       readonly octave_offset: number;

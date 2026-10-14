@@ -42,8 +42,25 @@ const MIME: Record<string, string> = {
   '.woff2': 'font/woff2',
 };
 
-/** The newest event recording on disk. */
+/**
+ * The event recording to replay.
+ *
+ * `EVENTS` names a file directly. Otherwise the newest in `data/redetect/` wins over
+ * `data/recordings/`, because a stored recording holds the events the detector made
+ * *at the time* and `lab/redetect.ts` re-derives them from the same observations under
+ * today's rules — which is what you want to look at after changing a rule.
+ */
 function latestRecording(): string {
+  const named = process.env.EVENTS;
+  if (named !== undefined && named !== '') return named;
+  const redetect = resolve('data/redetect');
+  if (existsSync(redetect)) {
+    const fresh = readdirSync(redetect)
+      .filter((name) => name.endsWith('-event.ndjson.gz'))
+      .sort();
+    const newest = fresh[fresh.length - 1];
+    if (newest !== undefined) return join(redetect, newest);
+  }
   if (!existsSync(RECORDINGS)) throw new Error(`no recordings directory at ${RECORDINGS}`);
   const files = readdirSync(RECORDINGS)
     .filter((name) => name.endsWith('-event.ndjson.gz'))

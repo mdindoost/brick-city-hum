@@ -150,6 +150,16 @@ audio:
       release_s: 2.0
       gain: 0.55
 
+    # Ring crossings (§6.5). Texture, not subject: a single soft tone whose register
+    # comes from altitude like everything else, so the sky has a quiet continuous
+    # activity under the named events rather than silence between them.
+    sky:
+      attack_s: 0.35
+      release_s: 3.5
+      gain_far: 0.16
+      gain_mid: 0.26
+      gain_near: 0.36
+
     # A heavy aircraft is lower, longer and warmer (§6.4). A modifier, not a voice.
     heavy:
       octave_offset: -1

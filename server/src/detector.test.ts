@@ -283,7 +283,13 @@ describe('overflight_city', () => {
     const radius = sources.detection.overflight_city.within_km_of_origin;
     const hysteresis = sources.detection.exit_hysteresis_km;
 
-    expect(d.detect(track([{ altFt: 4000 }], northOfOrigin(1)))).toHaveLength(1);
+    // Filtered by type: one pass now also crosses the distance rings, which is a
+    // separate family of events and a separate rule (§6.5).
+    expect(
+      d
+        .detect(track([{ altFt: 4000 }], northOfOrigin(1)))
+        .filter((e) => e.type === 'overflight_city'),
+    ).toHaveLength(1);
     // Just outside the radius but inside the hysteresis band: still considered in,
     // so an aircraft loitering on the boundary cannot retrigger every 10 seconds.
     d.detect(track([{ altFt: 4000 }], northOfOrigin(radius + hysteresis / 2)));
@@ -306,7 +312,10 @@ describe('overflight_city', () => {
     for (const altFt of [8000, 9500, 10200, 11000]) {
       types.push(...d.detect(track([{ altFt }], over)).map((e) => e.type));
     }
-    expect(types).toEqual(['overflight_city']);
+    // Ring crossings are a different family and fire on the same pass by design;
+    // what must not appear twice is the overflight pair.
+    const overflights = types.filter((type) => type.startsWith('overflight'));
+    expect(overflights).toEqual(['overflight_city']);
   });
 
   it('clears zone state when the aircraft lands, so a based aircraft is not silenced forever', () => {
@@ -668,9 +677,10 @@ describe('captions come from config, not from code', () => {
   });
 
   it('renders every event type from its template without leaving a placeholder', () => {
-    const { operator_suffix, ...eventTemplates } = sources.captions;
+    const { operator_suffix, compass, ...eventTemplates } = sources.captions;
+    expect(compass).toHaveLength(8);
     for (const template of Object.values(eventTemplates)) {
-      expect(template).not.toMatch(/\{(?!aircraft|place)\w+\}/);
+      expect(template).not.toMatch(/\{(?!aircraft|place|direction)\w+\}/);
     }
     // The operator suffix is filled separately, from the allow-list, and only when an
     // operator resolves — so it has its own placeholder and its own rule.
