@@ -206,6 +206,8 @@ const sourcesSchema = z.object({
     proximity_floor: z.number().min(0).max(1),
     proximity_ceiling: z.number().min(0).max(1),
   }),
+  /** ICAO callsign prefix -> scheduled airline name. See sources.yaml. */
+  airlines: z.record(z.string(), z.string()),
   aircraft_vocabulary: z.object({
     by_type: z.record(z.string(), z.string()),
     by_category: z.record(z.string(), z.string()),
@@ -226,6 +228,7 @@ const sourcesSchema = z.object({
     overflight_city: z.string().min(1),
     overflight_high: z.string().min(1),
     helicopter: z.string().min(1),
+    operator_suffix: z.string().min(1),
   }),
 });
 

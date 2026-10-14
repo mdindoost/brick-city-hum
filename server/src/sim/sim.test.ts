@@ -22,6 +22,7 @@ function event(overrides: Partial<CityEvent> = {}): CityEvent {
     rel: { bearing_deg: 171.1, distance_km: 5.57 },
     attrs: {
       callsign: 'UAL1810',
+      operator: 'United',
       category: 'A3',
       type_code: 'B738',
       vrate_fpm: 2200,

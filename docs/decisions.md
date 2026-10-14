@@ -784,3 +784,58 @@ route promise is implemented, or implement the promise only where it can be veri
 and keep the type-based caption otherwise. The type-based captions were right in all
 twenty sampled rows; the routes would have been wrong in four. §1.2 is better served
 by saying less. Flagged rather than decided.
+
+## 2026-10-14 · Name the airline, never the route; and how much accuracy is enough
+
+Mohammad asked the question the project needed: _do we really need this much
+precision — are we building a flight radar?_ Partly yes and mostly no, and the split
+turns out to be clean.
+
+**Accuracy we did not buy.** The sub-minute agreement in the §13 table was not
+engineered; ADS-B hands it to us. It was used because it was the cheapest available
+proof that the detector is honest, and it is a one-off for the gate.
+
+**Accuracy that is load-bearing.** Altitude and vertical rate are not decoration: they
+are the only thing that turns an event into a _gesture_ — a departure that rises, an
+arrival that settles — and without them there is one event type and the piece is a
+single sound repeated 160 times an hour. Hysteresis and de-duplication are not
+precision either; they are §1.5, since firing on every poll would produce roughly 900
+events an hour instead of 160, and a doubled event is immediately audible. Bearing
+earns its place as **separation** rather than localisation: spreading events across
+the field stops them masking each other.
+
+**Accuracy that was waste, and is now gone.** Published figures are rounded to what a
+listener could perceive — bearing to a degree, distance to 10 m, salience to three
+places — with the figures in config (`precision:`) and the geometry still computed in
+full. A recorded event had been claiming `bearing_deg: 67.40309232334607`.
+
+**Route naming: dropped (Mohammad's decision).** See the measurement in the entry
+above. Captions name the **airline only**, from a closed allow-list of scheduled
+carriers keyed on the ICAO callsign prefix — a static mapping, right whenever it
+resolves. The allow-list is also the privacy boundary: fractional operators (NetJets
+`EJA`, Flexjet `LXJ`, `EJM`) file airline-format callsigns for private flights and are
+deliberately absent, so they are never named without needing a special case. Replayed
+over the 14/10 recording: 206 of 261 events name an operator, and **zero** name one
+for an aircraft without an airline callsign.
+
+**What this means for Phase 1's voices.** Quantise the musical mapping, not the data:
+3–4 altitude registers, vertical rate as sign plus three magnitude buckets, and voice
+selection keyed on four or five aircraft _families_ rather than the ~70 type codes in
+the caption vocabulary. Two or three perceptible parameters per event is the ceiling;
+finer resolution is inaudible and makes tuning harder. The effort that would have gone
+into route enrichment belongs in the governor's **selection** policy instead — which
+160 of thousands of candidates become events matters more than the fidelity of any one.
+
+## 2026-10-14 · [HUMAN, open] §1.2 promises a spatial image stereo cannot deliver
+
+§1.2 says "a plane departing south is heard from the south". In stereo this is not
+achievable: amplitude panning gives a left–right axis only, so an aircraft due north
+and one due south both sit in the centre, and front/back is unrecoverable without
+HRTF. On laptop speakers — the common case — even HRTF buys little.
+
+Mohammad's decision: **not yet.** Build the left–right image now and revisit when the
+first real aircraft voice exists and there is something to A/B under §7.5. Two
+candidates then: reword §1.2 so the audio claims left–right while the **map** carries
+true direction (the eye resolves what the ear cannot), or adopt a binaural
+`PannerNode` with `panningModel: 'HRTF'` and test whether anyone can hear the
+difference. Recorded so the promise is not quietly broken in either direction.

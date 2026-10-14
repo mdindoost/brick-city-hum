@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Detector } from './detector.js';
+import { Detector, fillCaption } from './detector.js';
 import { eventSchema, toPublicEvent } from './events.js';
 import { nauticalMilesToKm } from './geo.js';
 import type { Observation } from './observation.js';
@@ -343,6 +343,69 @@ describe('overflight_city', () => {
   });
 });
 
+/** A clean takeoff from EWR carrying the given attributes, for caption tests. */
+function takeoff(attrs: Partial<Observation>): Partial<Observation>[] {
+  return [
+    { ...attrs, onGround: true, altFt: null, verticalRateFpm: null },
+    { ...attrs, altFt: 400, verticalRateFpm: 1800 },
+    { ...attrs, altFt: 1600, verticalRateFpm: 2200 },
+  ];
+}
+
+describe('operator naming', () => {
+  it('names a scheduled airline from the callsign prefix', () => {
+    const events = detector().detect(
+      track(takeoff({ callsign: 'UAL1810', identity: 'airline', category: 'A3' })),
+    );
+    const event = events.find((e) => e.type === 'ewr_departure')!;
+    expect(event.attrs.operator).toBe('United');
+    expect(event.caption).toContain('United');
+    expect(event.caption).toContain('an airliner');
+  });
+
+  it('never names the operator of a private flight', () => {
+    // §3.2: for a private aircraft the callsign is usually the tail number. The
+    // classifier has already nulled it, and nothing may reconstruct an operator.
+    const events = detector().detect(
+      track(takeoff({ callsign: null, identity: 'private', category: 'A2' })),
+    );
+    expect(events.find((e) => e.type === 'ewr_departure')!.attrs.operator).toBeNull();
+  });
+
+  it('does not name a fractional operator flying an airline-format callsign', () => {
+    // EJA is NetJets: an airline-format callsign carrying a private flight. 66 of the
+    // 960 airline-format callsigns in the 14/10 recording were operators of this kind.
+    // The allow-list omits them, so they stay unnamed without any special case.
+    const events = detector().detect(
+      track(takeoff({ callsign: 'EJA415', identity: 'airline', category: 'A2' })),
+    );
+    const event = events.find((e) => e.type === 'ewr_departure')!;
+    expect(event.attrs.operator).toBeNull();
+    expect(event.caption).toBe(
+      fillCaption(sources.captions.ewr_departure, {
+        aircraft: event.attrs.described_as,
+        place: sources.captions.place,
+      }),
+    );
+  });
+
+  it('publishes the operator but never the callsign', () => {
+    const events = detector().detect(
+      track(takeoff({ callsign: 'DAL202', identity: 'airline', category: 'A3' })),
+    );
+    const published = toPublicEvent(events.find((e) => e.type === 'ewr_departure')!);
+    expect(published.attrs.operator).toBe('Delta');
+    expect(JSON.stringify(published)).not.toContain('DAL202');
+  });
+
+  it('lists no fractional or charter operator in the allow-list', () => {
+    // The list is the privacy boundary, so it is asserted rather than trusted.
+    for (const prefix of ['EJA', 'LXJ', 'EJM', 'JAS', 'JSX']) {
+      expect(sources.airlines[prefix], `${prefix} must not be nameable`).toBeUndefined();
+    }
+  });
+});
+
 describe('published precision', () => {
   it('states a bearing, distance and salience it can actually claim', () => {
     // A bearing of 67.40309232334607 degrees appeared in the real recordings. Stereo
@@ -498,9 +561,12 @@ describe('captions and descriptions (SPEC §3.2 as amended)', () => {
     const events = detector().detect(
       track([{ altFt: 4000, callsign: 'UAL1810', typeCode: 'B738' }], northOfOrigin(1)),
     );
+    // The flight number never appears. §3.2 as amended 2026-10-14 allows the airline
+    // to be named — a company, not an aircraft — and still forbids the route and the
+    // callsign that carries the registration of every private flight.
     expect(events[0]!.caption).not.toContain('UAL1810');
-    // Describes the aircraft, not the flight: "an airliner over the city".
-    expect(events[0]!.caption).toBe('✈ an airliner over the city');
+    expect(events[0]!.caption).not.toContain('1810');
+    expect(events[0]!.caption).toBe('✈ an airliner over the city · United');
   });
 });
 
@@ -602,9 +668,13 @@ describe('captions come from config, not from code', () => {
   });
 
   it('renders every event type from its template without leaving a placeholder', () => {
-    for (const template of Object.values(sources.captions)) {
+    const { operator_suffix, ...eventTemplates } = sources.captions;
+    for (const template of Object.values(eventTemplates)) {
       expect(template).not.toMatch(/\{(?!aircraft|place)\w+\}/);
     }
+    // The operator suffix is filled separately, from the allow-list, and only when an
+    // operator resolves — so it has its own placeholder and its own rule.
+    expect(operator_suffix).not.toMatch(/\{(?!operator)\w+\}/);
   });
 });
 

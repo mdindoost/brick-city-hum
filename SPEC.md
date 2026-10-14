@@ -111,7 +111,7 @@ Classify into these event types (thresholds are starting values; tune with recor
 
 Do **not** assume which runway is in use or which direction traffic flows. Runway flow at EWR changes with the wind. Derive direction from the data.
 
-**Privacy rule:** show airline flights by flight number and route. For non-airline aircraft (private, general aviation), show only the aircraft type (e.g. "a small private jet"), never the tail number or owner.
+**Privacy rule:** name the **airline** for scheduled airline flights. For non-airline aircraft (private, general aviation), show only the aircraft type (e.g. "a small private jet"), never the tail number or owner. **No flight number, and no route** — see the 2026-10-14 amendment below.
 
 **How this is implemented (decided 2026-10-14, see `docs/decisions.md`):** a caption
 **never contains a raw callsign.** This is the structural form of the rule, and it
@@ -122,19 +122,38 @@ captioned a Gulfstream as "LXJ489 departing EWR". Note that an airline caption n
 shows the callsign either: it shows "United to Chicago". So the defect was not
 misclassification but an unresolved identifier leaking verbatim.
 
-A caption names an operator and a route **only when all three hold**:
+**Amended 2026-10-14, after the §13 spot-check: the route is not named at all.**
 
-1. the operator resolves (adsbdb returns an airline name), **and**
-2. a route resolves, **and**
-3. **one endpoint of that route matches the airport we actually observed.**
+The earlier rule named an operator and a route together, when a route resolved and one
+of its endpoints matched the airport we observed. Checking twenty real events against
+a public tracker measured the only free route source we have as **wrong for 7 of the
+13 callsigns in the sample** — not subtly wrong, but describing an entirely different
+flight: `ASA295` returned Los Angeles→Seattle for an aircraft that had flown
+Seattle→Newark and was on final approach when we saw it. A date-less, callsign-keyed
+lookup returns one leg of a number that airlines reuse across days and directions, and
+no configuration fixes that.
 
-Rule 3 is a correctness check that happens to solve the privacy problem, and it
-needs no maintained list of operators. Verified against live lookups on 2026-10-14:
-`UAL554` → New York→Dallas-Fort Worth (origin matches EWR, shown); `GJS4562` →
-New York→Greensboro (shown); `EJA837` → **Bedford→Palm Springs** (neither endpoint is
-Newark, so the route does not describe this flight — discarded, and the operator is
-not named either). It is also exactly what §14 already asks for: "show the route only
-when confident".
+A wrong destination is also the single fact a listener standing under the aircraft can
+check, and a named city pulls the page into the foreground — against §1.4, which wants
+this ignorable.
+
+So a caption names the **operator only**, and the operator comes from a **closed
+allow-list of scheduled airlines** keyed on the ICAO callsign prefix
+(`config/sources.yaml`, `airlines:`), which is a static mapping and is right whenever
+it resolves. The list does two jobs at once:
+
+1. An unlisted prefix yields no name, so an unknown operator degrades to the
+   type-based caption rather than to a three-letter code.
+2. **Fractional and charter operators are deliberately absent.** Flexjet (`LXJ`),
+   NetJets (`EJA`) and their kind file ICAO-pattern callsigns, so a pattern match
+   calls them airlines — but their flights are private business aviation, and naming
+   that operator is what this section forbids in substance. 66 of the 960
+   airline-format callsigns in the 14/10 recording belonged to such operators; none
+   is nameable, and a test asserts it.
+
+Captions therefore read "✈ an airliner arriving at Newark · Republic", or without the
+suffix when nothing resolves. §14's "show the route only when confident" is satisfied
+by never being confident enough.
 
 Everything else is described in **plain English by aircraft type** — "a private jet",
 "a large private jet", "a light propeller plane", "a cargo plane", "a helicopter" —

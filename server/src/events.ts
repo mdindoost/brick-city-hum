@@ -45,6 +45,12 @@ export const eventSchema = z.object({
      * A callsign that rides along "for internal use" is recoverable from devtools.
      */
     callsign: z.string().nullable(),
+    /**
+     * The operating airline, or `null`. Safe to publish — unlike the callsign it
+     * names a company, never an aircraft or a person — and `null` for every private
+     * flight by construction (SPEC §3.2 as amended; see `operatorFor`).
+     */
+    operator: z.string().nullable(),
     category: z.string().nullable(),
     type_code: z.string().nullable(),
     vrate_fpm: z.number().nullable(),
@@ -80,6 +86,7 @@ export function toPublicEvent(event: CityEvent): PublicEvent {
       category: event.attrs.category,
       heavy: event.attrs.heavy,
       described_as: event.attrs.described_as,
+      operator: event.attrs.operator,
       // §6.4: "climb rate sets glide speed" for the departure figure, so the client
       // genuinely needs this. It identifies nothing.
       vrate_fpm: event.attrs.vrate_fpm,
@@ -102,6 +109,7 @@ export interface PublicEvent {
     readonly category: string | null;
     readonly heavy: boolean;
     readonly described_as: string;
+    readonly operator: string | null;
     readonly vrate_fpm: number | null;
   };
   readonly salience: number;
@@ -134,6 +142,7 @@ export function toRecordedEvent(event: CityEvent): Record<string, unknown> {
     rel: event.rel,
     attrs: {
       callsign: event.attrs.callsign,
+      operator: event.attrs.operator,
       category: event.attrs.category,
       type_code: event.attrs.type_code,
       vrate_fpm: event.attrs.vrate_fpm,

@@ -297,6 +297,27 @@ export class Detector {
   }
 
   /**
+   * The airline operating this flight, or `null` — which is the usual answer.
+   *
+   * SPEC §3.2 as amended 2026-10-14: the **airline** may be named, the **route** may
+   * not. A callsign prefix is a static mapping and is right whenever it resolves; the
+   * only free route source we tested was wrong for 7 of 13 flights, and a wrong
+   * destination is the one fact a listener under the flight path can check.
+   *
+   * Two guards, both load-bearing:
+   *
+   *  - `identity === 'airline'` — for a private aircraft the callsign is usually the
+   *    tail number, and there is nothing here to name.
+   *  - the allow-list in config — an unlisted prefix yields `null`, so fractional
+   *    operators (NetJets, Flexjet), which file airline-format callsigns for private
+   *    flights, are never named. See the note beside `airlines:` in sources.yaml.
+   */
+  private operatorFor(observation: Observation): string | null {
+    if (observation.identity !== 'airline' || observation.callsign === null) return null;
+    return this.options.sources.airlines[observation.callsign.slice(0, 3)] ?? null;
+  }
+
+  /**
    * How an aircraft may be described to a listener.
    *
    * SPEC §3.2 as amended: plain English by type, never an identifier. Type code
@@ -325,9 +346,14 @@ export class Detector {
    * matches the airport we observed. Until then every caption is type-based, which is
    * the correct degraded form rather than a placeholder.
    */
-  private captionFor(type: EventType, describedAs: string): string {
+  private captionFor(type: EventType, describedAs: string, operator: string | null): string {
     const templates = this.options.sources.captions;
-    return fillCaption(templates[type], { aircraft: describedAs, place: templates.place });
+    const caption = fillCaption(templates[type], {
+      aircraft: describedAs,
+      place: templates.place,
+    });
+    if (operator === null) return caption;
+    return caption + templates.operator_suffix.replace('{operator}', operator);
   }
 
   private buildEvent(
@@ -337,6 +363,7 @@ export class Detector {
     heavy: boolean,
   ): CityEvent {
     const describedAs = this.describe(observation);
+    const operator = this.operatorFor(observation);
     const precision = this.options.sources.precision;
     return {
       id: this.makeId(),
@@ -350,6 +377,7 @@ export class Detector {
       },
       attrs: {
         callsign: observation.callsign,
+        operator,
         category: observation.category,
         type_code: observation.typeCode,
         vrate_fpm: observation.verticalRateFpm,
@@ -357,7 +385,7 @@ export class Detector {
         described_as: describedAs,
       },
       salience: round(this.salienceFor(type, distanceToOrigin, heavy), precision.salience),
-      caption: this.captionFor(type, describedAs),
+      caption: this.captionFor(type, describedAs, operator),
       sim: false,
       scheduled: false,
     };
