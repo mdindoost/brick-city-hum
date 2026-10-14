@@ -114,7 +114,9 @@ export async function renderOffline(input: RenderInput): Promise<{
       if (input.voice === 'aircraft' && audio !== null) {
         const { aircraftVoices } = await import('../client/src/audio/voices/aircraft.js');
         const { Ground } = await import('../client/src/audio/ground.js');
+        const { RailVoice } = await import('../client/src/audio/voices/rail.js');
         for (const voice of aircraftVoices(audio)) engine.register(voice);
+        engine.register(new RailVoice(audio));
         await engine.prepare({ withReverb: input.withReverb });
         new Ground(audio).start(Tone.getDestination(), 0);
       } else {

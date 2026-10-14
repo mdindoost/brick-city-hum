@@ -69,7 +69,7 @@ audio:
     # Modes with semitones (Dorian, Aeolian) arrive in Phase 2 with the palettes,
     # when a harmonic walk exists to resolve them.
     root_midi: 62 # D4
-    scale: [0, 3, 5, 7, 10]
+    scale: [0, 2, 4, 7, 9]
 
   # The Ground layer (§6.1): the air of the city, always there, never the subject.
   ground:
@@ -156,9 +156,27 @@ audio:
     sky:
       attack_s: 0.35
       release_s: 3.5
-      gain_far: 0.16
-      gain_mid: 0.26
-      gain_near: 0.36
+      gain: 0.3
+
+    # PATH trains (§6.4: "each line has its own bell or chime pitch set").
+    #
+    # A struck sound against the aircraft's sustained ones. That contrast is the
+    # point: the first listening round was missing variety as much as it was missing
+    # density, and a second family of sustained tones would have added neither.
+    #
+    # FM with a non-integer ratio gives an inharmonic partial — the metallic edge a
+    # bell has and a sine does not — kept mild so it stays warm rather than glassy.
+    path:
+      harmonicity: 3.1
+      modulation_index: 7
+      attack_s: 0.004
+      decay_s: 0.35
+      release_s: 2.6
+      # The approach is the same bell, quieter and an octave up: the same sound
+      # arriving from further away in the mind's ear.
+      approach_octave: 1
+      approach_gain: 0.22
+      arrival_gain: 0.5
 
     # A heavy aircraft is lower, longer and warmer (§6.4). A modifier, not a voice.
     heavy:

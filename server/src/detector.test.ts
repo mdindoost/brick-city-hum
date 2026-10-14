@@ -677,10 +677,21 @@ describe('captions come from config, not from code', () => {
   });
 
   it('renders every event type from its template without leaving a placeholder', () => {
-    const { operator_suffix, compass, ...eventTemplates } = sources.captions;
+    const {
+      operator_suffix,
+      compass,
+      // Rail captions name a station and are filled by the rail collector, which has
+      // the station in hand; the aircraft detector never sees them.
+      path_approaching,
+      path_arrival,
+      ...eventTemplates
+    } = sources.captions;
     expect(compass).toHaveLength(8);
     for (const template of Object.values(eventTemplates)) {
       expect(template).not.toMatch(/\{(?!aircraft|place|direction)\w+\}/);
+    }
+    for (const template of [path_approaching, path_arrival]) {
+      expect(template).not.toMatch(/\{(?!station)\w+\}/);
     }
     // The operator suffix is filled separately, from the allow-list, and only when an
     // operator resolves — so it has its own placeholder and its own rule.

@@ -18,6 +18,7 @@ import type { AudioConfig, PublicEvent } from '../../../shared/protocol.js';
 import { AudioEngine } from './engine.js';
 import { Ground } from './ground.js';
 import { aircraftVoices } from './voices/aircraft.js';
+import { RailVoice } from './voices/rail.js';
 
 /** Mobile gets half the voices (§6.8), decided once at start. */
 function isMobile(): boolean {
@@ -66,6 +67,7 @@ export class RadioAudio {
       master: this.audio.master,
     });
     for (const voice of aircraftVoices(this.audio)) engine.register(voice);
+    engine.register(new RailVoice(this.audio));
     await engine.prepare({ withReverb: true });
 
     const ground = new Ground(this.audio);

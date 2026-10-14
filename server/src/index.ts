@@ -10,6 +10,7 @@
 import { createServer } from 'node:http';
 import { existsSync } from 'node:fs';
 import { AircraftCollector } from './collectors/aircraft.js';
+import { PathCollector } from './collectors/path.js';
 import { loadPlaces, loadSources } from './config.js';
 import { HealthRegistry } from './health.js';
 import { Recorder } from './recorder.js';
@@ -81,6 +82,20 @@ function main(): void {
     userAgent: userAgent(),
   });
 
+  // Rail (§3.1 R3). A separate collector with its own loop and its own health entry:
+  // §14's fallback strategy depends on a source being swappable in isolation, and a
+  // PATH outage must not touch the aircraft.
+  const path = new PathCollector({
+    sources,
+    places,
+    health,
+    userAgent: userAgent(),
+    onEvents: (events, receivedAt) => {
+      recorder.recordEvents(events, receivedAt);
+      for (const event of events) console.log(`[path] ${event.caption}`);
+    },
+  });
+
   const server = createServer((request, response) => {
     if (request.url === '/healthz') {
       // SPEC §3.5 and §11.3: an external monitor watches this. It reports 503 when
@@ -122,6 +137,7 @@ function main(): void {
     console.log(`[boot] recording to ${RECORDINGS_DIR}`);
     console.log(`[boot] User-Agent: ${userAgent()}`);
     aircraft.start();
+    path.start();
 
     // Load the traffic model in the background: it reads every recorded event file,
     // and the collector must not wait on it. Without a model there is simply no
@@ -165,6 +181,7 @@ function main(): void {
     shuttingDown = true;
     console.log(`[shutdown] ${signal} — stopping collectors and flushing recordings`);
     aircraft.stop();
+    path.stop();
     server.close();
     recorder
       .close()

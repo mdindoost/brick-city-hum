@@ -59,6 +59,21 @@ function onGrid(playAt: number, context: VoiceContext, quantizeBeats: number): n
   return Math.ceil(playAt / step) * step;
 }
 
+/**
+ * How long after a gesture's nominal end an oscillator may be stopped.
+ *
+ * An `AmplitudeEnvelope` releases exponentially and never actually reaches zero, so
+ * stopping the oscillator at the moment the release nominally ends cuts a waveform
+ * mid-cycle — a step discontinuity, which is a click. The first dense render's
+ * spectrogram showed them plainly: vertical streaks of broadband energy up to 12 kHz
+ * at event times, in a piece whose loudest intended component dies by 2 kHz. A
+ * listener hears them as background noise, and §6.8 forbids them outright.
+ *
+ * Four release constants puts the envelope roughly 35 dB down before the oscillator
+ * stops, which is inaudible under the drone.
+ */
+const STOP_TAIL = 4;
+
 abstract class AircraftVoice implements Voice {
   abstract readonly name: string;
   protected readonly nodes: { dispose: () => void }[] = [];
@@ -190,7 +205,7 @@ class OverflightVoice extends AircraftVoice {
       this.nodes.push(oscillator, envelope, level);
 
       oscillator.start(start);
-      oscillator.stop(start + total);
+      oscillator.stop(start + total + params.release_s * heavy.release * STOP_TAIL);
       envelope.triggerAttack(start);
       envelope.triggerRelease(start + this.attack(params.attack_s) + params.hold_s);
 
@@ -200,7 +215,7 @@ class OverflightVoice extends AircraftVoice {
       oscillator.detune.linearRampToValueAtTime(cents + lean * params.bend_cents, start + total);
     }
 
-    return total;
+    return total + params.release_s * heavy.release * STOP_TAIL;
   }
 }
 
@@ -277,7 +292,7 @@ class HelicopterVoice extends AircraftVoice {
 
     tremolo.start(start);
     oscillator.start(start);
-    oscillator.stop(start + total);
+    oscillator.stop(start + total + params.release_s * STOP_TAIL);
     envelope.triggerAttack(start);
     envelope.triggerRelease(start + this.attack(params.attack_s) + params.hold_s);
     return total;
@@ -294,19 +309,13 @@ class HelicopterVoice extends AircraftVoice {
  */
 class SkyVoice extends AircraftVoice {
   readonly name = 'sky';
-  private static readonly GAIN_KEY = {
-    sky_far: 'gain_far',
-    sky_mid: 'gain_mid',
-    sky_near: 'gain_near',
-  } as const;
 
   handles(event: PublicEvent): boolean {
-    return event.type in SkyVoice.GAIN_KEY;
+    return event.type === 'sky';
   }
 
   schedule(event: PublicEvent, context: VoiceContext, output: VoiceOutput): number {
     const params = this.audio.voices.sky;
-    const key = SkyVoice.GAIN_KEY[event.type as keyof typeof SkyVoice.GAIN_KEY];
     const heavy = this.heavy(event);
     const midi = midiFor(event, context, heavy.octaves);
     const start = onGrid(context.playAt, context, this.audio.transport.quantize_beats);
@@ -315,7 +324,7 @@ class SkyVoice extends AircraftVoice {
     const synth = new Tone.Synth({
       oscillator: { type: 'sine' },
       envelope: { attack: this.attack(params.attack_s), decay: 0.2, sustain: 0.6, release },
-      volume: Tone.gainToDb(params[key]),
+      volume: Tone.gainToDb(params.gain),
     });
     synth.connect(output.destination as Tone.InputNode);
     this.nodes.push(synth);

@@ -17,6 +17,7 @@ origin: { id: njit, name: NJIT, lat: 40.74194, lon: -74.17889 }
 places:
   ewr: { name: EWR, lat: 40.69248, lon: -74.16869 }
   newark_penn: { name: Penn, lat: 40.73472, lon: -74.16417 }
+  harrison_path: { name: Harrison, lat: 40.73917, lon: -74.15528 }
   prudential_center: { name: Pru, lat: 40.73361, lon: -74.17111 }
   port_newark: { name: Port, lat: 40.6816, lon: -74.1505 }
 ewr_runways:

@@ -29,11 +29,14 @@ const COLOURS: Record<PublicEvent['type'], string> = {
   overflight_city: '#9d8cc4',
   overflight_high: '#6b7a8f',
   helicopter: '#d47a5f',
-  // Ring crossings are texture, so they are drawn in the quietest colours on the
-  // page: present, countable, never competing with an arrival (§6.5).
-  sky_far: '#4a5568',
-  sky_mid: '#5d7085',
-  sky_near: '#7d93a8',
+  // A ring crossing is drawn in the quietest colour on the page. Its size already
+  // follows salience, which already follows distance, so one colour covers a 30 km
+  // whisper and a 5 km one (§6.5).
+  sky: '#6b8099',
+  // Rail is warm where the sky is cool, so a train is distinguishable from an
+  // aircraft at a glance and without reading the caption.
+  path_approaching: '#9c8f5a',
+  path_arrival: '#d6c178',
 };
 
 export class CityMap {
@@ -169,9 +172,12 @@ export class CityMap {
         context.lineTo(-size, size);
         context.stroke();
         break;
-      case 'sky_far':
-      case 'sky_mid':
-      case 'sky_near':
+      case 'path_approaching':
+      case 'path_arrival':
+        // A square: a station is a fixed point on the ground, not something flying.
+        context.strokeRect(-size * 0.7, -size * 0.7, size * 1.4, size * 1.4);
+        break;
+      case 'sky':
         // A filled dot, not an outline: at this size an outline reads as noise.
         context.beginPath();
         context.arc(0, 0, size * 0.45, 0, Math.PI * 2);

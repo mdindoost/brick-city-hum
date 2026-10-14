@@ -28,7 +28,13 @@ interface AircraftState {
   /** Events already fired for this aircraft, so a departure fires once. */
   readonly fired: Set<EventType>;
   /** Zones the aircraft is currently inside, for entry/exit edge detection. */
-  readonly inside: Set<EventType>;
+  /**
+   * Zones this aircraft is currently inside.
+   *
+   * Keyed by string rather than by event type: the distance rings all produce one
+   * kind of event but need one state each, so their keys carry the radius.
+   */
+  readonly inside: Set<string>;
 }
 
 export interface DetectorOptions {
@@ -192,15 +198,17 @@ export class Detector {
     // 14/10 recording), because everything outside 3 km was discarded. Newark is
     // 5.57 km away, so an arrival now crosses 20 km and 10 km on its way in and the
     // approach gets an approach of its own.
-    for (const [name, radiusKm] of Object.entries(detection.rings)) {
+    for (const radiusKm of detection.rings) {
       const inside = distanceToOrigin <= radiusKm && !current.onGround;
       const band = Math.max(
         detection.exit_hysteresis_km,
         radiusKm * detection.ring_hysteresis_fraction,
       );
       const left = current.onGround || distanceToOrigin > radiusKm + band;
-      if (this.crossedInto(name as EventType, state, inside, left)) {
-        events.push(this.buildEvent(name as EventType, current, distanceToOrigin, heavy));
+      // The zone key carries the radius, so six rings keep six independent states
+      // while producing one kind of event.
+      if (this.crossedInto(`sky:${String(radiusKm)}`, state, inside, left)) {
+        events.push(this.buildEvent('sky', current, distanceToOrigin, heavy));
       }
     }
 
@@ -243,11 +251,11 @@ export class Detector {
    * the circle is one pass, not a city overflight plus a high overflight.
    */
   private crossedInto(
-    type: EventType,
+    type: string,
     state: AircraftState,
     isInside: boolean,
     hasLeftTheArea: boolean,
-    peers: readonly EventType[] = [],
+    peers: readonly string[] = [],
   ): boolean {
     const wasInside = state.inside.has(type);
     if (isInside) {

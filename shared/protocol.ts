@@ -18,11 +18,14 @@ export const EVENT_TYPES = [
   'overflight_city',
   'overflight_high',
   'helicopter',
-  // Ring crossings: an aircraft coming in from the horizon (§6.5). Far ones are
-  // texture, near ones are the subject.
-  'sky_far',
-  'sky_mid',
-  'sky_near',
+  // A ring crossing: an aircraft coming in from the horizon (§6.5). One type for
+  // every ring — distance already makes a far crossing quiet, dark and wet, so the
+  // same event is texture at 30 km and the subject at 5 km without a second rule.
+  'sky',
+  // Rail (§3.3). A train is not an aircraft and must not borrow its voice: §6.4 gives
+  // each line a struck bell against the aircraft's sustained tones.
+  'path_approaching',
+  'path_arrival',
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -126,9 +129,17 @@ export interface AudioConfig {
     readonly sky: {
       readonly attack_s: number;
       readonly release_s: number;
-      readonly gain_far: number;
-      readonly gain_mid: number;
-      readonly gain_near: number;
+      readonly gain: number;
+    };
+    readonly path: {
+      readonly harmonicity: number;
+      readonly modulation_index: number;
+      readonly attack_s: number;
+      readonly decay_s: number;
+      readonly release_s: number;
+      readonly approach_octave: number;
+      readonly approach_gain: number;
+      readonly arrival_gain: number;
     };
     readonly heavy: {
       readonly octave_offset: number;

@@ -185,8 +185,10 @@ export class AudioEngine {
     const now = Tone.now();
     const keep: ScheduledVoice[] = [];
     for (const scheduled of this.retired) {
-      // A tail beyond the gesture's own end, so a reverb send is not cut short.
-      if (scheduled.endsAt + 6 <= now) {
+      // A tail beyond the gesture's own end. Disposing a node while signal is still
+      // flowing through it is itself a discontinuity, so this has to outlast both the
+      // voice's own stop tail and the reverb decay behind it.
+      if (scheduled.endsAt + 12 <= now) {
         for (const node of scheduled.nodes) node.dispose();
       } else {
         keep.push(scheduled);

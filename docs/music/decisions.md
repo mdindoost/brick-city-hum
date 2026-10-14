@@ -109,3 +109,38 @@ own dynamics reach the music directly.
 **Open, and only ears can answer it:** how far forward the city voices should sit
 against the Ground. The two renders logged in `listening-log.md` differ in exactly
 that, at matched loudness.
+
+## 2026-10-14 · Round 1 lost, and what the spectrogram showed
+
+Mohammad's verdict on the first pair: **both boring, far too few events, and the music
+should be brighter** — then, on the live page: **"it has sound, but there is a
+background noise that is not good."**
+
+**The noise was not noise. It was clicks, and they were mine.**
+
+The spectrogram of the first dense render shows vertical streaks of broadband energy
+reaching 12 kHz at event times, in a piece whose loudest intended component dies by
+2 kHz. A note is a horizontal line; a vertical line across the whole spectrum is a
+step discontinuity. Every sustained voice — the overflight, the helicopter — stopped
+its oscillator at the moment its envelope release nominally ended. An
+`AmplitudeEnvelope` decays exponentially and never reaches zero, so each of those
+stops cut a waveform mid-cycle. Oscillators now run four release constants past the
+end, about 35 dB down, and the engine waits longer still before releasing the chain,
+since disposing a node with signal flowing through it is the same discontinuity by
+another route.
+
+Worth recording as a general rule: **this is the kind of defect that is inaudible to
+me and obvious to anyone listening.** The numbers were all fine — loudness on target,
+true peak legal, repetition falling. The §7.2 constraint is not a formality.
+
+**On density.** The sky was re-measured rather than argued about: 331 aircraft an hour
+come within 46 km of campus and the original rules spoke 1.4 times a minute. Six
+distance rings (30, 20, 14, 10, 7, 5 km) crossed inward give **20 a minute** from the
+same aircraft, and because §6.4 already makes distance quieter, darker and wetter, a
+30 km crossing is a whisper and a 5 km one is an event — one rule, not six.
+
+That is above §6.5's 6–14 band on purpose. The band is a target for what a listener
+_hears_, and the governor's job (§6.5, still to be built) is to decide which of the
+20 become foreground. Giving it more to choose from is the right order of work.
+
+**Brightness is round 2's question**, and it is one config line: the palette's scale.

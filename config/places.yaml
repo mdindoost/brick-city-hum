@@ -27,6 +27,11 @@ places:
     lat: 40.73472
     lon: -74.16417
     source: 'Wikipedia infobox, 40°44′5″N 74°9′51″W'
+  harrison_path:
+    name: Harrison
+    lat: 40.73917
+    lon: -74.15528
+    source: 'Wikipedia infobox, Harrison PATH station 40°44′21″N 74°09′19″W'
   prudential_center:
     name: Prudential Center
     lat: 40.73361

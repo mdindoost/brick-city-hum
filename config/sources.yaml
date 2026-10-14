@@ -160,10 +160,44 @@ detection:
   # plane announced twice from the same direction, which is a small lie. The band
   # scales with the ring instead.
   ring_hysteresis_fraction: 0.08
-  rings:
-    sky_far: 20
-    sky_mid: 10
-    sky_near: 5
+  # Six radii, outermost first. One event per ring per track, so an aircraft coming
+  # in from the horizon announces itself six times, each one nearer, louder and
+  # brighter than the last — the distance mapping in §6.4 turns a list of numbers into
+  # an approach. Measured on 14/10: the original rules heard 1.4 events a minute from
+  # a sky that delivers 331 aircraft an hour.
+  rings: [30, 20, 14, 10, 7, 5]
+
+# PATH trains (SPEC §3.1 R3, §3.3).
+#
+# The Port Authority's own JSON, the one their departure boards use. No key, no
+# documented rate limit, and no documented contract either — so it is treated as a
+# courtesy: a 30 s interval with jitter, a short timeout, backoff on failure, and a
+# User-Agent that says who we are. Verified live 2026-10-14.
+#
+# Why PATH first among the rail sources: it is keyless (NJ Transit needs a registered
+# developer key), it runs every few minutes all day, and §6.4 gives it a bell — a
+# struck sound against the aircraft's sustained ones, which is the variety the first
+# listening round was missing as much as it was missing density.
+rail:
+  path:
+    enabled: true
+    url: 'https://www.panynj.gov/bin/portauthority/ridepath.json'
+    poll_interval_ms: 30000
+    jitter_ms: 6000
+    timeout_ms: 8000
+    # Station codes in the feed, mapped to entries in places.yaml. Newark Penn is
+    # 1.5 km from campus and Harrison about 3.5 km, so distance already decides how
+    # present each one is (§6.4).
+    stations:
+      NWK: newark_penn
+      HAR: harrison_path
+    # Two events per train, the same shape as the aircraft rings: one when it is a
+    # few minutes out and one as it arrives, so a train has an approach.
+    approaching_s: 240
+    arriving_s: 45
+    # The countdown must climb back above this before the same platform may fire
+    # again — the next train, not the same one jittering across the threshold.
+    rearm_s: 300
 
 # How precisely an event reports itself, in decimal places.
 #
@@ -185,9 +219,14 @@ salience:
   # Far events are texture, near ones are the subject (§6.5). The governor keeps the
   # highest-salience events when the city is busy, so this is a priority order first
   # and a loudness second.
-  sky_far: 0.15
-  sky_mid: 0.28
-  sky_near: 0.45
+  # One base figure for every ring: the distance falloff below already makes a
+  # 30 km crossing a sixth as salient as a 5 km one, so a per-ring number would be
+  # the same decision written twice.
+  sky: 0.34
+  # A train is a near, certain, human-scale event: more salient than a distant
+  # aircraft, less than a departure overhead.
+  path_approaching: 0.3
+  path_arrival: 0.55
   ewr_departure: 0.7
   ewr_arrival: 0.6
   overflight_city: 0.5
@@ -398,9 +437,12 @@ captions:
   # Ring crossings name a direction rather than a place: it is what a person standing
   # on campus would actually say, and it gives the ticker the variety that "an airliner
   # arriving at Newark", twenty times an hour, does not.
-  sky_far: '✈ {aircraft} far to the {direction}'
-  sky_mid: '✈ {aircraft} passing to the {direction}'
-  sky_near: '✈ {aircraft} close by to the {direction}'
+  sky: '✈ {aircraft} to the {direction}'
+  # Naming where it is going distinguishes the two platforms at one station, which
+  # otherwise produce the same sentence twice in the ticker, and it is what the feed
+  # actually tells us.
+  path_approaching: '🚆 a PATH train to {toward} approaching {station}'
+  path_arrival: '🚆 a PATH train to {toward} arriving at {station}'
   # Eight points, indexed from the bearing. Spoken English, not navigation: a listener
   # hears "north-east", never "045°".
   compass: [north, north-east, east, south-east, south, south-west, west, north-west]

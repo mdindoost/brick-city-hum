@@ -83,12 +83,17 @@ const runwaySchema = z.object({
  */
 const placesSchema = z.object({
   origin: originSchema,
-  places: z.object({
-    ewr: placeSchema,
-    newark_penn: placeSchema,
-    prudential_center: placeSchema,
-    port_newark: placeSchema,
-  }),
+  // Named entries are required because code refers to them directly; `catchall`
+  // admits the rest, so adding a station to places.yaml needs no schema change.
+  places: z
+    .object({
+      ewr: placeSchema,
+      newark_penn: placeSchema,
+      harrison_path: placeSchema,
+      prudential_center: placeSchema,
+      port_newark: placeSchema,
+    })
+    .catchall(placeSchema),
   ewr_runways: z.array(runwaySchema).min(1),
 });
 
@@ -191,18 +196,32 @@ const sourcesSchema = z.object({
     heavy: z.object({ emitter_category: z.string().min(1) }),
     /** Exit band as a fraction of each ring's radius. See sources.yaml. */
     ring_hysteresis_fraction: z.number().min(0).max(1),
-    /** Ring name -> radius in km, crossed inward. See sources.yaml. */
-    rings: z.record(z.string(), z.number().positive()),
+    /** Ring radii in km, crossed inward. See sources.yaml. */
+    rings: z.array(z.number().positive()).min(1),
   }),
   precision: z.object({
     bearing_deg: z.number().int().min(0).max(6),
     distance_km: z.number().int().min(0).max(6),
     salience: z.number().int().min(0).max(6),
   }),
+  rail: z.object({
+    path: z.object({
+      enabled: z.boolean(),
+      url: z.string().url(),
+      poll_interval_ms: z.number().positive(),
+      jitter_ms: z.number().min(0),
+      timeout_ms: z.number().positive(),
+      /** Feed station code -> a key in places.yaml's `places`. */
+      stations: z.record(z.string(), z.string()),
+      approaching_s: z.number().positive(),
+      arriving_s: z.number().positive(),
+      rearm_s: z.number().positive(),
+    }),
+  }),
   salience: z.object({
-    sky_far: z.number().min(0).max(1),
-    sky_mid: z.number().min(0).max(1),
-    sky_near: z.number().min(0).max(1),
+    sky: z.number().min(0).max(1),
+    path_approaching: z.number().min(0).max(1),
+    path_arrival: z.number().min(0).max(1),
     ewr_departure: z.number().min(0).max(1),
     ewr_arrival: z.number().min(0).max(1),
     overflight_city: z.number().min(0).max(1),
@@ -235,9 +254,9 @@ const sourcesSchema = z.object({
     overflight_city: z.string().min(1),
     overflight_high: z.string().min(1),
     helicopter: z.string().min(1),
-    sky_far: z.string().min(1),
-    sky_mid: z.string().min(1),
-    sky_near: z.string().min(1),
+    sky: z.string().min(1),
+    path_approaching: z.string().min(1),
+    path_arrival: z.string().min(1),
     compass: z.array(z.string().min(1)).length(8),
     operator_suffix: z.string().min(1),
   }),
@@ -367,9 +386,17 @@ const scoreSchema = z.object({
       sky: z.object({
         attack_s: z.number().min(0),
         release_s: z.number().positive(),
-        gain_far: z.number().min(0).max(1),
-        gain_mid: z.number().min(0).max(1),
-        gain_near: z.number().min(0).max(1),
+        gain: z.number().min(0).max(1),
+      }),
+      path: z.object({
+        harmonicity: z.number().positive(),
+        modulation_index: z.number().positive(),
+        attack_s: z.number().min(0),
+        decay_s: z.number().positive(),
+        release_s: z.number().positive(),
+        approach_octave: z.number().int(),
+        approach_gain: z.number().min(0).max(1),
+        arrival_gain: z.number().min(0).max(1),
       }),
       heavy: z.object({
         octave_offset: z.number().int(),
