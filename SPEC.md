@@ -66,7 +66,7 @@ All sources are polled by the **server only**, once, and fanned out to every lis
 | A2 | Aircraft fallback | **adsb.fi** open data API (ADSBx v2 schema) | 1 req/s, personal/non-commercial, attribution + link required. [VERIFY] | on A1 failure | 1 |
 | A3 | Aircraft fallback 2 | **OpenSky Network** `/api/states/all` with bbox | OAuth2 client credentials (basic auth removed). Registered: 4,000 credits/day; small bbox ≈ 1 credit. **⚠ LICENCE-GATED: Terms §3(vi) require a written licence for any operational/live use, explicitly regardless of non-profit status.** Implemented behind a config flag, **disabled by default**, until OpenSky grants permission (requested 2026-10-14). Note §4(ii): their data must stay out of the permanent recordings even if granted. See `docs/verification.md`. | on A1+A2 failure, ≥ 25 s | 1 (code) / gated (use) |
 | A3b | Aircraft fallback candidate | **airplanes.live** `GET /v2/point/{lat}/{lon}/{radius}` | Was keyless; now returns **HTTP 403** asking for an emailed project description. Guide header says "Non-Commercial Use". Access requested 2026-10-14. Schema reportedly ADSBx v2-compatible, but `category` unconfirmed — §3.2's `helicopter`/`heavy` rules depend on it. | if granted | 1–2 |
-| A4 | Flight route enrichment | **adsbdb** `GET https://api.adsbdb.com/v0/callsign/{CALLSIGN}` | Free, keyless. Routes are inferred from callsign history and can be wrong for some carriers. Cache per callsign per day. | on first sight of a callsign | 1 |
+| A4 | Flight route enrichment | **adsbdb** `GET https://api.adsbdb.com/v0/callsign/{CALLSIGN}` | Free, keyless. Routes are inferred from callsign history and can be wrong for some carriers. **Cache in memory only, scoped to the aircraft's track lifetime — dropped when it leaves our radius, never written to disk** (§3.7). Without a cache we would send ~985,000 requests/day instead of ~1,500. | on first sight of a callsign | 1 |
 | R1 | NJ Transit rail (NEC, NJCL, M&E, Raritan into Newark Penn / Broad St) | NJT developer API + GTFS-RT (`raildata.njtransit.com`) | Free registration and credentials. Terms: if data latency > 1 min, say it may not be real-time; **no NJT logos**. | 30 s | 2 |
 | R2 | Newark Light Rail (incl. **Warren Street/NJIT**) | NJT bus/light-rail API (`pcsdata.njtransit.com`, mode `NLR`) | Same NJT credentials. [VERIFY endpoint names] | 30 s | 2 |
 | R3 | PATH (Newark ⇄ WTC) | Port Authority JSON `https://www.panynj.gov/bin/portauthority/ridepath.json` (station code `NWK`); alt: community `path.api.razza.dev` | Keyless, unofficial; may change without notice. | 15–30 s | 2 |
@@ -120,7 +120,25 @@ These set the **mood** (§6.2), not notes. Emit `state_change` messages when a v
 ### 3.5 Source health and the simulator
 - Every collector reports health (`ok`, `degraded`, `down`, last success time) to `/healthz` and to the admin page.
 - **City simulator** (`server/sim/`): generates realistic synthetic events (statistical replay of recorded days). It is used for development, for tests, and as a labeled fallback if all real sources fail. Simulated events are always flagged `sim: true` and captioned as "replay".
-- **Recorder:** every normalized event is appended to `data/recordings/YYYY-MM-DD.ndjson`. Recordings power the listening lab (§7) and the simulator.
+- **Recorder:** every normalized event **and every raw API response** is appended to
+  `data/recordings/YYYY-MM-DD.ndjson`, gzipped (~40–60 MB/day). The raw copy matters
+  because §3.2's thresholds are explicitly starting values: tuning them against
+  normalized output only would mean recording another two days from scratch every time.
+  Recordings power the listening lab (§7) and the simulator.
+- **Two kinds of recording, with very different lifetimes:**
+  - **Rolling recordings** — everything the collectors see, kept 30 days then deleted
+    automatically (§11.3). ~1.5 GB steady state.
+  - **Reference library** (`data/reference/`) — **permanent**, and the reason is §7.3:
+    an A/B test is only meaningful if both renders get *identical* input. Comparing
+    palette A heard at 2 p.m. against palette B heard at 4 p.m. tells you nothing,
+    because the city changed too. The same few slices, rendered forever, are also how
+    a regression is caught — they answer "did the music change, or did the city?".
+    A 30-minute slice is ~1 MB gzipped, so **8–10 slices cost ~10 MB for the life of
+    the project**. Curate deliberately, and record *why* each was kept:
+    a busy weekday morning · a dead 3 a.m. · a thunderstorm (§6.7) · a snow day ·
+    a holiday · a summer evening · a day with the EWR runway flow reversed.
+    Since §1.5 makes tuning permanent and §13 Phase 4 is never closed, this library
+    is permanent too.
 
 ### 3.6 Our own 1090 MHz receiver (option, Phase 3 — not decided)
 
@@ -163,6 +181,31 @@ roof hearing an aircraft directly is as close to the source as this project can 
 today's figures will be stale by the time it matters. **This is a complement, never a
 replacement:** one receiver needs line of sight and will miss low or distant aircraft,
 so the network sources stay primary.
+
+### 3.7 The normalizer boundary: privacy and caching
+
+Two rules that are easy to state and easy to violate later, so they belong together
+in one place.
+
+**Strip identifying aircraft fields before anything leaves the collector.** §3.2
+forbids tail numbers and owners for non-airline aircraft, and the upstream APIs do not
+help us: adsb.lol and adsb.fi include `r` (registration) and `t` (type) in every
+response, and adsbdb's `GET /v0/aircraft/{hex}` returns `type`, `registration` **and**
+`registered_owner` together — there is no type-only endpoint. So the normalizer must
+drop `registration`, `registered_owner*`, `mode_s` and photo URLs **before** the event
+reaches the bus, a caption, a log line, or `data/recordings/`. The recordings are the
+sharp edge: they are append-only and long-lived, so a leak there cannot be undone by
+fixing the code afterwards. Keep the aircraft **type** — that is what §3.2 permits and
+what the caption needs.
+
+**Route lookups live in memory for as long as the aircraft does, and no longer.** Once
+a plane has left our radius its route is of no further use to us, so it is dropped.
+This is also why the cache exists at all: not to keep data, but to avoid asking
+adsbdb the same question sixty times while one aircraft crosses the city.
+
+A side effect worth noting: nothing is persisted, published, or incorporated into any
+database, which makes adsbdb's route-data restriction moot without our having to
+resolve its conflict with the repository's MIT licence (see `docs/verification.md`).
 
 ---
 
@@ -428,7 +471,7 @@ Source health, live event rate, governor stats, listener count, current section 
 - Battery charge limit (~80%) if supported. The battery then doubles as a UPS.
 - Wired Ethernet if possible.
 - External uptime monitor (e.g. UptimeRobot free) on the public URL + `/healthz`, with email alerts.
-- Logs rotated. Recordings directory capped (e.g. keep 30 days).
+- Logs rotated. Rolling recordings capped at 30 days (§3.5). **`data/reference/` is exempt from the cap and never auto-deleted** — it is ~10 MB and every future A/B test and regression check depends on it.
 - Only the app port is exposed through the tunnel; `/admin` behind a password.
 
 ---

@@ -169,3 +169,51 @@ quoted the README verbatim: *"In the future, you will require an API key which y
 obtain by feeding adsb.lol."* The original claim stands, and §14 is unchanged. Noted
 because it is a reminder that a subagent's confident negative needs the same scrutiny
 as its positive.
+
+## 2026-10-14 · Route caching, raw recording, and a permanent reference library
+
+Three connected decisions, all prompted by Mohammad pushing on *why* we store anything.
+
+**1. Route cache: in memory, scoped to the aircraft's track lifetime.** His point was
+that once a plane has gone its route is useless to us — correct, and it improves on
+§3.1's original "cache per callsign per day". The cache's purpose is not retention but
+politeness: without one we cannot tell a first sighting from the sixtieth, so we would
+send roughly **985,000 requests/day** to adsbdb (8,640 polls × ~114 aircraft) instead
+of about **1,500**. A 650× difference, and the difference between being a guest and
+being blocked. Scoping it to the track lifetime keeps the musical benefit (captions
+can say "United to Chicago" rather than just "a United flight", which §1.2 cares
+about), costs nothing, and incidentally makes adsbdb's route-data restriction moot —
+we never copy, publish, or incorporate anything into a database.
+
+**On the MIT question** (his reading was that MIT settles it): the reading is
+reasonable and the practical conclusion is the same, but the structure is worth
+recording. MIT covers the repository's *code*. The route data is separately credited
+to two named individuals with their own restriction, and a maintainer cannot MIT-license
+someone else's contribution — which is why both statements sit on one page looking
+contradictory. For our actual use (an ephemeral lookup, a caption, then forgotten) none
+of the three forbidden acts occurs. The GitHub issue is downgraded to optional.
+
+**2. Record raw API responses too, gzipped.** ~40–60 MB/day. §3.2's thresholds are
+explicitly starting values; keeping only normalized output would mean re-recording two
+full days every time we re-tune.
+
+**3. Rolling recordings vs. a permanent reference library.** Mohammad asked whether
+recordings are needed forever once the music is good. Mostly no — §11.3's 30-day cap
+already handles the bulk. But not entirely, and the strongest counter-argument is his
+own spec: §1.5 says beauty is never done and §13 Phase 4 is never closed, so A/B
+testing never ends, and **§7.3's A/B method requires identical input** — palette A at
+2 p.m. against palette B at 4 p.m. compares two different cities, not two palettes.
+Recordings are also what the simulator replays as a permanent fallback (§3.5), what
+makes a regression diagnosable ("did the music change or the city?"), and what lets a
+winter palette be tuned without waiting for winter.
+
+Resolution: a curated **reference library** of 8–10 deliberately chosen 30-minute
+slices — busy weekday morning, dead 3 a.m., thunderstorm, snow, holiday, summer
+evening, reversed EWR runway flow — kept permanently and exempt from the 30-day cap.
+At ~1 MB gzipped per slice that is **~10 MB forever**. Each slice records why it was
+kept, so a future session does not delete something that looked redundant.
+
+**SPEC amended:** §3.1 row A4 (cache scope + the 985,000 figure), §3.5 (raw recording,
+and the rolling/reference split with its reasoning), §11.3 (reference library exempt
+from the cap), and a new **§3.7** collecting the normalizer-boundary rules — privacy
+stripping and route-cache scope — in one place, since both are easy to violate later.
