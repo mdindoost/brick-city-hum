@@ -11,11 +11,4 @@ export default defineConfig({
     chunkSizeWarningLimit: 600,
   },
   server: { port: 5173 },
-  test: {
-    // Tests live beside the code they test, on both sides of the app.
-    include: ['{server,client,lab}/**/*.test.ts'],
-    // SPEC §5: nothing audible or visible may use Math.random, so tests must be
-    // reproducible too. Any test needing randomness takes an explicit seed.
-    environment: 'node',
-  },
 });

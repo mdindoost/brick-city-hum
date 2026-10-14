@@ -218,3 +218,64 @@ kept, so a future session does not delete something that looked redundant.
 and the rolling/reference split with its reasoning), §11.3 (reference library exempt
 from the cap), and a new **§3.7** collecting the normalizer-boundary rules — privacy
 stripping and route-cache scope — in one place, since both are easy to violate later.
+
+## 2026-10-14 · P0-2 reviewed: what changed and what was deferred
+
+The reviewer re-derived every geo fixture independently (law of cosines, Vincenty
+sphere, and a hand-written WGS-84 Vincenty inverse) and confirmed the arithmetic,
+the bearing convention, and the unit constants. Ten findings, all addressed:
+
+**Fixed now:**
+
+- **Boot validation caught no mistake that mattered.** A transposed Newark lat/lon,
+  a dropped minus sign, or a one-digit slip all stayed inside ±90/±180 and loaded
+  happily — the server would start, report healthy, and compute every bearing from a
+  point in the Southern Ocean. Added a **Newark-area plausibility box**; it is the
+  only check that catches a human mistake here. Also replaced `z.record` with a
+  fixed-shape object so the §3.2 reference points are required **by name** (renaming
+  `ewr:` to `eww:` previously loaded fine and failed later inside the detector), which
+  also removed every `!` assertion from the call sites.
+- **A test that passed by luck.** The FAA runway-length check used a 5 m tolerance and
+  only tested 04L/22R. The spherical model's error _flips sign with orientation_ — at
+  40.7° the prime-vertical (6387 km) and meridional (6362 km) radii bracket the mean
+  radius we use — so the north-easterly parallels read ~2 m long while the east-west
+  crosswind pair reads ~5 m **short** and would have failed the same assertion. Now
+  all three strips are tested against a **derived** 8 m tolerance, with the reason in
+  the test.
+- **Two fixtures claimed external facts they did not check.** "One degree of latitude
+  at the equator = 111.19508 km" is exactly `EARTH_RADIUS_KM × π/180`; the real
+  WGS-84 figure is 110.574 km. Kept (they do catch a wrong formula) but relabelled
+  honestly so nobody later treats them as validating the Earth model.
+- **Runway headings were validated against nothing.** The reciprocal test accepts any
+  pair 180° apart, so `04L: 62 / 22R: 242` would have passed. Now each published
+  heading is checked against its own thresholds.
+- YAML syntax errors were reported as "could not read file" with the parser's line
+  and column buried in `.cause`; read and parse are now separate.
+- `CONFIG_DIR` was captured at module load and resolved against `process.cwd()`,
+  which would have broken under P0-4's Docker `WORKDIR`. Now resolved relative to the
+  repo and passable as an argument, which is also what made the negative tests possible.
+- Added nine negative config tests. The error path — including `z.prettifyError`, a
+  zod-4-era API — was previously never executed, so a dependency bump could have
+  turned the project's one boot diagnostic into a `TypeError` with the suite green.
+- Added a knots conversion. adsb.lol reports ground speed in knots and OpenSky in
+  m/s: the same silent-mistuning hazard `units.ts` exists to prevent, one field over.
+  Canonical ground speed is knots.
+- Fixed a comment that stated the forward/reverse bearing difference as 179.9933°
+  when it is 180.00665° — in a comment whose only job was to teach that fact.
+- Pinned `bearingDeg(p, p) === 0` and documented the non-finite precondition.
+
+**Deferred, deliberately:**
+
+- **NaN propagation.** `distanceKm`/`bearingDeg` return NaN for non-finite input, and
+  `JSON.stringify(NaN)` is `null`, so a bad coordinate could reach the wire as
+  `rel: {bearing_deg: null}`. CLAUDE.md puts validation at the boundary, so this is
+  **P0-3's** job; the precondition is now documented in `geo.ts`.
+- **A Phase 1 audio constraint worth recording before anyone writes the pan code.**
+  §3.2's `overflight_city` circle is 3 km, so an aircraft passing nearly over NJIT
+  swings through ~180° of bearing between two 10-second polls — e.g. 2° then 182°.
+  §6.4 wants the pan to follow the aircraft, but applied naively that is an audible
+  snap across the stereo field at the moment the listener is most likely to be paying
+  attention. The voice layer needs a slew-rate limit or a distance-weighted pan width.
+- `ewr_runways` is structurally readable by a future detector even though §3.2 forbids
+  using it as a detection input. Today nothing reads it but the sanity tests, and the
+  prohibition is loud in `places.yaml`. Revisit if P0-5 is tempted.

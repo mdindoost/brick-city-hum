@@ -8,7 +8,9 @@ export default tseslint.config(
       parserOptions: {
         // The root tooling files belong to no tsconfig project, so let the service
         // fall back to a default program for just those two.
-        projectService: { allowDefaultProject: ['eslint.config.js', 'vite.config.ts'] },
+        projectService: {
+          allowDefaultProject: ['eslint.config.js', 'vite.config.ts', 'vitest.config.ts'],
+        },
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -41,7 +43,7 @@ export default tseslint.config(
     // The root tooling files sit outside every tsconfig, so type-aware rules have
     // no real type information to work from and only produce noise. tsc does not
     // check them either; they are configuration, not application code.
-    files: ['eslint.config.js', 'vite.config.ts'],
+    files: ['eslint.config.js', 'vite.config.ts', 'vitest.config.ts'],
     extends: [tseslint.configs.disableTypeChecked],
   },
 );

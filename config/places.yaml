@@ -1,0 +1,71 @@
+# Coordinates and fixed geography. SPEC §5 (config-as-data), §3.2 (reference points).
+#
+# Every value here was verified against an authoritative source on 2026-10-14 —
+# see docs/verification.md. SPEC §3.2 marked these "approximate, verify with a map";
+# four matched within metres and Port Newark was corrected by ~180 m.
+#
+# These feed distance and bearing for every single event, so an error here mistunes
+# the whole piece: a wrong origin puts the city in the wrong place in the stereo field.
+
+# The listener's ear. Everything is heard from here (SPEC §1.1).
+origin:
+  id: njit
+  name: NJIT
+  lat: 40.74194
+  lon: -74.17889
+  source: 'Wikipedia infobox, 40°44′31″N 74°10′44″W; ~11 m from the SPEC value'
+
+places:
+  ewr:
+    name: Newark Liberty International Airport
+    lat: 40.69248
+    lon: -74.16869
+    source: 'airnav.com / FAA airport reference point, 40-41-32.93N 074-10-07.28W'
+    # 5.566 km / 3.006 nm from the origin, bearing 171.11° — i.e. due south.
+  newark_penn:
+    name: Newark Penn Station
+    lat: 40.73472
+    lon: -74.16417
+    source: 'Wikipedia infobox, 40°44′5″N 74°9′51″W'
+  prudential_center:
+    name: Prudential Center
+    lat: 40.73361
+    lon: -74.17111
+    source: 'Wikipedia infobox, 40°44′1″N 74°10′16″W'
+  port_newark:
+    name: Port Newark/Elizabeth
+    lat: 40.6816
+    lon: -74.1505
+    source: 'Wikipedia, Port Newark 40°40′54″N 74°09′02″W — CORRECTED, SPEC had 40.68/-74.15 (~180 m off)'
+
+# EWR runway geometry. FAA-derived via airnav.com.
+#
+# USED ONLY FOR SANITY CHECKS AND THE MAP — never as a detection input.
+# SPEC §3.2 is explicit: do not assume which runway is in use or which way traffic
+# flows. Flow at EWR reverses with the wind, often twice in a day. Derive direction
+# from the aircraft data, always.
+ewr_runways:
+  - id: '04L'
+    threshold: { lat: 40.675381, lon: -74.179449 }
+    true_heading_deg: 26
+    length_ft: 11000
+  - id: '22R'
+    threshold: { lat: 40.702560, lon: -74.162172 }
+    true_heading_deg: 206
+    length_ft: 11000
+  - id: '04R'
+    threshold: { lat: 40.677584, lon: -74.174245 }
+    true_heading_deg: 26
+    length_ft: 9999
+  - id: '22L'
+    threshold: { lat: 40.702289, lon: -74.158537 }
+    true_heading_deg: 206
+    length_ft: 9999
+  - id: '11'
+    threshold: { lat: 40.702804, lon: -74.180707 }
+    true_heading_deg: 95
+    length_ft: 6725
+  - id: '29'
+    threshold: { lat: 40.701199, lon: -74.156543 }
+    true_heading_deg: 275
+    length_ft: 6725
