@@ -202,6 +202,13 @@ const sourcesSchema = z.object({
     by_category_private: z.record(z.string(), z.string()),
     fallback: z.string().min(1),
   }),
+  simulator: z.object({
+    enabled: z.boolean(),
+    takeover_after_s: z.number().positive(),
+    intensity: z.number().positive(),
+    caption_suffix: z.string().min(1),
+    window_s: z.number().positive(),
+  }),
   captions: z.object({
     place: z.string().min(1),
     ewr_departure: z.string().min(1),

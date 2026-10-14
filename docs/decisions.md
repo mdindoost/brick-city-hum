@@ -547,14 +547,14 @@ defects, two of them already written to append-only recordings.
 
 **1. An arrival fired on a single spurious ground flag — and it is on disk.**
 Event `01M4XZ5B847DFBYWJBK3W3SFAN`: a Sikorsky S-76, 0.73 nm from EWR, **climbing at
-+896 ft/min**, captioned *"✈ a helicopter arriving at Newark"*. The event's own
++896 ft/min**, captioned _"✈ a helicopter arriving at Newark"_. The event's own
 payload contradicts its caption. Cause: low helicopters report `alt_baro: "ground"`
 spuriously, and **190 of 285 aircraft flipped at least once in 38 minutes**. A ground
 transition now also requires the aircraft not to be climbing and to be slow enough to
 be on a surface. A direct §1.2 breach — the one principle that cannot be compromised.
 
 **2. The go-around guard was defeated by one bad ground flag.** It returned true on
-`track.some(o => o.onGround)` *before* checking for a descent, so a single spurious
+`track.some(o => o.onGround)` _before_ checking for a descent, so a single spurious
 flag let a go-around through as a departure. Sustained ground contact
 (`min_ground_observations`) is now required.
 
@@ -580,13 +580,13 @@ fired both `overflight_city` and `overflight_high`. The two zones now share one 
 
 **6. `describe()` ignored `identity`,** the field that exists for exactly that
 decision. Two Bombardier Global Express in the live sample, neither on an airline
-callsign, both emitter category A3, were described as *"an airliner"*. §3.2 wants "a
+callsign, both emitter category A3, were described as _"an airliner"_. §3.2 wants "a
 large private jet". Added `by_category_private`.
 
 **7. The recorder was an unfiltered event sink.** `toPublicEvent`'s allow-list
 protected the WebSocket path only; `recordEvents` serialised the whole `CityEvent`.
 §3.7 names the recordings as the sharp edge precisely because they cannot be unwritten.
-Added `toRecordedEvent`. *Nothing was leaking today* — the reviewer checked all
+Added `toRecordedEvent`. _Nothing was leaking today_ — the reviewer checked all
 recorded events — but a field added to `attrs` later would have started appearing
 silently.
 
@@ -618,3 +618,45 @@ observations carry no vertical rate at all, and `?? 0` treats absent as zero —
 in the fail-safe direction, but it means some real events are never detected. And the
 arrival rule, unlike the departure rule, will still claim any airport inside 6 nm —
 Linden is ~5 nm from EWR.
+
+## 2026-10-14 · P0-6: the simulator, and a shared PRNG
+
+**`shared/` is a new top-level directory — an addition to SPEC §5.1.** The seeded
+PRNG now lives there because server and client must use _the same_ generator: the
+simulator produces events the lab renders and the client jitters, and two copies of
+"the same" algorithm that drifted apart would make a lab render disagree with what
+listeners hear — which is the single thing §7.3's whole method depends on not
+happening. Both tsconfigs include it.
+
+**Replay and simulation are different tools and both exist.** A `Replayer` plays a
+recorded day back at any speed, pull-based so the caller owns the clock — which is
+what lets the lab render faster than real time and reproduce exactly. A `Simulator`
+builds a _statistical_ model from recorded days and generates fresh events from it.
+The distinction matters for the case the simulator exists for: if every source is down
+for an hour, a looped replay becomes audibly a loop, and §6.7 names repetition as the
+biggest risk to the whole piece.
+
+**Honest by construction (§3.5, §1.2).** Everything either one emits carries
+`sim: true` **and** says "(replay)" in its caption. Setting only the flag would leave
+the ticker claiming a live departure; there is a test for each half. The simulator
+also refuses to invent event types it never observed — it redistributes real traffic
+rather than imagining it, which is as close to "nothing is invented" as a fallback can
+get while still being a fallback.
+
+**Takeover is deliberately slow and handback is immediate.** Two minutes of every
+source being down before the simulator speaks, because swapping real traffic for a
+replay over a ten-second blip is worse than a brief gap. It stands down the instant a
+live source recovers: the real city always wins.
+
+**A bug the tests caught in the fallback logic:** I measured the outage from the
+simulator's own first tick rather than from when sources actually failed, so a server
+started _during_ an outage would have waited the full takeover delay all over again.
+Outage length now comes from the health registry's `lastSuccessAt`, which is the thing
+that actually knows.
+
+**Intensity 0.6, deliberately.** A fallback should sound like the city heard from
+further away, not like a full house. Verified against the real recordings: a model
+built from 51 real events produced 9 for a ten-minute window, every one marked.
+
+**`/healthz` reports the simulator but is not made healthy by it.** A monitor must
+still be able to tell a live city from a replay of one.

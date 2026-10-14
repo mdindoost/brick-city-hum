@@ -44,15 +44,15 @@ deterministic preset omits reverb and the seeded PRNG replaces `Math.random`
 
 **First numbers, from the probe fixture — these are NOT musical evidence:**
 
-| | |
-|---|---|
-| Integrated loudness | −28.6 LUFS (target ≈ −20) |
-| True peak | −7.0 dBTP (ceiling −1) ✓ |
-| Onsets | 1.3 / minute |
+|                     |                                |
+| ------------------- | ------------------------------ |
+| Integrated loudness | −28.6 LUFS (target ≈ −20)      |
+| True peak           | −7.0 dBTP (ceiling −1) ✓       |
+| Onsets              | 1.3 / minute                   |
 | Pitch-class entropy | 0.386 of 3.585 bits — 95% on D |
-| Repetition score | 0.993 |
+| Repetition score    | 0.993                          |
 
-Every one of those is the *correct* reading of a deliberately crude fixture: one bell
+Every one of those is the _correct_ reading of a deliberately crude fixture: one bell
 per event over a constant drone really is repetitive, really is stuck on D, really is
 quiet. **The metrics diagnosing the fixture accurately is the evidence that the
 metrics work.** Reports rendered from the probe now carry a banner saying so, because

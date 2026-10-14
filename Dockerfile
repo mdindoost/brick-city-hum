@@ -9,6 +9,8 @@ RUN npm ci
 COPY tsconfig*.json vite.config.ts ./
 COPY server ./server
 COPY client ./client
+# shared/ holds the seeded PRNG, which server and client must agree on exactly.
+COPY shared ./shared
 # Typecheck in the image, not only on the developer's machine: a build that would
 # not compile must not become a running container.
 RUN npx tsc -p tsconfig.server.json --noEmit && npx tsc -p tsconfig.client.json --noEmit
@@ -29,6 +31,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY tsconfig*.json ./
 COPY server ./server
+COPY shared ./shared
 COPY config ./config
 COPY --from=build /app/dist/client ./dist/client
 

@@ -13,6 +13,10 @@ import { AircraftCollector } from './collectors/aircraft.js';
 import { loadPlaces, loadSources } from './config.js';
 import { HealthRegistry } from './health.js';
 import { Recorder } from './recorder.js';
+import { SimulatorFallback } from './sim/fallback.js';
+import { readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { seedFromString } from '../../shared/random.js';
 
 /**
  * Load `.env` if it is there.
@@ -60,6 +64,15 @@ function main(): void {
   const health = new HealthRegistry(sources.aircraft.backoff.failures_before_degraded);
   const recorder = new Recorder({ directory: RECORDINGS_DIR });
 
+  // SPEC §3.5's labelled last resort. Built from recorded days, so it redistributes
+  // real traffic rather than inventing any (§1.2), and everything it emits says
+  // "(replay)".
+  const fallback = new SimulatorFallback({
+    sources,
+    health,
+    seed: seedFromString(new Date().toISOString().slice(0, 10)),
+  });
+
   const aircraft = new AircraftCollector({
     sources,
     places,
@@ -79,12 +92,18 @@ function main(): void {
         // Not just "a source is ok" but "a source succeeded recently" — see
         // HealthRegistry.anyHealthy. A recorder that has started failing its writes
         // also makes this false, because recording is the deliverable in Phase 0.
+        // The simulator keeps the radio playing but does NOT make us healthy: a
+        // monitor must still be able to tell a live city from a replay of one.
         ok: health.anyHealthy(now) && recorderStats.failures === 0,
         activeSource: aircraft.currentSourceId() ?? null,
         trackedAircraft: aircraft.tracks.size,
         eventsDetected: aircraft.eventCount(),
         recordingDay: recorder.today(),
         recorder: recorderStats,
+        simulator: {
+          active: fallback.isActive,
+          hasModel: fallback.hasModel,
+        },
         sources: health.all(),
       };
       response
@@ -103,6 +122,36 @@ function main(): void {
     console.log(`[boot] recording to ${RECORDINGS_DIR}`);
     console.log(`[boot] User-Agent: ${userAgent()}`);
     aircraft.start();
+
+    // Load the traffic model in the background: it reads every recorded event file,
+    // and the collector must not wait on it. Without a model there is simply no
+    // fallback, which is the correct behaviour on a first run.
+    void (async () => {
+      try {
+        const files = readdirSync(RECORDINGS_DIR)
+          .filter((name) => name.includes('-event.'))
+          .map((name) => join(RECORDINGS_DIR, name));
+        if (files.length === 0) {
+          console.log('[sim] no recorded events yet — no fallback available until there are');
+          return;
+        }
+        const count = await fallback.loadModel(files);
+        console.log(`[sim] traffic model built from ${String(count)} recorded events`);
+      } catch (error) {
+        console.error('[sim] could not build a traffic model', error);
+      }
+    })();
+
+    // Checked on the simulator's own window. Returns nothing whenever a real source
+    // is healthy — the real city always wins.
+    setInterval(() => {
+      const events = fallback.tick();
+      if (events.length === 0) return;
+      recorder.recordEvents(events, Date.now());
+      for (const event of events) {
+        console.log(`[sim] ${event.type} ${event.caption}`);
+      }
+    }, sources.simulator.window_s * 1000);
   });
 
   /**

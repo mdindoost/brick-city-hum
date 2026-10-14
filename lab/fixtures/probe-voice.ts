@@ -31,7 +31,7 @@ import {
   type VoiceContext,
   type VoiceOutput,
 } from '../../client/src/audio/types.js';
-import { humanise } from '../../client/src/audio/random.js';
+import { humanise } from '../../shared/random.js';
 
 /**
  * One bell per event, pitched by scale degree and altitude, panned by bearing (the

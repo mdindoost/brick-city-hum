@@ -182,6 +182,22 @@ aircraft_vocabulary:
     A7: a helicopter
   fallback: a plane
 
+# The simulator: SPEC §3.5's labelled last resort, used only when every live source
+# is down. Never silent (§1.4), never dishonest (§1.2) — everything it emits carries
+# sim: true and says so in the caption.
+simulator:
+  enabled: true
+  # How long every source must be down before the simulator takes over. Long enough
+  # that a brief blip does not swap real traffic for a replay.
+  takeover_after_s: 120
+  # Deliberately quieter than the real city: a fallback should feel like the city
+  # heard from further away, not like a full house.
+  intensity: 0.6
+  # Appended to every caption it produces. §3.5 requires replays to be captioned as
+  # such, so a listener is never told a plane took off when it did not.
+  caption_suffix: '(replay)'
+  window_s: 10
+
 # Caption templates. SPEC §5: the aircraft noun was already config, so the rest of
 # the sentence belongs here too — half a tunable caption is not config-as-data.
 # `{aircraft}` is the plain-English description, `{place}` the airport name.

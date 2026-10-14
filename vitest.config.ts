@@ -13,7 +13,7 @@ import { defineConfig } from 'vitest/config';
  */
 export default defineConfig({
   test: {
-    include: ['{server,client,lab}/**/*.test.ts'],
+    include: ['{server,client,lab,shared}/**/*.test.ts'],
     environment: 'node',
     // SPEC §5: nothing audible or visible may use Math.random, so tests are
     // reproducible too — anything needing randomness takes an explicit seed.

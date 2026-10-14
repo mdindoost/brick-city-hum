@@ -5,5 +5,5 @@
     "lib": ["ES2023"],
     "outDir": "dist/server"
   },
-  "include": ["server/**/*.ts", "lab/**/*.ts"]
+  "include": ["server/**/*.ts", "lab/**/*.ts", "shared/**/*.ts"]
 }

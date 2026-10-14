@@ -9,7 +9,7 @@
  * construction time, so an override installed later would already be too late.
  */
 
-import { mulberry32 } from '../client/src/audio/random.js';
+import { mulberry32 } from '../shared/random.js';
 
 export interface RenderInput {
   replay: { offsetSeconds: number; event: unknown }[];

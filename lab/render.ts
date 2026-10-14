@@ -26,7 +26,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
 import { readRecording } from '../server/src/recorder.js';
-import { seedFromString } from '../client/src/audio/random.js';
+import { seedFromString } from '../shared/random.js';
 
 export interface RenderOptions {
   /** Recorded event file to replay. */

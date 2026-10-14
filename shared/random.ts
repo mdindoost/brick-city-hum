@@ -1,6 +1,12 @@
 /**
  * Seeded pseudo-random numbers. SPEC §5's determinism requirement.
  *
+ * **Lives in `shared/` — an addition to §5.1's layout, deliberately.** Server and
+ * client must use the *same* generator: the simulator (§3.5) produces events the lab
+ * then renders, and the client jitters them. Two copies of "the same" algorithm that
+ * drifted apart would make a lab render disagree with what listeners hear, which is
+ * the one thing §7.3's whole method depends on not happening.
+ *
  * Two things depend on this, and both break silently without it:
  *
  *  - **Listener sync.** Every client must make the same "random" choice, because the

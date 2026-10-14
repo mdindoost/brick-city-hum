@@ -18,7 +18,7 @@ import {
   type VoiceContext,
   type VoiceOutput,
 } from './types.js';
-import { randomForEvent } from './random.js';
+import { randomForEvent } from '../../../shared/random.js';
 
 export interface EngineOptions {
   /** §6.8: 24 desktop / 12 mobile. Configurable because it is a device budget. */
