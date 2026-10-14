@@ -343,6 +343,23 @@ describe('overflight_city', () => {
   });
 });
 
+describe('published precision', () => {
+  it('states a bearing, distance and salience it can actually claim', () => {
+    // A bearing of 67.40309232334607 degrees appeared in the real recordings. Stereo
+    // panning resolves tens of degrees; the figure was a dishonesty, not a detail.
+    const events = detector().detect(
+      track([{ category: 'A7', altFt: 1200, typeCode: 'R44' }], northOfOrigin(2)),
+    );
+    const event = events[0]!;
+    const places = (n: number): number => (String(n).split('.')[1] ?? '').length;
+    expect(places(event.rel.bearing_deg)).toBeLessThanOrEqual(sources.precision.bearing_deg);
+    expect(places(event.rel.distance_km)).toBeLessThanOrEqual(sources.precision.distance_km);
+    expect(places(event.salience)).toBeLessThanOrEqual(sources.precision.salience);
+    // Rounded, not destroyed: 2 km north of the origin is still 2 km north.
+    expect(event.rel.distance_km).toBeCloseTo(2, 1);
+  });
+});
+
 describe('helicopter', () => {
   it('fires for category A7 low and near', () => {
     const events = detector().detect(

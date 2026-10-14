@@ -38,6 +38,18 @@ export interface DetectorOptions {
   readonly makeId?: () => string;
 }
 
+/**
+ * Round a published figure to the precision an event is allowed to claim.
+ *
+ * The geometry is computed in full precision and only the event is rounded: a bearing
+ * of 67.40309232334607° states an accuracy that neither the source nor the stereo
+ * field nor the ear possesses, and config/sources.yaml says how much is honest.
+ */
+function round(value: number, places: number): number {
+  const factor = 10 ** places;
+  return Math.round(value * factor) / factor;
+}
+
 export class Detector {
   private readonly states = new Map<string, AircraftState>();
   private readonly makeId: () => string;
@@ -325,6 +337,7 @@ export class Detector {
     heavy: boolean,
   ): CityEvent {
     const describedAs = this.describe(observation);
+    const precision = this.options.sources.precision;
     return {
       id: this.makeId(),
       t: observation.t,
@@ -332,8 +345,8 @@ export class Detector {
       source: observation.source,
       geo: { lat: observation.lat, lon: observation.lon, alt_ft: observation.altFt },
       rel: {
-        bearing_deg: bearingDeg(this.origin, observation),
-        distance_km: distanceToOrigin,
+        bearing_deg: round(bearingDeg(this.origin, observation), precision.bearing_deg),
+        distance_km: round(distanceToOrigin, precision.distance_km),
       },
       attrs: {
         callsign: observation.callsign,
@@ -343,7 +356,7 @@ export class Detector {
         heavy,
         described_as: describedAs,
       },
-      salience: this.salienceFor(type, distanceToOrigin, heavy),
+      salience: round(this.salienceFor(type, distanceToOrigin, heavy), precision.salience),
       caption: this.captionFor(type, describedAs),
       sim: false,
       scheduled: false,

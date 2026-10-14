@@ -190,6 +190,11 @@ const sourcesSchema = z.object({
     }),
     heavy: z.object({ emitter_category: z.string().min(1) }),
   }),
+  precision: z.object({
+    bearing_deg: z.number().int().min(0).max(6),
+    distance_km: z.number().int().min(0).max(6),
+    salience: z.number().int().min(0).max(6),
+  }),
   salience: z.object({
     ewr_departure: z.number().min(0).max(1),
     ewr_arrival: z.number().min(0).max(1),

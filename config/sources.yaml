@@ -143,6 +143,19 @@ detection:
   heavy:
     emitter_category: A5
 
+# How precisely an event reports itself, in decimal places.
+#
+# Accuracy beyond what a listener can perceive is not a goal, and reporting it is a
+# small dishonesty: a bearing of 67.40309232334607° claims a precision that neither
+# the source, the stereo field, nor the ear possesses. Amplitude panning resolves
+# tens of degrees at best; nothing downstream can use a metre of distance. These are
+# the figures an event is allowed to state, not the figures it is computed from —
+# the geometry stays in full precision, and only the published event is rounded.
+precision:
+  bearing_deg: 0
+  distance_km: 2
+  salience: 3
+
 # Base salience per event type, 0..1 (SPEC §4, §6.5). The density governor keeps the
 # highest-salience events when the city is busier than the comfortable band and
 # demotes the rest to texture, so these are a priority order as much as a loudness.
