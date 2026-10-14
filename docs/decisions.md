@@ -327,3 +327,90 @@ overlap the next request and silently double our request rate against services t
 return no rate-limit headers to notice it with. The loop schedules the next attempt
 only after the current one settles, and there is a test asserting concurrency never
 exceeds 1.
+
+## 2026-10-14 · P0-3 review: a privacy leak I had reported as verified
+
+**The leak.** `IDENTIFYING_FIELDS` stripped `r` (registration) but not `flight`. The
+commit's own premise was that _for a private aircraft the callsign IS the
+registration_ — so the code removed the tail number from one field and wrote the
+identical string from another, straight into the append-only recordings. Exactly the
+failure §3.7 exists to prevent, and a direct miss of P0-3's acceptance criterion.
+
+**Why my verification missed it, which is the more useful lesson.** I grepped for
+`"(N\d{2,5}[A-Z]{0,2})"` — anchored on a closing quote. The API space-pads the value
+(`"N6091F  "`), so nothing matched. I knew about the padding; I `trim()` it in the
+parser and documented it in a comment. Then I wrote a check the padding defeated and
+told Mohammad the rule was "verified on real data". It was not.
+
+Re-verifying after the fix, I made the **opposite** error: an unanchored
+`N\d{2,5}[A-Z]{0,2}` flagged six hits, all the substring `N8979` inside `MTN8979` —
+Mountain Air Cargo's ICAO callsign, not a registration. The correct pattern is
+word-anchored: `\bN\d{1,5}[A-Z]{0,2}\b`.
+
+**The tests have been rewritten to check values, not keys**, because a key-based
+assertion is what waved the original bug through, and a new test asserts the fixture
+_contains_ identity — otherwise the headline privacy test passes vacuously, which it
+had been doing since the fixture was captured with `r` already stripped.
+
+**Verified after the fix, on 383 live observations:** 99 private aircraft, **zero**
+with a callsign, 96 keeping a type code (`GLF5` — a Gulfstream, precisely §3.2's "a
+small private jet"); zero non-airline `flight` values in the raw file; zero
+word-anchored registration matches anywhere.
+
+**Other confirmed findings, all fixed:**
+
+- **Schema drift read as an empty sky.** If every aircraft failed to parse, the poll
+  recorded `ok` with zero observations, `/healthz` stayed green, backoff and failover
+  never engaged — total silent data loss across the 48-hour window with a green
+  monitor. Now: aircraft returned but none parsed is an error. Unparseable entries
+  are also kept in the raw file, so drift is diagnosable afterwards.
+- **Failover was one-way.** A stopped poller never polls, so the primary's health
+  froze at `down` and the "drift back on recovery" branch was unreachable code. One
+  30-second blip at hour 3 would have pinned the remaining 45 hours of the Phase 0
+  dataset to the fallback, silently changing the poll cadence mid-dataset. Now the
+  supervisor probes the preferred source while on a fallback. `AircraftCollector` had
+  **no tests at all**; it now has seven, including one that fails if recovery regresses.
+- **Every failover injected an un-backed-off request**, because `start()` fired
+  immediately — wrong precisely when the cause was a 429. `start()` now honours
+  accumulated backoff.
+- **A stop/start during a request ran two loops**, doubling our request rate. First
+  attempt at a fix (a generation counter) addressed the wrong half; the working fix
+  is an in-flight guard, with `start()` standing down so the outstanding request's
+  own continuation carries the loop.
+- **"A crash costs one line" was false as written.** On a truncated file
+  `gunzipSync` throws `Z_BUF_ERROR` and returns _nothing_ — a whole-day loss — and
+  `gunzipSync` is what the test helper used. Added `readRecording`, a streaming
+  tolerant reader, as the supported read path for the simulator and lab, with a test
+  that truncates a real file and one documenting that `gunzipSync` would have lost it.
+- **No write-error handling**: ENOSPC on a 2.7 GB budget emitted an uncaught
+  exception that `index.ts` swallowed, leaving health `ok` while nothing was written.
+  Now reported through `/healthz`. Also closes the previous day's stream at rollover
+  (was leaking two fds per UTC day).
+- **`ok` never aged out**: a stalled poll loop would keep `/healthz` at 200 with an
+  hours-old success. Now bounded at 120 s — a monitor can finally tell a stalled
+  recorder from a quiet city, which §3.5 says is the whole point of health.
+- **Timestamps were the receive time for every aircraft.** Live `seen_pos` runs to
+  ~50 s on parked aircraft, so a stale repeat looked like a fresh observation at a new
+  time — defeating the track store's duplicate guard. `t` is now backdated by the
+  reported position age (clamped, never future), `positionAgeS` is kept for tuning,
+  and the envelope's own clock is recorded so our latency is distinguishable from the
+  feed's.
+- **Empty polls wrote nothing**, so the recordings could not distinguish "empty sky at
+  4 a.m." from "we were not polling". A one-line-per-poll heartbeat file now does.
+- **Four real registrations were committed to a public repo** (fixture and decisions
+  log). Replaced with synthetic N-numbers of identical shape, which exercise the
+  classifier identically. CLAUDE.md's "assume a stranger will read it" applies to
+  data as much as to code.
+- **Duplicated tuning values**: `A7`/`A5` were declared in both `observation.ts` and
+  `sources.yaml`, so editing the YAML changed nothing. The code copies are gone;
+  config is the single source. `Observation` is now derived from its zod schema rather
+  than hand-mirrored, so the two cannot drift — which also finally satisfies P0-3's
+  "ndjson lines validate against the schema".
+- Removed `lastExpiryCheck()`, which returned the current time rather than the last
+  expiry check and was the only consumer of an injected clock.
+
+**Still open, needs Mohammad: the classifier equates "ICAO-shaped callsign" with
+"airline".** Fractional and charter operators pass as airlines — the fixture's own
+`LXJ312` is Flexjet, and NetJets' `EJA…` would too. §3.2's letter holds (these are
+not tail numbers), but these are arguably the private jets its spirit is aimed at.
+See the question raised with him on 2026-10-14.

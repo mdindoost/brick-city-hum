@@ -218,3 +218,97 @@ describe('Poller', () => {
     expect(calls).toBe(afterStop);
   });
 });
+
+describe('restart behaviour (the failover path)', () => {
+  function failing() {
+    const health = new HealthRegistry(3);
+    health.register('s');
+    const attempts: number[] = [];
+    let clock = 0;
+    const poller = new Poller(
+      {
+        id: 's',
+        intervalMs: 10_000,
+        jitterMs: 0,
+        timeoutMs: 1000,
+        backoff: BACKOFF,
+        userAgent: 't',
+      },
+      () => 'https://example.invalid',
+      () => ({ count: 0, skipped: 0 }),
+      health,
+      {
+        fetchJson: () => {
+          attempts.push(clock);
+          return Promise.reject(new RetryableHttpError(503, 'u'));
+        },
+        now: () => clock,
+        random: () => 0,
+      },
+    );
+    return { poller, attempts, setClock: (t: number) => (clock = t) };
+  }
+
+  it('does not fire immediately on restart when failures are already behind it', async () => {
+    // Every failover flap used to inject an un-backed-off request, which is exactly
+    // wrong when the reason we failed over was a 429. Restart must honour the
+    // backoff already earned.
+    vi.useFakeTimers();
+    const { poller, attempts } = failing();
+    poller.start();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(attempts).toHaveLength(1); // the first attempt, with no history, is immediate
+
+    poller.stop();
+    poller.start();
+    await vi.advanceTimersByTimeAsync(100);
+    expect(attempts).toHaveLength(1); // still waiting out the 5 s backoff
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(attempts).toHaveLength(2);
+    vi.useRealTimers();
+  });
+
+  it('runs one loop, not two, when stopped and restarted mid-request', async () => {
+    // The in-flight continuation used to reschedule even after stop(), so a
+    // stop/start inside the request window left two loops running and doubled our
+    // request rate against a volunteer service.
+    vi.useFakeTimers();
+    let inFlight = 0;
+    let maxConcurrent = 0;
+    const health = new HealthRegistry(3);
+    health.register('s');
+    const poller = new Poller(
+      {
+        id: 's',
+        intervalMs: 100,
+        jitterMs: 0,
+        timeoutMs: 60_000,
+        backoff: BACKOFF,
+        userAgent: 't',
+      },
+      () => 'https://example.invalid',
+      () => ({ count: 0, skipped: 0 }),
+      health,
+      {
+        fetchJson: async () => {
+          inFlight += 1;
+          maxConcurrent = Math.max(maxConcurrent, inFlight);
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          inFlight -= 1;
+          return { ac: [] };
+        },
+        now: () => 1,
+        random: () => 0,
+      },
+    );
+    poller.start();
+    await vi.advanceTimersByTimeAsync(200); // a request is now in flight
+    poller.stop();
+    poller.start();
+    await vi.advanceTimersByTimeAsync(3000);
+    poller.stop();
+    vi.useRealTimers();
+    expect(maxConcurrent).toBe(1);
+  });
+});

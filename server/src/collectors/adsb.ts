@@ -42,6 +42,13 @@ const aircraftSchema = z.object({
   lat: z.number().optional(),
   lon: z.number().optional(),
   gs: z.number().optional(),
+  /**
+   * Seconds since this aircraft's position was last updated. Live data shows up to
+   * ~50 s for parked aircraft and under 1 s airborne, so a poll's aircraft were not
+   * all seen at the same instant — which is why `t` is backdated by this rather than
+   * being the receive time (SPEC §4 asks for a "best estimate").
+   */
+  seen_pos: z.number().optional(),
   /** Callsign, space-padded by the API (`"UAL1810 "`). Must be trimmed. */
   flight: z.string().optional(),
   /** Aircraft type code, e.g. `B738`. Permitted for every aircraft (SPEC §3.2). */
@@ -66,8 +73,21 @@ const responseSchema = z
   })
   .passthrough();
 
-/** Fields that must never be written anywhere — not to the wire, not to a recording. */
-export const IDENTIFYING_FIELDS = ['r', 'ownOp', 'reg', 'registration', 'owner'] as const;
+/**
+ * Fields removed from the raw copy before it can be recorded.
+ *
+ * `flight` is here for a reason that cost a real bug: **for a private aircraft the
+ * callsign IS the registration.** Stripping `r` while copying `flight` verbatim
+ * wrote the identical string one field over, straight into the append-only
+ * recordings — the exact leak §3.7 exists to prevent. The leak also survived a
+ * verification grep, because the API space-pads the value (`"N6091F  "`) and the
+ * regex expected a closing quote right after the characters.
+ *
+ * `flight` is not simply dropped: it is replaced by the classifier's verdict (see
+ * `stripIdentifyingFields`), so an airline flight number is still recorded — it is
+ * needed for tuning and permitted by §3.2 — while a tail number never is.
+ */
+export const IDENTIFYING_FIELDS = ['r', 'ownOp', 'reg', 'registration', 'owner', 'flight'] as const;
 
 export interface ParseResult {
   readonly observations: Observation[];
@@ -83,15 +103,31 @@ export interface ParseResult {
   readonly rawForRecording: Record<string, unknown>[];
   /** Entries we could not parse at all, counted for health rather than thrown. */
   readonly skipped: number;
+  /** How many entries the response contained, parseable or not. */
+  readonly total: number;
+  /** The source's own timestamp from the envelope, kept so staleness can be
+   * reconstructed during tuning. An earlier version discarded it. */
+  readonly sourceNow: number | null;
 }
 
-/** Strip identity from an arbitrary raw entry, without assuming it parsed. */
+/**
+ * Strip identity from an arbitrary raw entry, without assuming it parsed.
+ *
+ * Every field in `IDENTIFYING_FIELDS` is removed, then `flight` is put back **only**
+ * when the classifier says it is an airline flight number — trimmed, so no
+ * space-padded tail number can slip through a later text search.
+ */
 export function stripIdentifyingFields(entry: Record<string, unknown>): Record<string, unknown> {
   const copy: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(entry)) {
     if (!(IDENTIFYING_FIELDS as readonly string[]).includes(key)) {
       copy[key] = value;
     }
+  }
+  const raw = entry['flight'];
+  const { identity, callsign } = classifyCallsign(typeof raw === 'string' ? raw : null);
+  if (identity === 'airline' && callsign !== null) {
+    copy['flight'] = callsign;
   }
   return copy;
 }
@@ -141,13 +177,20 @@ export function toObservation(
 
   const { altFt, onGround } = altitude(aircraft);
   const { identity, callsign } = classifyCallsign(aircraft.flight);
+  const positionAgeS = aircraft.seen_pos ?? null;
+  // Backdate to when the position was actually true. Clamped at 0 so a nonsense
+  // negative age from upstream cannot produce a timestamp in the future.
+  const observedAt =
+    positionAgeS === null || !Number.isFinite(positionAgeS) || positionAgeS < 0
+      ? receivedAt
+      : receivedAt - Math.round(positionAgeS * 1000);
 
   // Note what is NOT carried over: `r` (registration) and `ownOp` (operator). For a
   // private aircraft the callsign is usually the tail number too, which is why
   // `classifyCallsign` nulls it rather than passing it through.
   return {
     icao: aircraft.hex.trim().toLowerCase(),
-    t: receivedAt,
+    t: observedAt,
     lat: aircraft.lat,
     lon: aircraft.lon,
     altFt,
@@ -159,6 +202,7 @@ export function toObservation(
     callsign,
     typeCode: aircraft.t ?? null,
     source,
+    positionAgeS,
   };
 }
 
@@ -185,15 +229,16 @@ export function parseAdsbResponse(body: unknown, receivedAt: number, source: str
   let skipped = 0;
 
   for (const entry of list) {
+    // Keep the raw copy FIRST, whether or not the entry parses. If the upstream
+    // schema drifts, these are the only record of what actually changed — excluding
+    // unparseable entries would leave the drift undiagnosable after the fact.
+    if (typeof entry === 'object' && entry !== null) {
+      rawForRecording.push(stripIdentifyingFields(entry as Record<string, unknown>));
+    }
     const parsed = aircraftSchema.safeParse(entry);
     if (!parsed.success) {
       skipped += 1;
       continue;
-    }
-    // Strip identity from the raw copy before it can be recorded, regardless of
-    // whether we end up with a usable observation.
-    if (typeof entry === 'object' && entry !== null) {
-      rawForRecording.push(stripIdentifyingFields(entry as Record<string, unknown>));
     }
     const observation = toObservation(parsed.data, receivedAt, source);
     if (observation === null) {
@@ -203,7 +248,24 @@ export function parseAdsbResponse(body: unknown, receivedAt: number, source: str
     observations.push(observation);
   }
 
-  return { observations, rawForRecording, skipped };
+  // A response full of aircraft from which we understood none is schema drift, not a
+  // quiet sky. Reported as a failure so backoff and failover engage: otherwise the
+  // poll records `ok` with zero observations, /healthz stays green, and the 48-hour
+  // recording (§13) quietly collects nothing at all.
+  if (list.length > 0 && observations.length === 0) {
+    throw new Error(
+      `${source}: ${String(list.length)} aircraft returned but none could be parsed — ` +
+        `the upstream schema has probably changed`,
+    );
+  }
+
+  return {
+    observations,
+    rawForRecording,
+    skipped,
+    total: list.length,
+    sourceNow: envelope.data.now ?? null,
+  };
 }
 
 export type { IdentityKind };

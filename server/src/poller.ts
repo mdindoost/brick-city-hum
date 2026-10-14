@@ -102,6 +102,16 @@ export class Poller {
   private timer: NodeJS.Timeout | undefined;
   private stopped = false;
   private consecutiveFailures = 0;
+  /**
+   * True while a request is outstanding.
+   *
+   * This is what keeps exactly one loop running across a stop/start. A `stop()`
+   * during a request cannot cancel the request, so if `start()` then scheduled a
+   * fresh attempt we would have two in flight and double our request rate against a
+   * volunteer service. Instead `start()` stands down and the outstanding request's
+   * own continuation carries the loop forward.
+   */
+  private inFlight = false;
 
   constructor(
     private readonly options: PollerOptions,
@@ -120,9 +130,18 @@ export class Poller {
     } = { fetchJson, now: Date.now, random: Math.random },
   ) {}
 
+  /**
+   * Begin polling. If this poller already has failures behind it, the first attempt
+   * waits out its backoff rather than firing immediately — otherwise every failover
+   * flap injects an un-backed-off request, which is exactly wrong when the reason we
+   * failed over was a 429.
+   */
   start(): void {
     this.stopped = false;
-    this.scheduleNext(0);
+    // A request is already outstanding (we were stopped and restarted mid-flight).
+    // Its continuation will reschedule; scheduling here too would run two loops.
+    if (this.inFlight) return;
+    this.scheduleNext(backoffDelayMs(this.options.backoff, this.consecutiveFailures));
   }
 
   stop(): void {
@@ -131,8 +150,23 @@ export class Poller {
     this.timer = undefined;
   }
 
-  /** One attempt. Exposed for tests; the loop calls it. */
+  /**
+   * One attempt. Exposed for tests, and for the collector's probe of a stopped
+   * preferred source.
+   *
+   * Skips if a request is already outstanding, so a probe can never overlap the loop.
+   */
   async pollOnce(): Promise<void> {
+    if (this.inFlight) return;
+    this.inFlight = true;
+    try {
+      await this.attempt();
+    } finally {
+      this.inFlight = false;
+    }
+  }
+
+  private async attempt(): Promise<void> {
     const url = this.url();
     try {
       const body = await this.deps.fetchJson(url, {
@@ -159,8 +193,12 @@ export class Poller {
 
   private scheduleNext(delayMs: number): void {
     if (this.stopped) return;
+    // Only ever one pending timer.
+    if (this.timer !== undefined) clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       void this.pollOnce().finally(() => {
+        // `stopped` is re-read here, not captured: a stop during the request must
+        // end the loop, and a stop-then-start must leave exactly this one loop.
         this.scheduleNext(this.nextDelayMs());
       });
     }, delayMs);

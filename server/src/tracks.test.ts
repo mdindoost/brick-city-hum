@@ -19,6 +19,7 @@ function observation(overrides: Partial<Observation> = {}): Observation {
     callsign: 'UAL1810',
     typeCode: 'B738',
     source: 'adsb.lol',
+    positionAgeS: 0.4,
     ...overrides,
   };
 }

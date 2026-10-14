@@ -73,11 +73,17 @@ function main(): void {
       // SPEC §3.5 and §11.3: an external monitor watches this. It reports 503 when
       // no source is healthy, so a silent collector failure pages us instead of
       // looking like a quiet city.
+      const now = Date.now();
+      const recorderStats = recorder.stats();
       const body = {
-        ok: health.anyHealthy(),
+        // Not just "a source is ok" but "a source succeeded recently" — see
+        // HealthRegistry.anyHealthy. A recorder that has started failing its writes
+        // also makes this false, because recording is the deliverable in Phase 0.
+        ok: health.anyHealthy(now) && recorderStats.failures === 0,
         activeSource: aircraft.currentSourceId() ?? null,
         trackedAircraft: aircraft.tracks.size,
         recordingDay: recorder.today(),
+        recorder: recorderStats,
         sources: health.all(),
       };
       response

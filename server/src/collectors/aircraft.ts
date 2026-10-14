@@ -38,16 +38,19 @@ export interface AircraftCollectorOptions {
 }
 
 export class AircraftCollector {
+  /** Supervisor ticks between probes of the preferred source while on a fallback. */
+  private static readonly PROBE_EVERY_TICKS = 4;
+
   readonly tracks: TrackStore;
   private readonly pollers = new Map<string, Poller>();
   private readonly order: string[] = [];
   private activeIndex = 0;
   private supervisor: NodeJS.Timeout | undefined;
-  private readonly now: () => number;
+  private supervisorTicks = 0;
+  private probing = false;
 
   constructor(private readonly options: AircraftCollectorOptions) {
     const aircraft = options.sources.aircraft;
-    this.now = options.deps?.now ?? Date.now;
     this.tracks = new TrackStore({
       maxObservations: aircraft.track.max_observations,
       expireAfterMs: aircraft.track.expire_after_s * 1000,
@@ -100,11 +103,16 @@ export class AircraftCollector {
     receivedAt: number,
     sourceId: string,
   ): { count: number; skipped: number } {
-    const { observations, rawForRecording, skipped } = parseAdsbResponse(
+    const { observations, rawForRecording, skipped, total, sourceNow } = parseAdsbResponse(
       body,
       receivedAt,
       sourceId,
     );
+    if (skipped > 0) {
+      console.warn(
+        `[aircraft] ${sourceId}: ${String(skipped)} of ${String(total)} entries unparseable`,
+      );
+    }
 
     for (const observation of observations) {
       this.tracks.add(observation);
@@ -115,7 +123,12 @@ export class AircraftCollector {
     // raw-minus-identity so §3.2's thresholds can be re-tuned without another 48
     // hours of waiting. Identity was already stripped by the parser (§3.7).
     this.options.recorder.recordObservations(observations, receivedAt);
-    this.options.recorder.recordRaw(sourceId, rawForRecording, receivedAt);
+    this.options.recorder.recordRaw(sourceId, rawForRecording, receivedAt, sourceNow);
+    // Always record that a poll happened, even an empty one. Without this the
+    // recordings cannot distinguish "empty sky at 4 a.m." from "we were not
+    // polling" — a distinction the simulator (§3.5) and the P0-8 validation both
+    // depend on.
+    this.options.recorder.recordPoll(sourceId, receivedAt, observations.length, skipped, total);
     this.options.onObservations?.(observations, receivedAt);
 
     return { count: observations.length, skipped };
@@ -126,14 +139,24 @@ export class AircraftCollector {
   }
 
   /**
-   * Fail over when the active source is down, and drift back when a better one
-   * recovers. Preference order is the config order, so adsb.lol is used whenever it
-   * is healthy even if adsb.fi is currently carrying us.
+   * Fail over when the active source is down, and probe the preferred source so we
+   * can come back.
+   *
+   * The probe is the point. A stopped poller never polls, so its health is frozen at
+   * whatever it was when we left it — without an explicit probe, "drift back when the
+   * preferred source recovers" is unreachable code, and one 30-second network blip at
+   * hour 3 would pin the remaining 45 hours of a Phase 0 recording to the fallback,
+   * silently changing the poll cadence mid-dataset.
+   *
+   * Probing costs one request per `PROBE_EVERY_TICKS` supervisor ticks, and only
+   * while we are on a fallback.
    */
   private supervise(): void {
+    this.supervisorTicks += 1;
     const activeId = this.activeId;
     if (activeId === undefined) return;
 
+    // A healthier, more-preferred source has come back: return to it.
     const preferred = this.order.findIndex((id) => this.options.health.get(id)?.state === 'ok');
     if (preferred !== -1 && preferred < this.activeIndex) {
       this.switchTo(preferred, `${this.order[preferred] ?? '?'} recovered`);
@@ -144,6 +167,29 @@ export class AircraftCollector {
       const next = (this.activeIndex + 1) % this.order.length;
       if (next !== this.activeIndex) {
         this.switchTo(next, `${activeId} is down`);
+        return;
+      }
+    }
+
+    // On a fallback and nothing better is known-good: take one probe at the
+    // preferred source so its health can change.
+    if (
+      this.activeIndex > 0 &&
+      !this.probing &&
+      this.supervisorTicks % AircraftCollector.PROBE_EVERY_TICKS === 0
+    ) {
+      const preferredId = this.order[0];
+      const poller = preferredId === undefined ? undefined : this.pollers.get(preferredId);
+      if (poller !== undefined) {
+        this.probing = true;
+        void poller
+          .pollOnce()
+          .finally(() => {
+            this.probing = false;
+          })
+          .catch(() => {
+            /* pollOnce never throws; health carries the outcome. */
+          });
       }
     }
   }
@@ -179,9 +225,5 @@ export class AircraftCollector {
   /** Exposed for tests and the admin page (§9.5). */
   currentSourceId(): string | undefined {
     return this.activeId;
-  }
-
-  lastExpiryCheck(): number {
-    return this.now();
   }
 }

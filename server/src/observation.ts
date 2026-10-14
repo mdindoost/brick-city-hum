@@ -11,16 +11,19 @@
 import { z } from 'zod';
 
 /**
- * ADS-B emitter category. SPEC §3.2 keys two rules off this: A7 is a helicopter and
- * gets its own timbre, A5 is a heavy and gets a lower, longer voice.
+ * ADS-B emitter category, e.g. `A3`. SPEC §3.2 keys two rules off this: A7 is a
+ * helicopter and gets its own timbre, A5 is a heavy and gets a lower, longer voice.
  *
- * Kept as a plain string rather than an enum: it comes from an external source and
- * an unknown value must degrade to "no category" rather than break a poll.
+ * Kept as a plain string rather than an enum, because it comes from an external
+ * source and an unknown value must degrade to "no category" rather than break a poll.
+ *
+ * **The category values themselves live in `config/sources.yaml`** under
+ * `detection.helicopter.emitter_category` and `detection.heavy.emitter_category`
+ * (SPEC §5: no tuning value in code). An earlier version declared them here as well,
+ * which meant editing the YAML changed nothing. The detector (P0-5) reads them from
+ * config.
  */
 export type EmitterCategory = string;
-
-export const HELICOPTER_CATEGORY = 'A7';
-export const HEAVY_CATEGORY = 'A5';
 
 /**
  * How we may identify an aircraft, per SPEC §3.2's privacy rule:
@@ -35,32 +38,51 @@ export const HEAVY_CATEGORY = 'A5';
  */
 export type IdentityKind = 'airline' | 'private';
 
-export interface Observation {
+/**
+ * The validated shape of an observation.
+ *
+ * `Observation` is derived from this schema rather than declared separately: an
+ * earlier version had both, hand-mirrored, with nothing tying them together — so the
+ * schema could silently drift from the type it was supposed to validate, and P0-3's
+ * acceptance criterion ("ndjson lines validate against the schema") was not actually
+ * being met by anything.
+ */
+export const observationSchema = z.object({
   /** ICAO 24-bit address, lowercase hex. Our track key. Not publicly identifying. */
-  readonly icao: string;
-  /** Server epoch ms when this observation was received. */
-  readonly t: number;
-  readonly lat: number;
-  readonly lon: number;
-  /** Barometric altitude in feet, or `null` when the aircraft is on the ground. */
-  readonly altFt: number | null;
-  /** True when the source reported the aircraft as on the ground. */
-  readonly onGround: boolean;
+  icao: z.string().min(1),
+  /**
+   * Best estimate of when this position was true, in epoch ms (SPEC §4).
+   *
+   * Not simply the receive time: adsb.lol reports `seen_pos`, the age of the position
+   * fix, which runs to tens of seconds for parked aircraft. Backdating by it means a
+   * stale repeat is recognisable as the same observation instead of looking like a
+   * fresh one at a new time.
+   */
+  t: z.number().int().positive(),
+  lat: z.number().min(-90).max(90),
+  lon: z.number().min(-180).max(180),
+  /** Barometric altitude in feet, or `null` when on the ground or unknown. */
+  altFt: z.number().nullable(),
+  onGround: z.boolean(),
   /** Vertical rate in ft/min, positive climbing. `null` when not reported. */
-  readonly verticalRateFpm: number | null;
+  verticalRateFpm: z.number().nullable(),
   /** Ground speed in knots. `null` when not reported. */
-  readonly groundSpeedKt: number | null;
-  readonly category: EmitterCategory | null;
-  readonly identity: IdentityKind;
+  groundSpeedKt: z.number().nullable(),
+  category: z.string().nullable(),
+  identity: z.enum(['airline', 'private']),
   /**
    * Operator flight number, e.g. `UAL1810`. Always `null` when
    * `identity === 'private'` — see SPEC §3.2 and §3.7.
    */
-  readonly callsign: string | null;
+  callsign: z.string().nullable(),
   /** Aircraft type code, e.g. `B738`. Permitted for every aircraft. */
-  readonly typeCode: string | null;
-  readonly source: string;
-}
+  typeCode: z.string().nullable(),
+  source: z.string().min(1),
+  /** Age of the position fix in seconds, as reported. Kept for tuning. */
+  positionAgeS: z.number().nullable(),
+});
+
+export type Observation = z.infer<typeof observationSchema>;
 
 /**
  * An ICAO airline callsign: a three-letter operator code followed by a flight
@@ -94,28 +116,4 @@ export function classifyCallsign(raw: string | null | undefined): {
     return { identity: 'airline', callsign: trimmed };
   }
   return { identity: 'private', callsign: null };
-}
-
-export const observationSchema = z.object({
-  icao: z.string().min(1),
-  t: z.number().int().positive(),
-  lat: z.number().min(-90).max(90),
-  lon: z.number().min(-180).max(180),
-  altFt: z.number().nullable(),
-  onGround: z.boolean(),
-  verticalRateFpm: z.number().nullable(),
-  groundSpeedKt: z.number().nullable(),
-  category: z.string().nullable(),
-  identity: z.enum(['airline', 'private']),
-  callsign: z.string().nullable(),
-  typeCode: z.string().nullable(),
-  source: z.string().min(1),
-});
-
-export function isHelicopter(observation: Observation): boolean {
-  return observation.category === HELICOPTER_CATEGORY;
-}
-
-export function isHeavy(observation: Observation): boolean {
-  return observation.category === HEAVY_CATEGORY;
 }

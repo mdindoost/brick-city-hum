@@ -85,8 +85,21 @@ export class HealthRegistry {
     return [...this.sources.values()];
   }
 
-  /** True when at least one source is currently healthy. */
-  anyHealthy(): boolean {
-    return this.all().some((source) => source.state === 'ok');
+  /**
+   * True when at least one source is healthy **and recently so**.
+   *
+   * The staleness bound is the point. `ok` alone never ages, so if the poll loop ever
+   * stopped rescheduling, /healthz would keep answering 200 with an hours-old
+   * `lastSuccessAt` — and an external monitor (§11.3) could not tell a stalled
+   * recorder from a quiet city, which is the one thing §3.5 says health exists to
+   * prevent.
+   */
+  anyHealthy(now: number = Date.now(), maxAgeMs = 120_000): boolean {
+    return this.all().some(
+      (source) =>
+        source.state === 'ok' &&
+        source.lastSuccessAt !== null &&
+        now - source.lastSuccessAt <= maxAgeMs,
+    );
   }
 }
