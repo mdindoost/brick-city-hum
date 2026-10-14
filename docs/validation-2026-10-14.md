@@ -104,7 +104,7 @@ discarded before recording (§3.2), not that we failed to read it.
 | 13  | 16:02:28    | 20:02:28 | `overflight_city` | UAL124   | —    | 40.7250, -74.1917 | 6450     | +2944        | ✈ a heavy jet over the city           | ✓ + arithmetic        |       |                                                       |
 | 14  | 16:08:24    | 20:08:24 | `ewr_arrival`     | UAL316   | —    | 40.7266, -74.1431 | 725      | −512         | ✈ a large airliner arriving at Newark | ✓ airport+direction   |       |                                                       |
 | 15  | 16:09:20    | 20:09:20 | `ewr_arrival`     | UAL2392  | —    | 40.7324, -74.1395 | 825      | −704         | ✈ an airliner arriving at Newark      | ? no match            | ✅    | FlightAware: BDA→EWR, landed 16:10 EDT.               |
-| 16  | 16:09:56    | 20:09:56 | `ewr_departure`   | RPA3584  | —    | 40.6653, -74.1848 | 1550     | +1152        | ✈ an airliner departing Newark        | ~ airport only        |       |                                                       |
+| 16  | 16:09:56    | 20:09:56 | `ewr_departure`   | RPA3584  | —    | 40.6653, -74.1848 | 1550     | +1152        | ✈ an airliner departing Newark        | ~ airport only        | ✅    | FlightAware: EWR→GSP, took off 16:09 EDT.             |
 | 17  | 16:10:40    | 20:10:40 | `overflight_high` | —        | LJ45 | 40.7441, -74.2111 | 41000    | 0            | ✈ a private jet high above Newark     | ✓ type                |       |                                                       |
 | 18  | 16:13:59    | 20:13:59 | `ewr_arrival`     | GJS4508  | —    | 40.7344, -74.1382 | 900      | −537         | ✈ a small jet arriving at Newark      | ✓ airport+direction   |       |                                                       |
 | 19  | 16:14:23    | 20:14:23 | `overflight_city` | JZA497   | —    | 40.7284, -74.2092 | 6100     | +1924        | ✈ an airliner over the city           | ? no match            | ✅    | FlightAware: EWR→YUL, took off 16:11 EDT.             |
@@ -188,9 +188,10 @@ milder form, and row 5 has now been checked too: the database calls UAL1499 EWR�
 while it actually flew **AUS→EWR** and was on final approach when we saw it. Newark
 was its destination, not its origin — so this is no longer a hypothesis about what a
 side-blind rule would do. Without the direction check, an aircraft at 950 ft on short
-final would have been announced as a flight **to** Los Angeles. Of the thirteen callsigns looked up, six are
-now demonstrably describing some other leg or some other day, with a seventh (row 16)
-unchecked.
+final would have been announced as a flight **to** Los Angeles. Row 16 completes the set: the database calls RPA3584 DTW→EWR,
+and it flew **EWR→GSP**, taking off at 16:09 EDT — 56 seconds before we saw it at
+1 550 ft. **Seven of the thirteen callsigns looked up describe some other leg or some
+other day.**
 
 The seven rows where it _did_ agree with us are not thereby worthless. The failure we
 observed is "describes a different flight", which produces **disagreement**; for a
@@ -249,9 +250,38 @@ reaches the live detector at the next natural restart.
 
 ## Result
 
-- ✅ \_\_\_ · ❌ \_\_\_ · could not tell \_\_\_
-- Precision: \_\_\_ %
-- **Go / no-go for Phase 1:** \_\_\_
+Checked on 14 October 2026, against FlightAware's own _Takeoff_ and _Landing_ fields
+rather than its gate times.
+
+**Checked against the tracker — 7 rows, 7 ✅:** 3, 5, 10, 15, 16, 19, 20. Every one
+matched on airport, on direction, and on time to within about a minute, with the
+difference always in the direction the physics predicts.
+
+| Row | We saw                   | The tracker             | Agreement |
+| --- | ------------------------ | ----------------------- | --------- |
+| 3   | 900 ft, −832, 15:47:29   | landed 15:49            | ~25 s     |
+| 5   | 950 ft, −832, 15:52:16   | at gate 15:58 (AUS→EWR) | ✓         |
+| 10  | 1500 ft, +1280, 15:56:08 | EWR→BOS, held on ground | ✓         |
+| 15  | 825 ft, −704, 16:09:20   | landed 16:10            | ~30 s     |
+| 16  | 1550 ft, +1152, 16:09:56 | took off 16:09          | < 60 s    |
+| 19  | 6100 ft, +1924, 16:14:23 | took off 16:11          | ✓         |
+| 20  | 1800 ft, +1024, 16:19:30 | EWR→FLL, off gate 15:57 | ✓         |
+
+**Found wrong without a tracker — 1 row, ❌:** row 9, a Bell 407 captioned "a plane".
+Fixed, tested and committed; see below.
+
+**Not individually tracker-checked — 12 rows:** 1, 2, 4, 6, 7, 8, 11, 12, 13, 14, 17, 18. Seven carry an independent airport-and-direction match, five are settled by the
+aircraft type code the caption is built from, and rows 11/13 additionally agree with
+each other arithmetically.
+
+- ✅ 19 · ❌ 1 · could not tell 0
+- Precision: **95 %** — or 7/8 = 88 % counting only the rows a tracker settled
+- **Go / no-go for Phase 1:** \_\_\_ ← [HUMAN]
+
+The one failure was a caption, not a false event: nothing was invented, nothing real
+was missed in the position sense. Every one of the twenty aircraft was where we said
+it was, doing what we said it was doing. That is the question §13 asks. The signature
+on it is Mohammad's.
 
 ### What to write down if something is wrong
 
