@@ -124,6 +124,9 @@ export class Detector {
       previous !== undefined &&
       !previous.onGround &&
       current.onGround &&
+      // On the airport, not merely near it. The wider gate below is for spotting an
+      // approach; a touchdown 3 nm away is at some other field.
+      distanceToEwr <= nauticalMilesToKm(detection.ewr_arrival.landing_within_nm_of_ewr) &&
       (current.verticalRateFpm ?? 0) <= detection.ewr_arrival.max_landing_climb_fpm &&
       (current.groundSpeedKt ?? 0) <= detection.ewr_arrival.max_landing_speed_kt;
     if (

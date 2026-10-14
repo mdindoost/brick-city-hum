@@ -660,3 +660,25 @@ built from 51 real events produced 9 for a ten-minute window, every one marked.
 
 **`/healthz` reports the simulator but is not made healthy by it.** A monitor must
 still be able to tell a live city from a replay of one.
+
+## 2026-10-14 · P0-8: the validation harness found a false caption before a human did
+
+`lab/validate.ts` samples detected events stratified by type — so a rare type like a
+helicopter is checked even though it is a small share of traffic, which is exactly
+where a detector tends to be wrong — and writes a table for Mohammad to check against
+a public flight tracker. It calls no tracking API: those terms are a separate question
+we have not asked, and the point of §13's gate is a human looking at a tracker, not a
+machine agreeing with itself. Simulated events are excluded, since validating a replay
+against a tracker would be checking our recording against itself.
+
+**On its first run it surfaced a real defect.** Row 3 read *"a small helicopter
+arriving at Newark"* at 40.7304, −74.1169 — a Jersey City heliport, 3.2 nm from EWR.
+Inside §3.2's 6 nm arrival gate, and not Newark. The reviewer had flagged this as
+*suspected*; the table confirmed it on real data.
+
+The fix splits the two arrival branches, which were always doing different jobs: the
+6 nm gate is right for spotting an **approach** — the aircraft is on its way in and
+audibly so — but a **touchdown** must be on the airport. EWR's furthest runway
+threshold is about 1 nm from the airport reference point, so 2 nm covers the field and
+excludes the surrounding heliports. Re-replayed over the real recording afterwards:
+zero touchdowns captioned as Newark from more than 2 nm away.

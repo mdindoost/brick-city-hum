@@ -565,3 +565,49 @@ describe('captions come from config, not from code', () => {
     }
   });
 });
+
+describe('an arrival must be AT Newark, not merely near it', () => {
+  it('does not caption a touchdown at a nearby heliport as arriving at Newark', () => {
+    // Found by the P0-8 validation table on real data: a helicopter landing at
+    // 40.7304, -74.1169 — a Jersey City heliport about 3.2 nm from EWR, inside the
+    // 6 nm approach gate — was captioned "a small helicopter arriving at Newark".
+    // §1.2: every sound is true.
+    const heliport = { lat: 40.7304, lon: -74.1169 };
+    const events = detector().detect(
+      track(
+        [
+          { altFt: 300, verticalRateFpm: -320, groundSpeedKt: 40, category: 'A7' },
+          { onGround: true, altFt: null, verticalRateFpm: null, groundSpeedKt: 2, category: 'A7' },
+        ],
+        heliport,
+      ),
+    );
+    expect(events.map((e) => e.type)).not.toContain('ewr_arrival');
+  });
+
+  it('still catches a touchdown on the airport itself', () => {
+    const events = detector().detect(
+      track([
+        { altFt: 200, verticalRateFpm: -400, groundSpeedKt: 130 },
+        { onGround: true, altFt: null, verticalRateFpm: null, groundSpeedKt: 30 },
+      ]),
+    );
+    expect(events.map((e) => e.type)).toContain('ewr_arrival');
+  });
+
+  it('still catches an approach descending through the gate further out', () => {
+    // The wider 6 nm gate is correct for an approach — the aircraft is on its way in
+    // and audibly so. Only the touchdown branch is tightened.
+    const approach = { lat: EWR.lat + 0.07, lon: EWR.lon };
+    const events = detector().detect(
+      track(
+        [
+          { altFt: 2500, verticalRateFpm: -800 },
+          { altFt: 900, verticalRateFpm: -700 },
+        ],
+        approach,
+      ),
+    );
+    expect(events.map((e) => e.type)).toContain('ewr_arrival');
+  });
+});

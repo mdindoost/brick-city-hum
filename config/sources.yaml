@@ -82,6 +82,13 @@ detection:
     # enough to be on a surface.
     max_landing_climb_fpm: 100
     max_landing_speed_kt: 80
+    # A touchdown must be ON the airport, not merely near it. The 6 nm gate above is
+    # right for spotting an APPROACH, but a helicopter landing at a Jersey City
+    # heliport 3.2 nm away was captioned "arriving at Newark" — found by the P0-8
+    # validation table before a human had to. EWR's furthest runway threshold is
+    # about 1 nm from the airport reference point, so 2 nm covers the field with room
+    # to spare while excluding the surrounding heliports.
+    landing_within_nm_of_ewr: 2
   overflight_city:
     within_km_of_origin: 3
     below_ft: 10000

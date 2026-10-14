@@ -169,6 +169,7 @@ const sourcesSchema = z.object({
       max_descent_fpm: z.number().negative(),
       max_landing_climb_fpm: z.number(),
       max_landing_speed_kt: z.number().positive(),
+      landing_within_nm_of_ewr: z.number().positive(),
     }),
     overflight_city: z.object({
       within_km_of_origin: z.number().positive(),
