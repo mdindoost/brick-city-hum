@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Blocks email addresses from entering tracked files.
+#
+# Why: SPEC §9.1 keeps the contact address in .env because this repo is public.
+# Git history is permanent — a single accidental commit cannot be undone without
+# rewriting history, so the cheapest fix is to never let it in.
+#
+# This hook deliberately contains NO email address itself. It reads the one to
+# protect from .env (gitignored) and otherwise matches any address generically.
+#
+# Enable in a fresh clone:  git config core.hooksPath .githooks
+# Bypass once, knowingly:   git commit --no-verify
+
+set -uo pipefail
+repo_root="$(git rev-parse --show-toplevel)"
+allow_file="$repo_root/.githooks/allowed-emails"
+fail=0
+
+# Added lines only, from staged changes. Strip the leading '+'.
+added="$(git diff --cached -U0 --no-color --diff-filter=ACMR -- . \
+         | grep -E '^\+' | grep -vE '^\+\+\+' | sed 's/^\+//' || true)"
+[ -z "$added" ] && exit 0
+
+allowed_re=''
+if [ -f "$allow_file" ]; then
+  allowed_re="$(grep -vE '^\s*(#|$)' "$allow_file" \
+                | sed 's/[][\.*^$(){}?+|/]/\\&/g' | paste -sd'|' -)"
+fi
+
+filter_allowed() {
+  if [ -n "$allowed_re" ]; then grep -vE "$allowed_re"; else cat; fi
+}
+
+# 1. The specific address from .env — the one we most need to protect.
+if [ -f "$repo_root/.env" ]; then
+  contact="$(grep -E '^\s*CONTACT_EMAIL\s*=' "$repo_root/.env" \
+             | head -1 | cut -d= -f2- | tr -d ' "'"'"'' || true)"
+  if [ -n "$contact" ]; then
+    esc="$(printf '%s' "$contact" | sed 's/[][\.*^$(){}?+|/]/\\&/g')"
+    if printf '%s\n' "$added" | grep -qiE "$esc"; then
+      echo "pre-commit: BLOCKED — your CONTACT_EMAIL from .env appears in staged changes."
+      echo "  It belongs in .env only; read it at runtime via process.env.CONTACT_EMAIL."
+      fail=1
+    fi
+  fi
+fi
+
+# 2. Any other email-shaped string.
+hits="$(printf '%s\n' "$added" \
+        | grep -oiE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' \
+        | filter_allowed | sort -u || true)"
+if [ -n "$hits" ]; then
+  echo "pre-commit: BLOCKED — email address(es) in staged changes:"
+  printf '    %s\n' $hits
+  echo "  This repo is public and git history is permanent."
+  echo "  Keep addresses in .env, or allow a deliberate one in .githooks/allowed-emails."
+  fail=1
+fi
+
+[ "$fail" -ne 0 ] && { echo; echo "  Override only if you are sure:  git commit --no-verify"; exit 1; }
+exit 0

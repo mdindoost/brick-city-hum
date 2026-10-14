@@ -1,0 +1,3 @@
+# Email addresses that ARE allowed to appear in tracked files, one per line.
+# Everything else is blocked by .githooks/pre-commit. Keep this list short.
+noreply@anthropic.com
