@@ -103,11 +103,11 @@ discarded before recording (§3.2), not that we failed to read it.
 | 12  | 16:01:54    | 20:01:54 | `ewr_arrival`     | GJS4560  | —    | 40.7383, -74.1356 | 1000     | −576         | ✈ a small jet arriving at Newark      | ✓ airport+direction   |       |                                                       |
 | 13  | 16:02:28    | 20:02:28 | `overflight_city` | UAL124   | —    | 40.7250, -74.1917 | 6450     | +2944        | ✈ a heavy jet over the city           | ✓ + arithmetic        |       |                                                       |
 | 14  | 16:08:24    | 20:08:24 | `ewr_arrival`     | UAL316   | —    | 40.7266, -74.1431 | 725      | −512         | ✈ a large airliner arriving at Newark | ✓ airport+direction   |       |                                                       |
-| 15  | 16:09:20    | 20:09:20 | `ewr_arrival`     | UAL2392  | —    | 40.7324, -74.1395 | 825      | −704         | ✈ an airliner arriving at Newark      | ? no match            |       |                                                       |
+| 15  | 16:09:20    | 20:09:20 | `ewr_arrival`     | UAL2392  | —    | 40.7324, -74.1395 | 825      | −704         | ✈ an airliner arriving at Newark      | ? no match            | ✅    | FlightAware: BDA→EWR, landed 16:10 EDT.               |
 | 16  | 16:09:56    | 20:09:56 | `ewr_departure`   | RPA3584  | —    | 40.6653, -74.1848 | 1550     | +1152        | ✈ an airliner departing Newark        | ~ airport only        |       |                                                       |
 | 17  | 16:10:40    | 20:10:40 | `overflight_high` | —        | LJ45 | 40.7441, -74.2111 | 41000    | 0            | ✈ a private jet high above Newark     | ✓ type                |       |                                                       |
 | 18  | 16:13:59    | 20:13:59 | `ewr_arrival`     | GJS4508  | —    | 40.7344, -74.1382 | 900      | −537         | ✈ a small jet arriving at Newark      | ✓ airport+direction   |       |                                                       |
-| 19  | 16:14:23    | 20:14:23 | `overflight_city` | JZA497   | —    | 40.7284, -74.2092 | 6100     | +1924        | ✈ an airliner over the city           | ? no match            |       |                                                       |
+| 19  | 16:14:23    | 20:14:23 | `overflight_city` | JZA497   | —    | 40.7284, -74.2092 | 6100     | +1924        | ✈ an airliner over the city           | ? no match            | ✅    | FlightAware: EWR→YUL, took off 16:11 EDT.             |
 | 20  | 16:19:30    | 20:19:30 | `ewr_departure`   | JBU685   | —    | 40.6470, -74.1910 | 1800     | +1024        | ✈ an airliner departing Newark        | ? no match            |       |                                                       |
 
 ### The five rows that most need a tracker
@@ -159,6 +159,46 @@ evidence: **a gate time is not a wheels-off time**, and the two differed by an h
 here. We read ADS-B, so our timestamp is the physical event; a schedule describes the
 door. Where a tracker page offers both, the one to compare against is its own
 _Takeoff_ / _Landing_ field, not the gate row.
+
+## Checked against a tracker: rows 15 and 19, and what they say about route data
+
+**Row 15.** UAL2392 came from Bermuda and FlightAware's own _Landing_ field gives
+**16:10 EDT**. We saw it at 16:09:20 at 825 ft descending 704 ft/min — 70 seconds from
+the ground, so touchdown at about 16:10:30. **✅**
+
+**Row 19.** JZA497 left Newark for Montreal, _Takeoff_ **16:11 EDT**. We saw it at
+16:14:23 at 6 100 ft: 203 seconds after lift-off, an average climb of 1 803 ft/min
+against the 1 924 ft/min we read at that instant. **✅**
+
+### The schedule database was wrong four times out of four
+
+Every row where that date-less database failed to put Newark in the route has now been
+checked, and in all four the database was simply describing a different flight:
+
+| Callsign | The database | What actually flew |
+| -------- | ------------ | ------------------ |
+| ASA295   | LAX→SEA      | **SEA→EWR**        |
+| RPA5829  | JFK→DCA      | **EWR→BOS**        |
+| UAL2392  | PHX→SFO      | **BDA→EWR**        |
+| JZA497   | YSJ→YYZ      | **EWR→YUL**        |
+
+Four for four, and two more rows (5 and 16) have Newark on the wrong side, which is
+the same failure in a milder form. Of the thirteen callsigns looked up, six are
+demonstrably describing some other leg or some other day.
+
+This matters for Phase 1, where §3.2 promises the route for airline flights. A
+callsign-keyed route lookup with no date is not a source of truth — and the only thing
+that stopped us announcing "an airliner to Seattle" over an aircraft on final approach
+from Seattle is §3.2's requirement that an endpoint match the airport we observed. It
+suppressed all four. Two conclusions, both for Mohammad:
+
+- **Keep the endpoint-match rule, and tighten it** as already logged: the matching
+  endpoint must be on the correct side (destination for an arrival, origin for a
+  departure). On this sample that rule is doing nearly all the work.
+- **A route we cannot verify should not be spoken.** If Phase 1 wants routes, it needs
+  a dated source; otherwise the honest caption is the type-based one we already have,
+  which was correct in all twenty rows. §1.2 — every sound is true — is better served
+  by saying less.
 
 ## The defect this table found: row 9
 
