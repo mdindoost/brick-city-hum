@@ -130,6 +130,40 @@ counts), spectrogram **images**, and `docs/music/listening-log.md`. **Never writ
 imply that you listened to anything.** Every musical change needs a human A/B win
 (§7.5) before adoption.
 
+## This machine — operational constraints (read before any system command)
+
+**The development laptop is a live machine running other people's work.** Mohammad
+cannot easily restart it: it has had multi-day uptime, open working sessions, and
+other services running. Treat it as production hardware belonging to someone else.
+
+**Never, without explicitly asking first and getting a yes:**
+
+- reboot, shut down, or suspend the machine
+- do anything that _requires_ a reboot to take effect
+- change system configuration — `systemd` units, sleep and lid-close behaviour,
+  automatic update reboots. **SPEC §11.3 asks for several of these** (disable sleep,
+  schedule 4 a.m. update reboots, run `cloudflared` as a service). Build what can be
+  built, and **ask before touching any of them.**
+- kill a process, stop a service, or take a port that belongs to something else
+
+**Docker needs particular care.** Another project's database container runs here
+(`pishkar-db`, postgres:16, multi-day uptime). Therefore:
+
+- **Never** `docker system prune`, `docker volume prune`, or `docker image prune` —
+  these can destroy another project's data, and nothing we need requires them.
+- **Never** `docker stop`, `docker rm` or `docker compose down` on anything this
+  project did not start. Always name our compose project explicitly
+  (`-p brick-city-hum`) and run compose commands from this repo's directory.
+- Our container restart policy (`restart: unless-stopped`) restarts **the container**,
+  never the host. Keep that distinction clear when explaining it.
+
+**Ports:** check with `ss -ltnp` before binding. 8081 is in use by another service.
+We default to 8080 and read `PORT` from the environment.
+
+**Features that need a reboot to verify** (e.g. §11.3's "comes back after a reboot")
+are built but **not tested** — testing them costs a reboot that is not ours to spend.
+Verify opportunistically the next time Mohammad restarts for his own reasons.
+
 ## Working rhythm
 
 Phase by phase (§13). Do not start a phase until the previous phase's acceptance
