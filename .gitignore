@@ -1,0 +1,36 @@
+# secrets — never commit (SPEC §9.1)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# recorded city data — large, regenerable, capped at 30 days (SPEC §11.3)
+data/recordings/*
+!data/recordings/.gitkeep
+
+# lab render output — WAVs and PNGs are large; reports/*.md ARE committed
+lab/renders/
+lab/reports/*.wav
+lab/reports/*.png
+
+# deps / build
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+.vite/
+
+# python (lab/analyze.py)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# logs / os / editor
+*.log
+npm-debug.log*
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
