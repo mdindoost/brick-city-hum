@@ -13,6 +13,8 @@
  */
 
 import type { PlacesConfig, SourcesConfig } from '../config.js';
+import { Detector } from '../detector.js';
+import type { CityEvent } from '../events.js';
 import type { HealthRegistry } from '../health.js';
 import type { Observation } from '../observation.js';
 import { Poller, fetchJson } from '../poller.js';
@@ -33,8 +35,10 @@ export interface AircraftCollectorOptions {
   readonly recorder: Recorder;
   readonly userAgent: string;
   readonly deps?: AircraftCollectorDeps;
-  /** Called with each poll's observations — the detector hooks in here (P0-5). */
+  /** Called with each poll's observations. */
   readonly onObservations?: (observations: readonly Observation[], receivedAt: number) => void;
+  /** Called with the events this poll produced. The event bus hooks in here (Phase 1). */
+  readonly onEvents?: (events: readonly CityEvent[], receivedAt: number) => void;
 }
 
 export class AircraftCollector {
@@ -42,6 +46,8 @@ export class AircraftCollector {
   private static readonly PROBE_EVERY_TICKS = 4;
 
   readonly tracks: TrackStore;
+  readonly detector: Detector;
+  private eventsEmitted = 0;
   private readonly pollers = new Map<string, Poller>();
   private readonly order: string[] = [];
   private activeIndex = 0;
@@ -55,6 +61,7 @@ export class AircraftCollector {
       maxObservations: aircraft.track.max_observations,
       expireAfterMs: aircraft.track.expire_after_s * 1000,
     });
+    this.detector = new Detector({ places: options.places, sources: options.sources });
 
     for (const source of aircraft.sources) {
       if (!source.enabled) continue;
@@ -114,10 +121,25 @@ export class AircraftCollector {
       );
     }
 
+    // Detect as each observation lands, because detection is about the transition
+    // between consecutive observations — a departure is only visible as a crossing.
+    const events: CityEvent[] = [];
     for (const observation of observations) {
-      this.tracks.add(observation);
+      const history = this.tracks.add(observation);
+      events.push(...this.detector.detect(history));
     }
     this.tracks.expire(receivedAt);
+    // Keep detector state in step with the track store, or per-aircraft fired-event
+    // state would accumulate for every aircraft ever seen.
+    this.detector.retainOnly(this.tracks.icaos());
+    this.eventsEmitted += events.length;
+    if (events.length > 0) {
+      this.options.recorder.recordEvents(events, receivedAt);
+      this.options.onEvents?.(events, receivedAt);
+      for (const event of events) {
+        console.log(`[event] ${event.type} salience=${event.salience.toFixed(2)} ${event.caption}`);
+      }
+    }
 
     // Both records are written: observations for the simulator and the lab (§3.5),
     // raw-minus-identity so §3.2's thresholds can be re-tuned without another 48
@@ -225,5 +247,9 @@ export class AircraftCollector {
   /** Exposed for tests and the admin page (§9.5). */
   currentSourceId(): string | undefined {
     return this.activeId;
+  }
+
+  eventCount(): number {
+    return this.eventsEmitted;
   }
 }

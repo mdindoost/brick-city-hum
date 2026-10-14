@@ -480,3 +480,61 @@ attention" is recovered in the music rather than in the text.
 are unaffected: private (tail-number) callsigns are already discarded, and
 airline-pattern callsigns stay in the local, gitignored recordings for provenance and
 tuning, where they are never published.
+
+## 2026-10-14 · P0-5: event detection, and a deliberate strengthening of §3.2
+
+**Edge detection, not state.** An aircraft climbing through the departure gate is
+visible on several consecutive polls, so testing `altitude > gate` would retrigger
+the same departure every 10 seconds. Every rule fires on a _transition_: crossing the
+gate while climbing, entering a zone, transitioning to the ground.
+
+**Hysteresis on zone exit** (`exit_hysteresis_km`, new in config). §6.4 holds a
+sustained voice while an aircraft is inside the 3 km circle, so an aircraft loitering
+on the boundary would restart that voice every poll. An aircraft must get clear of the
+boundary by the hysteresis margin before it can trigger again — but a genuine second
+pass still counts as a new event.
+
+**§3.2's departure rule is strengthened, deliberately and with a flag.** As written it
+is "within 4 nm of EWR, altitude rises through 1,500 ft with vertical rate > +500
+ft/min, and the previous observation was on ground or below 500 ft". A **go-around**
+satisfies all of that: descend to 300 ft, do not land, climb away. At a busy airport
+that is routine rather than exotic, and it would be captioned as a departure that
+never happened — a direct breach of §1.2, "every sound is true". So a departure also
+requires either that the aircraft was seen on the ground in the track window, or that
+its climb began from low altitude **with no descent before it**. A go-around has a
+descent immediately before the climb; a departure does not. There is a test for it.
+
+**Salience is a formula, in config, not a constant.** Base per type, plus a bonus for
+category A5, scaled by distance with a configurable falloff. §6.5's governor keeps the
+highest-salience events when the city is busier than the comfortable band, so this is
+a priority order as much as a loudness — which is why a near heavy departure should
+outrank a distant high overflight.
+
+**`toPublicEvent` returns a new object rather than deleting keys.** Adding a sensitive
+field to `attrs` later cannot silently start publishing it, and the entire public
+surface is visible in one function a reviewer can read.
+
+**Plain-English vocabulary, in config.** Type code first, emitter category as the
+fallback, "a plane" as the floor. Deliberately a small closed vocabulary: this is a
+caption, not an aircraft database, and "GLF4" is noise where "a Gulfstream" is legible.
+
+**Verified against the live feed**, 90 seconds after deployment:
+
+```
+overflight_city  0.46  ✈ a helicopter over the city
+helicopter       0.51  🚁 a helicopter crossing Newark
+ewr_arrival      0.66  ✈ a heavy jet arriving at Newark
+ewr_departure    0.52  ✈ an airliner departing Newark
+```
+
+The helicopter produced two events, which is correct — §6.4 gives each its own voice.
+The heavy carries the highest salience. No caption contains an identifier.
+
+**Observation for Phase 1 tuning, not a problem yet:** that is ~2.7 events/minute,
+below §6.5's daytime band of 6–14. Aircraft alone will not fill the band; rail,
+weather and the rest of Phase 2 are what §6.7 point 7 means by "the more independent
+sources, the less predictable the result".
+
+**Events are recorded to their own file.** Re-running a tuned detector over the raw
+recordings should produce a _new_ event stream rather than appending to the old one,
+and P0-8 spot-checks events specifically.

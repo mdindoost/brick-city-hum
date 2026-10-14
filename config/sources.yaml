@@ -51,8 +51,13 @@ aircraft:
     failures_before_degraded: 3
 
 # SPEC §3.2 event detection. STARTING VALUES — tune against the Phase 0 recordings.
-# Used by the detector in P0-5; listed here now so no number ever lands in code.
 detection:
+  # An aircraft must leave a zone by this much more than it entered before it counts
+  # as having left. Without hysteresis an aircraft hovering on the boundary flaps in
+  # and out between polls and retriggers its voice every 10 seconds, which is the
+  # "never chaotic" half of §1.4.
+  exit_hysteresis_km: 0.6
+
   ewr_departure:
     within_nm_of_ewr: 4
     altitude_gate_ft: 1500
@@ -74,3 +79,74 @@ detection:
     within_km_of_origin: 5
   heavy:
     emitter_category: A5
+
+# Base salience per event type, 0..1 (SPEC §4, §6.5). The density governor keeps the
+# highest-salience events when the city is busier than the comfortable band and
+# demotes the rest to texture, so these are a priority order as much as a loudness.
+salience:
+  ewr_departure: 0.7
+  ewr_arrival: 0.6
+  overflight_city: 0.5
+  overflight_high: 0.2
+  helicopter: 0.55
+  # Added to the base when the aircraft is category A5. SPEC §6.4 gives heavies a
+  # lower, longer, warmer voice, so they also deserve to survive the governor.
+  heavy_bonus: 0.15
+  # Nearer events matter more. Salience is scaled by
+  # (1 - distance_km / falloff_km), clamped to [0.2, 1].
+  distance_falloff_km: 40
+
+# Plain-English vocabulary for captions (SPEC §3.2 as amended).
+#
+# Spotter-grade type codes are noise to a listener: "a Gulfstream" is legible where
+# "GLF4" is not. Keyed on ICAO type code, with emitter category as the fallback, and
+# "a plane" as the floor. Deliberately a small closed vocabulary — this is a caption,
+# not an aircraft database.
+aircraft_vocabulary:
+  by_type:
+    P28A: a light propeller plane
+    C172: a light propeller plane
+    C152: a light propeller plane
+    SR22: a light propeller plane
+    DA40: a light propeller plane
+    BE36: a light propeller plane
+    C208: a small cargo plane
+    PC12: a single-engine turboprop
+    DH8D: a turboprop airliner
+    AT72: a turboprop airliner
+    GLF4: a Gulfstream
+    GLF5: a Gulfstream
+    GLF6: a Gulfstream
+    GL7T: a Gulfstream
+    CL30: a private jet
+    CL35: a private jet
+    CL60: a private jet
+    C700: a private jet
+    C56X: a private jet
+    C25A: a small private jet
+    C25B: a small private jet
+    C25C: a small private jet
+    E55P: a small private jet
+    E545: a private jet
+    E550: a private jet
+    LJ60: a private jet
+    LJ45: a private jet
+    H25B: a private jet
+    EC35: a helicopter
+    EC30: a helicopter
+    AS50: a helicopter
+    R44: a small helicopter
+    R66: a small helicopter
+    B06: a small helicopter
+    S76: a helicopter
+    A139: a helicopter
+  by_category:
+    A1: a small plane
+    A2: a small jet
+    A3: an airliner
+    A4: a large airliner
+    A5: a heavy jet
+    A6: a fast jet
+    A7: a helicopter
+    B2: a balloon
+  fallback: a plane

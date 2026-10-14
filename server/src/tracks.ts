@@ -80,4 +80,9 @@ export class TrackStore {
   get size(): number {
     return this.tracks.size;
   }
+
+  /** The aircraft currently tracked, so detector state can be kept in step. */
+  icaos(): Iterable<string> {
+    return this.tracks.keys();
+  }
 }

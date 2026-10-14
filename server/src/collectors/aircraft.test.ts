@@ -3,55 +3,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AircraftCollector } from './aircraft.js';
-import type { PlacesConfig, SourcesConfig } from '../config.js';
 import { HealthRegistry } from '../health.js';
 import { Recorder } from '../recorder.js';
 import { RetryableHttpError } from '../poller.js';
+import { realPlaces, sourcesWithFakeFeeds } from '../testing.js';
 
-const places: PlacesConfig = {
-  origin: { id: 'njit', name: 'NJIT', lat: 40.74194, lon: -74.17889 },
-  places: {
-    ewr: { name: 'EWR', lat: 40.69248, lon: -74.16869 },
-    newark_penn: { name: 'Penn', lat: 40.73472, lon: -74.16417 },
-    prudential_center: { name: 'Pru', lat: 40.73361, lon: -74.17111 },
-    port_newark: { name: 'Port', lat: 40.6816, lon: -74.1505 },
-  },
-  ewr_runways: [
-    {
-      id: '04L',
-      threshold: { lat: 40.675381, lon: -74.179449 },
-      true_heading_deg: 26,
-      length_ft: 11000,
-    },
-  ],
-};
-
-const sources: SourcesConfig = {
-  aircraft: {
-    radius_nm: 25,
-    track: { max_observations: 10, expire_after_s: 300 },
-    sources: [
-      {
-        id: 'primary',
-        url_template: 'https://primary.invalid/{lat}/{lon}/{radius_nm}',
-        interval_s: 10,
-        jitter_s: 0,
-        timeout_ms: 8000,
-        enabled: true,
-      },
-      {
-        id: 'fallback',
-        url_template: 'https://fallback.invalid/{lat}/{lon}/{radius_nm}',
-        interval_s: 15,
-        jitter_s: 0,
-        timeout_ms: 8000,
-        enabled: true,
-      },
-    ],
-    backoff: { initial_ms: 5000, multiplier: 2, max_ms: 300_000, failures_before_degraded: 3 },
-  },
-  detection: {},
-};
+const places = realPlaces();
+const sources = sourcesWithFakeFeeds();
 
 const AIRCRAFT = { ac: [{ hex: 'abc123', lat: 40.7, lon: -74.1, alt_baro: 3000 }] };
 

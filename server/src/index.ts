@@ -82,6 +82,7 @@ function main(): void {
         ok: health.anyHealthy(now) && recorderStats.failures === 0,
         activeSource: aircraft.currentSourceId() ?? null,
         trackedAircraft: aircraft.tracks.size,
+        eventsDetected: aircraft.eventCount(),
         recordingDay: recorder.today(),
         recorder: recorderStats,
         sources: health.all(),

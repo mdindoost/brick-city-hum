@@ -39,9 +39,10 @@ import {
 import { createInterface } from 'node:readline';
 import { join } from 'node:path';
 import { createGunzip, gzipSync } from 'node:zlib';
+import type { CityEvent } from './events.js';
 import type { Observation } from './observation.js';
 
-export type RecordKind = 'observation' | 'raw' | 'poll';
+export type RecordKind = 'observation' | 'raw' | 'poll' | 'event';
 
 export interface RecorderOptions {
   readonly directory: string;
@@ -157,6 +158,17 @@ export class Recorder {
     total: number,
   ): void {
     this.write('poll', receivedAt, { t: receivedAt, source, observations, skipped, total });
+  }
+
+  /**
+   * Detected events. Recorded separately from observations because they are what the
+   * listening lab replays (§7.3) and what P0-8 spot-checks against a flight tracker —
+   * and because re-running a tuned detector over the raw file should produce a *new*
+   * event stream, not append to the old one.
+   */
+  recordEvents(events: readonly CityEvent[], receivedAt: number): void {
+    if (events.length === 0) return;
+    this.write('event', receivedAt, { t: receivedAt, events });
   }
 
   /** Write health, for /healthz — a recorder that has stopped writing must be visible. */

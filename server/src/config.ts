@@ -150,7 +150,51 @@ const sourcesSchema = z.object({
       failures_before_degraded: z.number().int().positive(),
     }),
   }),
-  detection: z.record(z.string(), z.record(z.string(), z.union([z.number(), z.string()]))),
+  // Typed properly rather than as an open record: an earlier version validated this
+  // only as record<string, record<string, number|string>>, so a mistyped threshold
+  // (`below_ft: "10000"`) booted fine and surfaced later inside the detector.
+  detection: z.object({
+    exit_hysteresis_km: z.number().min(0),
+    ewr_departure: z.object({
+      within_nm_of_ewr: z.number().positive(),
+      altitude_gate_ft: z.number().positive(),
+      min_climb_fpm: z.number().positive(),
+      previous_below_ft: z.number().positive(),
+    }),
+    ewr_arrival: z.object({
+      within_nm_of_ewr: z.number().positive(),
+      altitude_gate_ft: z.number().positive(),
+      max_descent_fpm: z.number().negative(),
+    }),
+    overflight_city: z.object({
+      within_km_of_origin: z.number().positive(),
+      below_ft: z.number().positive(),
+    }),
+    overflight_high: z.object({
+      within_km_of_origin: z.number().positive(),
+      above_ft: z.number().positive(),
+    }),
+    helicopter: z.object({
+      emitter_category: z.string().min(1),
+      below_ft: z.number().positive(),
+      within_km_of_origin: z.number().positive(),
+    }),
+    heavy: z.object({ emitter_category: z.string().min(1) }),
+  }),
+  salience: z.object({
+    ewr_departure: z.number().min(0).max(1),
+    ewr_arrival: z.number().min(0).max(1),
+    overflight_city: z.number().min(0).max(1),
+    overflight_high: z.number().min(0).max(1),
+    helicopter: z.number().min(0).max(1),
+    heavy_bonus: z.number().min(0).max(1),
+    distance_falloff_km: z.number().positive(),
+  }),
+  aircraft_vocabulary: z.object({
+    by_type: z.record(z.string(), z.string()),
+    by_category: z.record(z.string(), z.string()),
+    fallback: z.string().min(1),
+  }),
 });
 
 export type SourcesConfig = z.infer<typeof sourcesSchema>;
