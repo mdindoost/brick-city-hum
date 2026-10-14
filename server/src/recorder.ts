@@ -39,7 +39,7 @@ import {
 import { createInterface } from 'node:readline';
 import { join } from 'node:path';
 import { createGunzip, gzipSync } from 'node:zlib';
-import type { CityEvent } from './events.js';
+import { toRecordedEvent, type CityEvent } from './events.js';
 import type { Observation } from './observation.js';
 
 export type RecordKind = 'observation' | 'raw' | 'poll' | 'event';
@@ -168,7 +168,10 @@ export class Recorder {
    */
   recordEvents(events: readonly CityEvent[], receivedAt: number): void {
     if (events.length === 0) return;
-    this.write('event', receivedAt, { t: receivedAt, events });
+    // Through the allow-list, never the whole event. §3.7: these files are
+    // append-only, so a field added to `attrs` later must not start appearing here
+    // silently.
+    this.write('event', receivedAt, { t: receivedAt, events: events.map(toRecordedEvent) });
   }
 
   /** Write health, for /healthz — a recorder that has stopped writing must be visible. */

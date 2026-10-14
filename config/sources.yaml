@@ -63,10 +63,25 @@ detection:
     altitude_gate_ft: 1500
     min_climb_fpm: 500
     previous_below_ft: 500
+    # How many consecutive on-ground observations count as real evidence of a
+    # takeoff. One is not enough: a single spurious "ground" flag would otherwise
+    # let a go-around pass the guard that exists to reject it.
+    min_ground_observations: 2
+    # A descent steeper than this anywhere earlier in the window means the aircraft
+    # was approaching and abandoned it — a go-around, not a departure.
+    go_around_descent_fpm: -200
   ewr_arrival:
     within_nm_of_ewr: 6
     altitude_gate_ft: 1000
     max_descent_fpm: -300
+    # A single "ground" flag is not evidence of a landing. Low helicopters report
+    # alt_baro: "ground" spuriously while airborne — in 38 minutes of live data, 190
+    # of 285 aircraft had at least one onGround flip, and one produced the event
+    # "a helicopter arriving at Newark" while climbing at +896 ft/min. A ground
+    # transition now also requires the aircraft not to be climbing and to be slow
+    # enough to be on a surface.
+    max_landing_climb_fpm: 100
+    max_landing_speed_kt: 80
   overflight_city:
     within_km_of_origin: 3
     below_ft: 10000
@@ -93,8 +108,10 @@ salience:
   # lower, longer, warmer voice, so they also deserve to survive the governor.
   heavy_bonus: 0.15
   # Nearer events matter more. Salience is scaled by
-  # (1 - distance_km / falloff_km), clamped to [0.2, 1].
+  # (1 - distance_km / falloff_km), clamped to the floor and ceiling below.
   distance_falloff_km: 40
+  proximity_floor: 0.2
+  proximity_ceiling: 1.0
 
 # Plain-English vocabulary for captions (SPEC §3.2 as amended).
 #
@@ -148,5 +165,31 @@ aircraft_vocabulary:
     A5: a heavy jet
     A6: a fast jet
     A7: a helicopter
+    # NOTE: SPEC §3.2's amended text says "B2 helicopter". The ADS-B emitter set
+    # defines B2 as lighter-than-air. The config is right and the spec sentence is
+    # wrong; flagged in docs/decisions.md rather than silently differing.
     B2: a balloon
+  # Used when the aircraft is NOT operating under an airline callsign. Without this,
+  # a Bombardier Global Express (category A3, no airline callsign) is captioned "an
+  # airliner" — which SPEC §3.2 wants as "a large private jet".
+  by_category_private:
+    A1: a light plane
+    A2: a private jet
+    A3: a large private jet
+    A4: a large private jet
+    A5: a large private jet
+    A6: a private jet
+    A7: a helicopter
   fallback: a plane
+
+# Caption templates. SPEC §5: the aircraft noun was already config, so the rest of
+# the sentence belongs here too — half a tunable caption is not config-as-data.
+# `{aircraft}` is the plain-English description, `{place}` the airport name.
+captions:
+  place: Newark
+  ewr_departure: '✈ {aircraft} departing {place}'
+  ewr_arrival: '✈ {aircraft} arriving at {place}'
+  overflight_city: '✈ {aircraft} over the city'
+  overflight_high: '✈ {aircraft} high above {place}'
+  # Its own glyph: a helicopter captioned with ✈ appeared in the real recordings.
+  helicopter: '🚁 {aircraft} crossing {place}'

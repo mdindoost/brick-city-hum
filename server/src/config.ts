@@ -160,11 +160,15 @@ const sourcesSchema = z.object({
       altitude_gate_ft: z.number().positive(),
       min_climb_fpm: z.number().positive(),
       previous_below_ft: z.number().positive(),
+      min_ground_observations: z.number().int().positive(),
+      go_around_descent_fpm: z.number().negative(),
     }),
     ewr_arrival: z.object({
       within_nm_of_ewr: z.number().positive(),
       altitude_gate_ft: z.number().positive(),
       max_descent_fpm: z.number().negative(),
+      max_landing_climb_fpm: z.number(),
+      max_landing_speed_kt: z.number().positive(),
     }),
     overflight_city: z.object({
       within_km_of_origin: z.number().positive(),
@@ -189,11 +193,22 @@ const sourcesSchema = z.object({
     helicopter: z.number().min(0).max(1),
     heavy_bonus: z.number().min(0).max(1),
     distance_falloff_km: z.number().positive(),
+    proximity_floor: z.number().min(0).max(1),
+    proximity_ceiling: z.number().min(0).max(1),
   }),
   aircraft_vocabulary: z.object({
     by_type: z.record(z.string(), z.string()),
     by_category: z.record(z.string(), z.string()),
+    by_category_private: z.record(z.string(), z.string()),
     fallback: z.string().min(1),
+  }),
+  captions: z.object({
+    place: z.string().min(1),
+    ewr_departure: z.string().min(1),
+    ewr_arrival: z.string().min(1),
+    overflight_city: z.string().min(1),
+    overflight_high: z.string().min(1),
+    helicopter: z.string().min(1),
   }),
 });
 

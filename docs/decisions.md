@@ -538,3 +538,83 @@ sources, the less predictable the result".
 **Events are recorded to their own file.** Re-running a tuned detector over the raw
 recordings should produce a _new_ event stream rather than appending to the old one,
 and P0-8 spot-checks events specifically.
+
+## 2026-10-14 · P0-5 review: five real defects, found by replaying real traffic
+
+The reviewer replayed 38 minutes of the live recording (24,491 observations, 451
+aircraft) through the real detector and mutation-tested the suite. Five confirmed
+defects, two of them already written to append-only recordings.
+
+**1. An arrival fired on a single spurious ground flag — and it is on disk.**
+Event `01M4XZ5B847DFBYWJBK3W3SFAN`: a Sikorsky S-76, 0.73 nm from EWR, **climbing at
++896 ft/min**, captioned *"✈ a helicopter arriving at Newark"*. The event's own
+payload contradicts its caption. Cause: low helicopters report `alt_baro: "ground"`
+spuriously, and **190 of 285 aircraft flipped at least once in 38 minutes**. A ground
+transition now also requires the aircraft not to be climbing and to be slow enough to
+be on a surface. A direct §1.2 breach — the one principle that cannot be compromised.
+
+**2. The go-around guard was defeated by one bad ground flag.** It returned true on
+`track.some(o => o.onGround)` *before* checking for a descent, so a single spurious
+flag let a go-around through as a departure. Sustained ground contact
+(`min_ground_observations`) is now required.
+
+**3. The same guard's other branch was unreachable, and rejected real departures.**
+It needed >1,000 ft of gain between consecutive observations — over 6,000 ft/min.
+**0 of 17 real departures used it**, and it rejected a genuine one whose on-ground
+segment had aged out of the window. A 500–700 ft/min climber needs 2–3 minutes to
+reach 1,500 ft and the window's median span is ~132 s, so this is ordinary light and
+reduced-thrust traffic. The guard is now: sustained ground contact, **or** a climb
+with no descent anywhere behind it. A go-around always has the descent.
+
+**4. Zone state could strand an aircraft "inside" forever.** Entry tested distance
+AND altitude; exit tested distance only. An aircraft that stopped qualifying on
+altitude while staying inside the radius never cleared, and its track never expires
+while it keeps transmitting. Live data shows parked aircraft 3.3 km from the origin —
+inside the 5 km helicopter zone — so **a based helicopter went permanently silent
+after its first crossing**. Exit now mirrors the whole predicate, and landing clears
+the state.
+
+**5. One pass produced two captions.** An aircraft entering the circle below 10,000 ft
+and climbing through it inside the circle — ordinary for a departure over Newark —
+fired both `overflight_city` and `overflight_high`. The two zones now share one pass.
+
+**6. `describe()` ignored `identity`,** the field that exists for exactly that
+decision. Two Bombardier Global Express in the live sample, neither on an airline
+callsign, both emitter category A3, were described as *"an airliner"*. §3.2 wants "a
+large private jet". Added `by_category_private`.
+
+**7. The recorder was an unfiltered event sink.** `toPublicEvent`'s allow-list
+protected the WebSocket path only; `recordEvents` serialised the whole `CityEvent`.
+§3.7 names the recordings as the sharp edge precisely because they cannot be unwritten.
+Added `toRecordedEvent`. *Nothing was leaking today* — the reviewer checked all
+recorded events — but a field added to `attrs` later would have started appearing
+silently.
+
+**8. Config-as-data violations fixed:** the salience clamp (documented in a YAML
+comment while the number lived in code), and the caption templates — half a caption
+was tunable and half was not. `previous_below_ft` was accepted at boot and had no
+effect; it is now unused and the real condition is documented.
+
+**The test suite was the deeper problem.** Six independent mutations survived all 184
+tests, including deleting the arrival's distance check entirely and deleting the
+`retainOnly` call that prevents an unbounded state leak. The go-around test passed only
+because its track had no ground observation — it could not distinguish "the guard
+works" from "no departure fires without a ground observation", so this log's earlier
+claim that "there is a test for it" was not true of the mechanism described. Added
+regression tests for every finding, each written to fail against the old behaviour.
+
+**Verified after the fixes, on the real recording:** 214 polls, 32,701 observations →
+22 departures, 33 arrivals, 7 city overflights, 3 helicopters, and **zero suspicious
+events** (no climbing arrivals, no mismatched glyphs). Detector states exactly matched
+tracked aircraft (199 = 199), so nothing leaks.
+
+**Flagged, not silently corrected (CLAUDE.md):** SPEC §3.2's amended text says
+"B2 helicopter". The ADS-B emitter set defines **B2 as lighter-than-air**. The config
+is right and that spec sentence is wrong. Noted in `config/sources.yaml`; SPEC left
+for Mohammad to amend.
+
+**Open, for tuning against the 48-hour recording rather than now:** 52% of
+observations carry no vertical rate at all, and `?? 0` treats absent as zero — correct
+in the fail-safe direction, but it means some real events are never detected. And the
+arrival rule, unlike the departure rule, will still claim any airport inside 6 nm —
+Linden is ~5 nm from EWR.

@@ -69,7 +69,7 @@ export type CityEvent = z.infer<typeof eventSchema>;
  * `attrs` later does not silently start publishing it — the omission is explicit
  * and a reviewer can see the whole public surface in one place.
  */
-export function toPublicEvent(event: CityEvent): Record<string, unknown> {
+export function toPublicEvent(event: CityEvent): PublicEvent {
   return {
     id: event.id,
     t: event.t,
@@ -78,6 +78,65 @@ export function toPublicEvent(event: CityEvent): Record<string, unknown> {
     rel: event.rel,
     attrs: {
       category: event.attrs.category,
+      heavy: event.attrs.heavy,
+      described_as: event.attrs.described_as,
+      // §6.4: "climb rate sets glide speed" for the departure figure, so the client
+      // genuinely needs this. It identifies nothing.
+      vrate_fpm: event.attrs.vrate_fpm,
+    },
+    salience: event.salience,
+    caption: event.caption,
+    sim: event.sim,
+    scheduled: event.scheduled,
+  };
+}
+
+/** The client-facing shape, so the browser can be typed against the real contract. */
+export interface PublicEvent {
+  readonly id: string;
+  readonly t: number;
+  readonly type: EventType;
+  readonly geo: CityEvent['geo'];
+  readonly rel: CityEvent['rel'];
+  readonly attrs: {
+    readonly category: string | null;
+    readonly heavy: boolean;
+    readonly described_as: string;
+    readonly vrate_fpm: number | null;
+  };
+  readonly salience: number;
+  readonly caption: string;
+  readonly sim: boolean;
+  readonly scheduled: boolean;
+}
+
+/**
+ * What goes into `data/recordings/*-event.ndjson.gz`.
+ *
+ * An allow-list, like `toPublicEvent`, and for a stronger reason: §3.7 names the
+ * recordings as the sharp edge, because they are append-only and long-lived, so a
+ * leak there cannot be undone by fixing the code afterwards. An earlier version
+ * serialised the whole `CityEvent`, which meant any sensitive field added to `attrs`
+ * later would have started being written with nothing failing.
+ *
+ * It keeps more than the public shape — the airline callsign, for provenance and for
+ * P0-8's spot-checks against a flight tracker — because these files are local and
+ * gitignored. Private aircraft have no callsign to keep: it was discarded at the
+ * collector boundary.
+ */
+export function toRecordedEvent(event: CityEvent): Record<string, unknown> {
+  return {
+    id: event.id,
+    t: event.t,
+    type: event.type,
+    source: event.source,
+    geo: event.geo,
+    rel: event.rel,
+    attrs: {
+      callsign: event.attrs.callsign,
+      category: event.attrs.category,
+      type_code: event.attrs.type_code,
+      vrate_fpm: event.attrs.vrate_fpm,
       heavy: event.attrs.heavy,
       described_as: event.attrs.described_as,
     },

@@ -105,7 +105,7 @@ export class Detector {
       previous !== undefined &&
       (previous.onGround ||
         (previous.altFt !== null && previous.altFt < detection.ewr_departure.altitude_gate_ft)) &&
-      this.looksLikeItLeftTheGround(track, detection.ewr_departure.previous_below_ft)
+      this.looksLikeItLeftTheGround(track)
     ) {
       state.fired.add('ewr_departure');
       events.push(this.buildEvent('ewr_departure', current, distanceToOrigin, heavy));
@@ -114,7 +114,18 @@ export class Detector {
     // --- EWR arrival ---------------------------------------------------------
     // Either a descent through the gate, or a transition to the ground — the second
     // catches aircraft whose descent we never saw because they appeared late.
-    const landedNow = previous !== undefined && !previous.onGround && current.onGround;
+    // A ground TRANSITION, corroborated. A single `alt_baro: "ground"` flag is not
+    // evidence of a landing: low helicopters report it spuriously while airborne, and
+    // in 38 minutes of live data 190 of 285 aircraft flipped at least once. One such
+    // flip produced "✈ a helicopter arriving at Newark" for an aircraft climbing at
+    // +896 ft/min, which is on disk in an append-only recording. So a landing must
+    // also not be climbing, and must be slow enough to be on a surface.
+    const landedNow =
+      previous !== undefined &&
+      !previous.onGround &&
+      current.onGround &&
+      (current.verticalRateFpm ?? 0) <= detection.ewr_arrival.max_landing_climb_fpm &&
+      (current.groundSpeedKt ?? 0) <= detection.ewr_arrival.max_landing_speed_kt;
     if (
       !state.fired.has('ewr_arrival') &&
       distanceToEwr <= nauticalMilesToKm(detection.ewr_arrival.within_nm_of_ewr) &&
@@ -137,15 +148,14 @@ export class Detector {
       distanceToOrigin <= detection.overflight_city.within_km_of_origin &&
       current.altFt !== null &&
       current.altFt < detection.overflight_city.below_ft;
-    if (
-      this.crossedInto(
-        'overflight_city',
-        state,
-        cityInside,
-        distanceToOrigin,
-        detection.overflight_city.within_km_of_origin,
-      )
-    ) {
+    // "Left the area" is geometric distance OR being on the ground: a parked
+    // aircraft is not overflying anything, and clearing on ground is what stops a
+    // based helicopter from being stranded inside its zone forever.
+    const leftCityZone =
+      current.onGround ||
+      distanceToOrigin >
+        detection.overflight_city.within_km_of_origin + detection.exit_hysteresis_km;
+    if (this.crossedInto('overflight_city', state, cityInside, leftCityZone, ['overflight_high'])) {
       events.push(this.buildEvent('overflight_city', current, distanceToOrigin, heavy));
     }
 
@@ -153,15 +163,11 @@ export class Detector {
       distanceToOrigin <= detection.overflight_high.within_km_of_origin &&
       current.altFt !== null &&
       current.altFt >= detection.overflight_high.above_ft;
-    if (
-      this.crossedInto(
-        'overflight_high',
-        state,
-        highInside,
-        distanceToOrigin,
-        detection.overflight_high.within_km_of_origin,
-      )
-    ) {
+    const leftHighZone =
+      current.onGround ||
+      distanceToOrigin >
+        detection.overflight_high.within_km_of_origin + detection.exit_hysteresis_km;
+    if (this.crossedInto('overflight_high', state, highInside, leftHighZone, ['overflight_city'])) {
       events.push(this.buildEvent('overflight_high', current, distanceToOrigin, heavy));
     }
 
@@ -171,15 +177,10 @@ export class Detector {
       distanceToOrigin <= detection.helicopter.within_km_of_origin &&
       current.altFt !== null &&
       current.altFt < detection.helicopter.below_ft;
-    if (
-      this.crossedInto(
-        'helicopter',
-        state,
-        heliInside,
-        distanceToOrigin,
-        detection.helicopter.within_km_of_origin,
-      )
-    ) {
+    const leftHeliZone =
+      current.onGround ||
+      distanceToOrigin > detection.helicopter.within_km_of_origin + detection.exit_hysteresis_km;
+    if (this.crossedInto('helicopter', state, heliInside, leftHeliZone)) {
       events.push(this.buildEvent('helicopter', current, distanceToOrigin, heavy));
     }
 
@@ -187,27 +188,36 @@ export class Detector {
   }
 
   /**
-   * Zone entry with hysteresis: enter at the radius, leave only once well beyond it.
+   * Zone entry with hysteresis on the way out.
    *
-   * Returns true on the transition into the zone. The aircraft must get
-   * `exit_hysteresis_km` clear of the boundary before it can trigger again — without
-   * that, one hovering helicopter retriggers its voice every 10 seconds.
+   * The exit test mirrors the **whole** entry predicate, not just distance. An
+   * earlier version tested distance alone, so an aircraft that stopped qualifying on
+   * altitude while staying within the radius was stranded "inside" forever: a
+   * helicopter based near EWR — 3.3 km from the origin, inside the 5 km zone —
+   * crossed once and then went permanently silent, because its state was never
+   * cleared and its track never expired while it kept transmitting.
+   *
+   * `peers` are zones that share this pass: entering one marks them all, so a single
+   * crossing cannot fire two captions. An aircraft climbing through 10,000 ft inside
+   * the circle is one pass, not a city overflight plus a high overflight.
    */
   private crossedInto(
     type: EventType,
     state: AircraftState,
     isInside: boolean,
-    distanceKmNow: number,
-    radiusKm: number,
+    hasLeftTheArea: boolean,
+    peers: readonly EventType[] = [],
   ): boolean {
     const wasInside = state.inside.has(type);
     if (isInside) {
-      if (wasInside) return false;
+      if (wasInside || peers.some((peer) => state.inside.has(peer))) return false;
       state.inside.add(type);
+      for (const peer of peers) state.inside.add(peer);
       return true;
     }
-    if (wasInside && distanceKmNow > radiusKm + this.options.sources.detection.exit_hysteresis_km) {
+    if (wasInside && hasLeftTheArea) {
       state.inside.delete(type);
+      for (const peer of peers) state.inside.delete(peer);
     }
     return false;
   }
@@ -215,39 +225,42 @@ export class Detector {
   /**
    * Distinguish a real departure from a go-around.
    *
-   * §3.2's rule — "the previous observation was on ground or below 500 ft" — is
-   * satisfied by a go-around too: an aircraft that descends to 300 ft, does not land,
-   * and climbs away would be captioned as a departure. It is not one, and at a busy
-   * airport this is a routine event rather than an exotic edge case.
+   * §3.2's rule — "the previous observation was on ground or below 500 ft" — is also
+   * satisfied by a go-around: descend to 300 ft, do not land, climb away. At a busy
+   * airport that is routine.
    *
-   * So: accept if the aircraft was seen on the ground in the window (unambiguous), or
-   * if its climb began from low altitude with no descent before it. A go-around has a
-   * descent immediately before the climb; a departure does not.
+   * The first attempt at this guard was wrong in both directions, which a replay of
+   * real traffic showed:
    *
-   * *This is a deliberate strengthening of §3.2 and is recorded in docs/decisions.md.*
+   *  - It accepted on `track.some(o => o.onGround)` *before* checking for a descent,
+   *    so **one spurious ground flag let a go-around through** — and spurious flags
+   *    are common (190 of 285 aircraft in 38 minutes).
+   *  - Its altitude branch required >1,000 ft of gain between consecutive
+   *    observations (>6,000 ft/min), so it was unreachable in practice — 0 of 17 real
+   *    departures used it — while **rejecting a real departure** whose on-ground
+   *    segment had aged out of the window. A 500–700 ft/min climber takes 2–3 minutes
+   *    to reach 1,500 ft, and the window's median span is ~132 s.
+   *
+   * So the test is now simply: was there *sustained* evidence of being on the ground,
+   * or is this climb free of any earlier descent? A go-around always has the descent.
    */
-  private looksLikeItLeftTheGround(track: readonly Observation[], belowFt: number): boolean {
-    if (track.some((observation) => observation.onGround)) return true;
+  private looksLikeItLeftTheGround(track: readonly Observation[]): boolean {
+    const config = this.options.sources.detection.ewr_departure;
 
-    // Walk back to where the climb began.
-    let index = track.length - 1;
-    while (index > 0) {
-      const earlier = track[index - 1];
-      if (earlier === undefined) break;
-      if (earlier.altFt === null || earlier.altFt >= belowFt) break;
-      index -= 1;
+    // Sustained ground contact: consecutive observations, so a lone bad flag cannot
+    // manufacture a departure.
+    let run = 0;
+    for (const observation of track) {
+      run = observation.onGround ? run + 1 : 0;
+      if (run >= config.min_ground_observations) return true;
     }
-    const climbStart = track[index];
-    if (climbStart === undefined) return false;
-    if (climbStart.altFt !== null && climbStart.altFt >= belowFt) return false;
 
-    // Anything before the climb that was descending means this was an approach the
-    // aircraft abandoned, not a takeoff.
-    for (let i = 0; i < index; i += 1) {
-      const earlier = track[i];
-      if (earlier !== undefined && (earlier.verticalRateFpm ?? 0) < 0) return false;
-    }
-    return true;
+    // Otherwise: accept only a climb with no descent behind it anywhere in the
+    // window. This is what rescues a real departure whose ground segment has aged
+    // out, and what still rejects a go-around.
+    return !track.some(
+      (observation) => (observation.verticalRateFpm ?? 0) <= config.go_around_descent_fpm,
+    );
   }
 
   private salienceFor(type: EventType, distanceKmNow: number, heavy: boolean): number {
@@ -255,7 +268,8 @@ export class Detector {
     const base = config[type];
     const withHeavy = base + (heavy ? config.heavy_bonus : 0);
     const proximity = 1 - distanceKmNow / config.distance_falloff_km;
-    const scaled = withHeavy * Math.min(1, Math.max(0.2, proximity));
+    const scaled =
+      withHeavy * Math.min(config.proximity_ceiling, Math.max(config.proximity_floor, proximity));
     return Math.min(1, Math.max(0, scaled));
   }
 
@@ -271,9 +285,26 @@ export class Detector {
     const byType =
       observation.typeCode === null ? undefined : vocabulary.by_type[observation.typeCode];
     if (byType !== undefined) return byType;
-    const byCategory =
-      observation.category === null ? undefined : vocabulary.by_category[observation.category];
+    // `identity` exists for exactly this decision and was being ignored: a Bombardier
+    // Global Express flying without an airline callsign is emitter category A3, so it
+    // was captioned "an airliner" when §3.2 wants "a large private jet".
+    const table =
+      observation.identity === 'private' ? vocabulary.by_category_private : vocabulary.by_category;
+    const byCategory = observation.category === null ? undefined : table[observation.category];
     return byCategory ?? vocabulary.fallback;
+  }
+
+  /**
+   * Caption text, from templates in config.
+   *
+   * SPEC §3.2 as amended: a caption **never contains a raw callsign**. Phase 1 adds
+   * operator and route, and only when a route resolves AND one of its endpoints
+   * matches the airport we observed. Until then every caption is type-based, which is
+   * the correct degraded form rather than a placeholder.
+   */
+  private captionFor(type: EventType, describedAs: string): string {
+    const templates = this.options.sources.captions;
+    return fillCaption(templates[type], { aircraft: describedAs, place: templates.place });
   }
 
   private buildEvent(
@@ -302,32 +333,14 @@ export class Detector {
         described_as: describedAs,
       },
       salience: this.salienceFor(type, distanceToOrigin, heavy),
-      caption: captionFor(type, describedAs),
+      caption: this.captionFor(type, describedAs),
       sim: false,
       scheduled: false,
     };
   }
 }
 
-/**
- * Caption text. SPEC §3.2 as amended: a caption **never contains a raw callsign**.
- *
- * Phase 1 adds operator and route, and only when a route resolves AND one of its
- * endpoints matches the airport we observed — a route whose endpoints are elsewhere
- * is not about this flight. Until then every caption is type-based, which is the
- * correct degraded form rather than a placeholder.
- */
-export function captionFor(type: EventType, describedAs: string): string {
-  switch (type) {
-    case 'ewr_departure':
-      return `✈ ${describedAs} departing Newark`;
-    case 'ewr_arrival':
-      return `✈ ${describedAs} arriving at Newark`;
-    case 'overflight_city':
-      return `✈ ${describedAs} over the city`;
-    case 'overflight_high':
-      return `✈ ${describedAs} high above Newark`;
-    case 'helicopter':
-      return `🚁 ${describedAs} crossing Newark`;
-  }
+/** Fill a caption template from config. */
+export function fillCaption(template: string, values: { aircraft: string; place: string }): string {
+  return template.replace('{aircraft}', values.aircraft).replace('{place}', values.place);
 }

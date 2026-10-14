@@ -68,6 +68,44 @@ describe('ewr_departure', () => {
     expect(fired).toBe(1);
   });
 
+  it('does NOT fire on a go-around even with one spurious ground flag', () => {
+    // The guard this replaces accepted on `track.some(o => o.onGround)` BEFORE
+    // checking for a descent, so a single bad flag — common in real data — let a
+    // go-around through as a departure. Sustained ground contact is now required.
+    const events = detector().detect(
+      track([
+        { altFt: 2000, verticalRateFpm: -900 },
+        { altFt: 900, verticalRateFpm: -700 },
+        { onGround: true, altFt: null, verticalRateFpm: -200 },
+        { altFt: 800, verticalRateFpm: 1500 },
+        { altFt: 1600, verticalRateFpm: 2200 },
+      ]),
+    );
+    expect(events.map((e) => e.type)).not.toContain('ewr_departure');
+  });
+
+  it('DOES fire for a slow climber whose ground segment has aged out of the window', () => {
+    // The previous guard rejected this real departure: a continuous climb with no
+    // ground observation left in the window and no descent anywhere. A 500–700 ft/min
+    // climber takes 2–3 minutes to reach 1,500 ft and the window's median span is
+    // ~132 s, so this is ordinary light-aircraft and reduced-thrust traffic, not an
+    // edge case. Measured: 0 of 17 real departures used the branch meant to serve it.
+    const events = detector().detect(
+      track([
+        { altFt: 350, verticalRateFpm: 600 },
+        { altFt: 475, verticalRateFpm: 600 },
+        { altFt: 600, verticalRateFpm: 600 },
+        { altFt: 775, verticalRateFpm: 600 },
+        { altFt: 950, verticalRateFpm: 600 },
+        { altFt: 1125, verticalRateFpm: 600 },
+        { altFt: 1300, verticalRateFpm: 600 },
+        { altFt: 1450, verticalRateFpm: 600 },
+        { altFt: 1600, verticalRateFpm: 600 },
+      ]),
+    );
+    expect(events.map((e) => e.type)).toContain('ewr_departure');
+  });
+
   it('does NOT fire on a go-around', () => {
     // §3.2's literal rule ("previous observation below 500 ft") is satisfied by a
     // go-around: descend to 300 ft, do not land, climb away. At a busy airport that
@@ -139,13 +177,57 @@ describe('ewr_arrival', () => {
 
   it('fires on a transition to the ground, even with no descent seen', () => {
     // Catches aircraft that appear late — we never saw the approach, only the touch.
+    // Note the ground speed: a landed aircraft has slowed down, and the corroboration
+    // check below depends on that being realistic.
     const events = detector().detect(
       track([
-        { altFt: 200, verticalRateFpm: -400 },
-        { onGround: true, altFt: null, verticalRateFpm: null },
+        { altFt: 200, verticalRateFpm: -400, groundSpeedKt: 140 },
+        { onGround: true, altFt: null, verticalRateFpm: null, groundSpeedKt: 25 },
       ]),
     );
     expect(events.map((e) => e.type)).toContain('ewr_arrival');
+  });
+
+  it('does NOT fire for a climbing aircraft that reports a spurious ground flag', () => {
+    // This happened in production and is on disk: a Sikorsky S-76 0.73 nm from EWR,
+    // climbing at +896 ft/min, was captioned "✈ a helicopter arriving at Newark".
+    // Low helicopters report alt_baro: "ground" spuriously — 190 of 285 aircraft
+    // flipped at least once in 38 minutes of live data. A §1.2 breach written to an
+    // append-only recording.
+    const events = detector().detect(
+      track([
+        { altFt: 500, verticalRateFpm: 900, groundSpeedKt: 60, category: 'A7' },
+        { onGround: true, altFt: null, verticalRateFpm: 896, groundSpeedKt: 60, category: 'A7' },
+      ]),
+    );
+    expect(events.map((e) => e.type)).not.toContain('ewr_arrival');
+  });
+
+  it('does NOT fire for a fast aircraft that reports a spurious ground flag', () => {
+    const events = detector().detect(
+      track([
+        { altFt: 800, verticalRateFpm: -100, groundSpeedKt: 210 },
+        { onGround: true, altFt: null, verticalRateFpm: null, groundSpeedKt: 210 },
+      ]),
+    );
+    expect(events.map((e) => e.type)).not.toContain('ewr_arrival');
+  });
+
+  it('does not fire for an aircraft landing far from EWR', () => {
+    // Without a geographic check the rule would caption a Teterboro or JFK approach
+    // as "arriving at Newark". The departure rule has had this test; the arrival rule
+    // did not, and a mutation deleting its distance check survived the whole suite.
+    const far = { lat: EWR.lat + 0.3, lon: EWR.lon + 0.3 };
+    const events = detector().detect(
+      track(
+        [
+          { altFt: 2500, verticalRateFpm: -800 },
+          { altFt: 900, verticalRateFpm: -700 },
+        ],
+        far,
+      ),
+    );
+    expect(events.map((e) => e.type)).not.toContain('ewr_arrival');
   });
 
   it('fires once', () => {
@@ -212,6 +294,43 @@ describe('overflight_city', () => {
     d.detect(track([{ altFt: 4000 }], northOfOrigin(radius + hysteresis + 2)));
     const secondPass = d.detect(track([{ altFt: 4000 }], northOfOrigin(1)));
     expect(secondPass.filter((e) => e.type === 'overflight_city')).toHaveLength(1);
+  });
+
+  it('does not also fire overflight_high when climbing through the ceiling on one pass', () => {
+    // Ordinary for a departure over Newark: enter the circle below 10,000 ft and
+    // climb through it while still inside. That is one pass and one voice, not two
+    // captions — "over the city" followed by "high above Newark" for one aircraft.
+    const d = detector();
+    const over = northOfOrigin(1);
+    const types: string[] = [];
+    for (const altFt of [8000, 9500, 10200, 11000]) {
+      types.push(...d.detect(track([{ altFt }], over)).map((e) => e.type));
+    }
+    expect(types).toEqual(['overflight_city']);
+  });
+
+  it('clears zone state when the aircraft lands, so a based aircraft is not silenced forever', () => {
+    // The exit test used to check distance only, while entry required distance AND
+    // altitude. An aircraft that stopped qualifying on altitude inside the radius was
+    // stranded "inside" permanently — and its track never expires while it keeps
+    // transmitting. Live data shows parked aircraft 3.3 km from the origin, well
+    // inside the 5 km helicopter zone, so a based helicopter went silent after its
+    // first crossing.
+    const d = detector();
+    const spot = northOfOrigin(2);
+    expect(
+      d.detect(track([{ category: 'A7', altFt: 1200, typeCode: 'R44' }], spot)).map((e) => e.type),
+    ).toContain('helicopter');
+
+    // Parks and keeps transmitting.
+    for (let i = 0; i < 5; i += 1) {
+      d.detect(track([{ category: 'A7', onGround: true, altFt: null, groundSpeedKt: 0 }], spot));
+    }
+
+    // Flies again from the same place: a real new crossing.
+    expect(
+      d.detect(track([{ category: 'A7', altFt: 1200, typeCode: 'R44' }], spot)).map((e) => e.type),
+    ).toContain('helicopter');
   });
 
   it('does not fire above the ceiling — that is overflight_high', () => {
@@ -397,5 +516,52 @@ describe('does not assume a runway or a flow direction (SPEC §3.2)', () => {
   it('uses the configured radius, not a hard-coded one', () => {
     const radiusKm = nauticalMilesToKm(sources.detection.ewr_departure.within_nm_of_ewr);
     expect(radiusKm).toBeGreaterThan(0);
+  });
+});
+
+describe('private aircraft are not described as airliners', () => {
+  function describeOf(partial: Partial<Observation>): string {
+    const events = detector().detect(track([{ altFt: 4000, ...partial }], northOfOrigin(1)));
+    return events[0]!.attrs.described_as;
+  }
+
+  it('calls a large private jet what it is, not "an airliner"', () => {
+    // Measured in live data: two Bombardier Global Express (GLEX), neither with an
+    // airline callsign, both emitter category A3 — both described as "an airliner".
+    // `identity` existed for exactly this decision and was being ignored.
+    expect(
+      describeOf({ identity: 'private', callsign: null, category: 'A3', typeCode: 'GLEX' }),
+    ).toBe('a large private jet');
+  });
+
+  it('still calls a real airliner an airliner', () => {
+    expect(describeOf({ identity: 'airline', callsign: 'UAL1810', category: 'A3' })).toBe(
+      'an airliner',
+    );
+  });
+
+  it('prefers a known type code over either category table', () => {
+    expect(describeOf({ identity: 'private', category: 'A3', typeCode: 'GLF5' })).toBe(
+      'a Gulfstream',
+    );
+  });
+});
+
+describe('captions come from config, not from code', () => {
+  it('uses the configured template and place name', () => {
+    const events = detector().detect(
+      track([{ category: 'A7', altFt: 1200, typeCode: 'R44' }], northOfOrigin(2)),
+    );
+    const helicopterEvent = events.find((e) => e.type === 'helicopter')!;
+    // A helicopter must not get the ✈ glyph — "✈ a helicopter arriving at Newark"
+    // appeared in the real recordings.
+    expect(helicopterEvent.caption.startsWith('🚁')).toBe(true);
+    expect(helicopterEvent.caption).toContain(sources.captions.place);
+  });
+
+  it('renders every event type from its template without leaving a placeholder', () => {
+    for (const template of Object.values(sources.captions)) {
+      expect(template).not.toMatch(/\{(?!aircraft|place)\w+\}/);
+    }
   });
 });

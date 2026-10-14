@@ -1,7 +1,7 @@
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist/**', 'node_modules/**', 'data/**', 'lab/renders/**'] },
+  { ignores: ['dist/**', 'node_modules/**', 'data/**', 'lab/renders/**', 'lab/bundle/**'] },
   ...tseslint.configs.recommendedTypeChecked,
   {
     languageOptions: {

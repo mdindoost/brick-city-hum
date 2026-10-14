@@ -144,3 +144,32 @@ describe('AircraftCollector', () => {
     expect(health.get('primary')?.lastError).toMatch(/schema has probably changed/);
   });
 });
+
+describe('detector state is kept in step with the track store', () => {
+  it('drops detector state when an aircraft leaves, not only track state', () => {
+    // A mutation deleting the retainOnly call from the collector survived the entire
+    // suite, because the only test for it exercised the method in isolation and never
+    // the wiring. Over 48 hours that is an unbounded leak of per-aircraft state.
+    const { collector } = setup({ primary: () => Promise.resolve(AIRCRAFT) });
+    const anyCollector = collector as unknown as {
+      handlePoll: (body: unknown, receivedAt: number, sourceId: string) => unknown;
+    };
+    const base = Date.now();
+    anyCollector.handlePoll(
+      { ac: [{ hex: 'aaa111', lat: 40.7, lon: -74.1, alt_baro: 3000 }] },
+      base,
+      'primary',
+    );
+    expect(collector.detector.trackedAircraft).toBe(1);
+
+    // Much later, with a different aircraft: the first has expired from the track
+    // store, so its detector state must go too.
+    anyCollector.handlePoll(
+      { ac: [{ hex: 'bbb222', lat: 40.7, lon: -74.1, alt_baro: 3000 }] },
+      base + 10 * 60 * 1000,
+      'primary',
+    );
+    expect(collector.tracks.size).toBe(1);
+    expect(collector.detector.trackedAircraft).toBe(1);
+  });
+});

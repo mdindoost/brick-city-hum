@@ -15,7 +15,10 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "setup": "git config core.hooksPath .githooks && echo 'git hooks enabled'",
-    "check": "npm run lint && npm run typecheck && npm run test"
+    "check": "npm run lint && npm run typecheck && npm run test",
+    "lab:bundle": "vite build --config lab/vite.bundle.config.ts",
+    "lab:render": "npm run lab:bundle && tsx lab/render.ts",
+    "lab:analyze": "python3 lab/analyze.py"
   },
   "repository": {
     "type": "git",
@@ -31,6 +34,7 @@
     "@types/node": "^26.6.5",
     "@types/ws": "^8.18.2",
     "eslint": "^10.12.0",
+    "playwright": "^1.64.1",
     "prettier": "^3.9.10",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.71.2",
@@ -38,6 +42,8 @@
     "vitest": "^5.0.4"
   },
   "dependencies": {
+    "@types/web": "^0.0.358",
+    "tone": "^15.1.22",
     "tsx": "^4.23.15",
     "ulid": "^3.0.2",
     "ws": "^8.22.0",

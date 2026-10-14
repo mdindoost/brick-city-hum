@@ -12,7 +12,8 @@ data/recordings/*
 # lab render output — WAVs and PNGs are large; reports/*.md ARE committed
 lab/renders/
 lab/reports/*.wav
-lab/reports/*.png
+# Spectrograms ARE committed: they are the one lab output Claude can inspect, and a
+# report whose image is missing cannot be read later.
 
 # deps / build
 node_modules/
@@ -34,3 +35,4 @@ npm-debug.log*
 .idea/
 .vscode/*
 !.vscode/extensions.json
+/lab/bundle/
