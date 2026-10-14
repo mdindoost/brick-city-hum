@@ -91,7 +91,7 @@ discarded before recording (§3.2), not that we failed to read it.
 | --- | ----------- | -------- | ----------------- | -------- | ---- | ----------------- | -------- | ------------ | ------------------------------------- | --------------------- | ----- | ----------------------------------------------------- |
 | 1   | 15:41:52    | 19:41:52 | `helicopter`      | —        | S76  | 40.7516, -74.1481 | 900      | +128         | 🚁 a helicopter crossing Newark       | ✓ type                |       |                                                       |
 | 2   | 15:41:52    | 19:41:52 | `overflight_city` | —        | S76  | 40.7516, -74.1481 | 900      | +128         | ✈ a helicopter over the city          | ✓ type                |       |                                                       |
-| 3   | 15:47:29    | 19:47:29 | `ewr_arrival`     | ASA295   | —    | 40.7344, -74.1381 | 900      | −832         | ✈ an airliner arriving at Newark      | ? no match            |       |                                                       |
+| 3   | 15:47:29    | 19:47:29 | `ewr_arrival`     | ASA295   | —    | 40.7344, -74.1381 | 900      | −832         | ✈ an airliner arriving at Newark      | ? no match            | ✅    | FlightAware: SEA→EWR, landed 15:49 EDT. See below.    |
 | 4   | 15:48:13    | 19:48:13 | `ewr_departure`   | UAL1021  | —    | 40.6382, -74.2025 | 1850     | +640         | ✈ an airliner departing Newark        | ✓ airport+direction   |       |                                                       |
 | 5   | 15:52:16    | 19:52:16 | `ewr_arrival`     | UAL1499  | —    | 40.7373, -74.1361 | 950      | −832         | ✈ an airliner arriving at Newark      | ~ airport only        |       |                                                       |
 | 6   | 15:52:38    | 19:52:38 | `ewr_departure`   | UAL1498  | —    | 40.6509, -74.1917 | 1525     | +1024        | ✈ an airliner departing Newark        | ✓ airport+direction   |       |                                                       |
@@ -124,6 +124,23 @@ And one playback window covers four of the unnamed rows at once: **19:41Z–19:5
 centred on 40.73, −74.16** gets rows 1, 2, 7 and 8. Row 17 is at 20:10Z,
 40.7441 −74.2111, at 41 000 ft — in playback, set the altitude filter high or it will
 be buried under the low traffic.
+
+## Checked against a tracker: row 3
+
+Mohammad opened FlightAware for ASA295 on 14 Oct 2026. It landed at Newark at
+**15:49 EDT**, from Seattle. We saw it at **15:47:29** at 900 ft descending at
+832 ft/min: 900 ÷ 832 ≈ **65 seconds from the ground**, which puts touchdown at about
+15:48:34 against a reported 15:49. Under half a minute out, and out in the right
+direction — the descent rate slows in the flare, so the real touchdown should be a
+little later than a constant-rate estimate. **✅**
+
+It also settles something the schedule database could not. That database's entry for
+ASA295 is **LAX→SEA**: not this flight, not even the right coast. The real flight was
+SEA→EWR. This is the clearest demonstration of why §3.2's rule is conservative in the
+right direction — Newark appears nowhere in the database's route, so the rule forbids
+naming it and the caption stays type-based ("an airliner arriving at Newark") rather
+than confidently announcing a flight to Seattle. A wrong route was available and the
+rule refused it.
 
 ## The defect this table found: row 9
 
