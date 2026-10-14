@@ -279,3 +279,51 @@ the bearing convention, and the unit constants. Ten findings, all addressed:
 - `ewr_runways` is structurally readable by a future detector even though §3.2 forbids
   using it as a detection input. Today nothing reads it but the sanity tests, and the
   prohibition is loud in `places.yaml`. Revisit if P0-5 is tempted.
+
+## 2026-10-14 · P0-3 built: collector, recorder, and what live data corrected
+
+**Verified against the live feed, not just tests.** The server ran against adsb.lol,
+tracked 100–105 aircraft, wrote both recordings, and flushed cleanly on SIGTERM.
+Three things only the smoke test could have found:
+
+1. **`.env` was never being read.** Node does not load it automatically, so the
+   server ran with `contact: unconfigured` even though the address was sitting in the
+   file — every outbound request would have been unattributable, which is the exact
+   failure SPEC §9.1 exists to prevent. Now loaded via `process.loadEnvFile` when the
+   file exists (absent under Docker, where the environment is supplied directly).
+2. **The missing-contact warning printed twice**, because `userAgent()` recomputed it
+   per call. Cached.
+3. **A standby source was reported as `down`.** adsb.fi had never been polled, yet
+   `/healthz` called it down — which would page a human about a healthy system.
+   **Proposed §3.5 addition: an `idle` state** for a source that has not been tried.
+   SPEC §3.5 lists only `ok`/`degraded`/`down`; this is a fourth. _Flagged for
+   confirmation rather than assumed._
+
+**Measured sizes replace estimates.** ~27 MB/day of observations plus ~64 MB/day raw
+= **~91 MB/day**, so ~2.7 GB for the 30-day window. My earlier 40–60 MB/day estimate
+was low; SPEC §3.5 and §11.3 corrected.
+
+**The privacy rule, confirmed on real traffic.** Of 100 aircraft over Newark, **26
+carried non-airline callsigns shaped exactly like tail numbers** — `N56578`, `N6091F`,
+`N814TW`, `N955AA`. Passing `flight` through verbatim would have published a quarter
+of the traffic's tail numbers into append-only recordings, _without ever touching the
+`r` field_. The classifier is a heuristic and fails safe toward `private`, so a miss
+costs a duller caption, never a breach. Grepping both real recording files found zero
+`"r"`, zero `ownOp`, and zero tail-number-shaped strings.
+
+**The resolution of the §3.5-vs-§3.7 conflict** (recording "every raw response" vs.
+stripping identity before the append-only files): **"raw" means every field except
+identity.** Tuning §3.2's thresholds needs altitude, rates, category and position —
+none of which is identifying — so nothing of value is lost.
+
+**Design note: one source polled at a time.** Each source keeps its own interval,
+backoff and health, because adsb.fi's documented 1 req/s is not adsb.lol's "dynamic"
+and conflating them would respect neither. Polling both continuously would double the
+load on two volunteer services to gain nothing, since they carry the same traffic.
+Failover advances on `down` and drifts back to the preferred source when it recovers.
+
+**`setInterval` was deliberately avoided** for polling: it allows a slow response to
+overlap the next request and silently double our request rate against services that
+return no rate-limit headers to notice it with. The loop schedules the next attempt
+only after the current one settles, and there is a test asserting concurrency never
+exceeds 1.

@@ -128,13 +128,16 @@ These set the **mood** (§6.2), not notes. Emit `state_change` messages when a v
 - Every collector reports health (`ok`, `degraded`, `down`, last success time) to `/healthz` and to the admin page.
 - **City simulator** (`server/sim/`): generates realistic synthetic events (statistical replay of recorded days). It is used for development, for tests, and as a labeled fallback if all real sources fail. Simulated events are always flagged `sim: true` and captioned as "replay".
 - **Recorder:** every normalized event **and every raw API response** is appended to
-  `data/recordings/YYYY-MM-DD.ndjson`, gzipped (~40–60 MB/day). The raw copy matters
+  `data/recordings/YYYY-MM-DD.ndjson`, gzipped. **Measured 2026-10-14 against the
+  live feed: ~27 MB/day for observations plus ~64 MB/day raw, so ~91 MB/day total**
+  (~2.7 GB for the 30-day rolling window). An earlier estimate of 40–60 MB/day was
+  low. The raw copy matters
   because §3.2's thresholds are explicitly starting values: tuning them against
   normalized output only would mean recording another two days from scratch every time.
   Recordings power the listening lab (§7) and the simulator.
 - **Two kinds of recording, with very different lifetimes:**
   - **Rolling recordings** — everything the collectors see, kept 30 days then deleted
-    automatically (§11.3). ~1.5 GB steady state.
+    automatically (§11.3). ~2.7 GB steady state, measured.
   - **Reference library** (`data/reference/`) — **permanent**, and the reason is §7.3:
     an A/B test is only meaningful if both renders get _identical_ input. Comparing
     palette A heard at 2 p.m. against palette B heard at 4 p.m. tells you nothing,

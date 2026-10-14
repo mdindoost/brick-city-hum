@@ -126,6 +126,52 @@ function readYamlFile(path: string): unknown {
   }
 }
 
+const sourceSchema = z.object({
+  id: z.string().min(1),
+  url_template: z.string().min(1),
+  interval_s: z.number().positive(),
+  jitter_s: z.number().min(0),
+  timeout_ms: z.number().positive(),
+  enabled: z.boolean(),
+});
+
+const sourcesSchema = z.object({
+  aircraft: z.object({
+    radius_nm: z.number().positive(),
+    track: z.object({
+      max_observations: z.number().int().positive(),
+      expire_after_s: z.number().positive(),
+    }),
+    sources: z.array(sourceSchema).min(1),
+    backoff: z.object({
+      initial_ms: z.number().positive(),
+      multiplier: z.number().gt(1),
+      max_ms: z.number().positive(),
+      failures_before_degraded: z.number().int().positive(),
+    }),
+  }),
+  detection: z.record(z.string(), z.record(z.string(), z.union([z.number(), z.string()]))),
+});
+
+export type SourcesConfig = z.infer<typeof sourcesSchema>;
+export type SourceConfig = z.infer<typeof sourceSchema>;
+
+/** Load and validate `sources.yaml`. */
+export function loadSources(configDir: string = defaultConfigDir()): SourcesConfig {
+  const path = join(configDir, 'sources.yaml');
+  const result = sourcesSchema.safeParse(readYamlFile(path));
+  if (!result.success) {
+    throw new Error(`${path} is invalid:\n${z.prettifyError(result.error)}`);
+  }
+  const enabled = result.data.aircraft.sources.filter((source) => source.enabled);
+  if (enabled.length === 0) {
+    // Every source disabled would start a server that silently never collects
+    // anything — indistinguishable from a permanently quiet city.
+    throw new Error(`${path}: no aircraft source is enabled`);
+  }
+  return result.data;
+}
+
 /**
  * Load and validate `places.yaml`.
  *
