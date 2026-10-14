@@ -1,49 +1,159 @@
-/* SPEC §10: dark, calm, minimal. Full visual design arrives in Phase 1. */
+/* SPEC §10: calm, legible, and nothing that blinks. Dark by default because this is
+   meant to be left open in a corner of a screen for hours. */
+
 :root {
-  color-scheme: dark;
-  --bg: #0b0d10;
-  --fg: #e8e6e3;
-  --dim: #8b9199;
+  --ink: #e9e6df;
+  --dim: rgba(233, 230, 223, 0.45);
+  --faint: rgba(233, 230, 223, 0.2);
+  --bg: #0d0f12;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
 body {
+  height: 100%;
   margin: 0;
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 16px;
+}
+
+body {
   background: var(--bg);
-  color: var(--fg);
+  color: var(--ink);
   font:
-    16px/1.6 system-ui,
-    -apple-system,
-    'Segoe UI',
+    14px/1.5 ui-sans-serif,
+    system-ui,
     sans-serif;
-  text-align: center;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+}
+
+header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-wrap: wrap;
 }
 
 h1 {
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  margin: 0 0 0.4em;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin: 0;
 }
 
-.status {
+.origin {
   color: var(--dim);
-  font-size: 0.9rem;
+  font:
+    12px ui-monospace,
+    monospace;
 }
 
-/* SPEC §10: respect prefers-reduced-motion, and never flash faster than 3 Hz. */
+.meta {
+  display: flex;
+  gap: 14px;
+  margin-left: auto;
+  color: var(--dim);
+  font:
+    12px ui-monospace,
+    monospace;
+}
+
+#mode {
+  color: var(--dim);
+}
+
+body.is-replay #mode {
+  /* §1.2: a listener must never be told a plane just took off when it did not. */
+  color: #e8b23a;
+}
+
+#status::before {
+  content: '●';
+  margin-right: 5px;
+  color: var(--faint);
+}
+
+body[data-status='live'] #status::before {
+  color: #6fbf73;
+}
+
+main {
+  position: relative;
+  min-height: 0;
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#captions {
+  position: absolute;
+  left: 20px;
+  bottom: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-width: min(460px, 60vw);
+  pointer-events: none;
+}
+
+.caption {
+  display: flex;
+  gap: 10px;
+  padding: 2px 0;
+  color: var(--dim);
+  /* A fade-in, never a flash. The slowest thing on the page is the point. */
+  animation: ease-in 900ms both;
+}
+
+.caption:first-child {
+  color: var(--ink);
+}
+
+.caption time {
+  color: var(--faint);
+  font:
+    11px ui-monospace,
+    monospace;
+  padding-top: 2px;
+}
+
+/* No added label: the server's caption already says "(replay)", and the page never
+   writes caption text of its own (see visual/captions.ts). This only tints it. */
+.caption--sim span {
+  color: #c99a4e;
+}
+
+footer {
+  position: absolute;
+  right: 20px;
+  bottom: 18px;
+  color: var(--faint);
+  font:
+    11px ui-monospace,
+    monospace;
+  text-align: right;
+  line-height: 1.7;
+}
+
+@keyframes ease-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+  .caption {
+    animation: none;
   }
 }

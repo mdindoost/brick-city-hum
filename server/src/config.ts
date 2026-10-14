@@ -266,3 +266,34 @@ export function loadPlaces(configDir: string = defaultConfigDir()): PlacesConfig
   }
   return result.data;
 }
+
+/**
+ * `score.yaml` — every musical and visual value (SPEC §1.5, §5).
+ *
+ * Separate from `sources.yaml` on purpose: that file is how the city is *observed*
+ * and this one is how it is *rendered*. The music director edits this one and should
+ * never have to read the other.
+ */
+const scoreSchema = z.object({
+  play_lead_ms: z.number().positive(),
+  visual: z.object({
+    horizon_km: z.number().positive(),
+    rings_km: z.array(z.number().positive()).min(1),
+    event_life_s: z.number().positive(),
+    arrival_grow_s: z.number().positive(),
+    caption_lines: z.number().int().positive(),
+    caption_life_s: z.number().positive(),
+  }),
+});
+
+export type ScoreConfig = z.infer<typeof scoreSchema>;
+
+/** Load and validate `score.yaml`. */
+export function loadScore(configDir: string = defaultConfigDir()): ScoreConfig {
+  const path = join(configDir, 'score.yaml');
+  const result = scoreSchema.safeParse(readYamlFile(path));
+  if (!result.success) {
+    throw new Error(`${path} is invalid:\n${z.prettifyError(result.error)}`);
+  }
+  return result.data;
+}

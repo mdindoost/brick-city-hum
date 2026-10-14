@@ -1,0 +1,26 @@
+# Musical and visual values. SPEC §1.5, §5: everything tunable lives here and never in
+# a .ts file, because the aesthetic is tuned forever after launch and the music
+# director must not need a code change to try an idea.
+#
+# Phase 1 adds the voices. What exists so far is the picture and the shared clock.
+
+# How far ahead of now the server schedules an event, in milliseconds (SPEC §9.4).
+# Every listener renders and plays the same event at the same instant, so the lead has
+# to cover the slowest reasonable connection without making the radio feel late.
+play_lead_ms: 1500
+
+visual:
+  # The map is centred on the listener, not on the airport — SPEC §1.1, you are
+  # standing at NJIT. Anything beyond the horizon is simply not drawn.
+  horizon_km: 40
+  # Distance rings, in km. Newark airport sits at 5.57 km, so the 5 km ring reads as
+  # "the airport" without a label having to claim it.
+  rings_km: [5, 10, 20, 40]
+  # Seconds an event stays on the map after it fires, and how long it takes to appear.
+  # It announces itself by growing, never by flashing: SPEC §10 forbids anything
+  # faster than 3 Hz anywhere, ever (photosensitive epilepsy).
+  event_life_s: 50
+  arrival_grow_s: 1.2
+  # The caption ticker.
+  caption_lines: 8
+  caption_life_s: 120

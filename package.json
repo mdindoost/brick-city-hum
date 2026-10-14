@@ -18,7 +18,9 @@
     "check": "npm run lint && npm run typecheck && npm run test",
     "lab:bundle": "vite build --config lab/vite.bundle.config.ts",
     "lab:render": "npm run lab:bundle && tsx lab/render.ts",
-    "lab:analyze": "python3 lab/analyze.py"
+    "lab:analyze": "python3 lab/analyze.py",
+    "build:client": "vite build",
+    "demo": "npm run build:client && tsx server/src/dev-replay.ts"
   },
   "repository": {
     "type": "git",

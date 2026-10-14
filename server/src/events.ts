@@ -8,6 +8,9 @@
  */
 
 import { z } from 'zod';
+import type { PublicEvent } from '../../shared/protocol.js';
+
+export type { PublicEvent };
 
 export const EVENT_TYPES = [
   'ewr_departure',
@@ -49,8 +52,14 @@ export const eventSchema = z.object({
      * The operating airline, or `null`. Safe to publish — unlike the callsign it
      * names a company, never an aircraft or a person — and `null` for every private
      * flight by construction (SPEC §3.2 as amended; see `operatorFor`).
+     *
+     * `.default(null)` because **a recording is history and cannot be migrated.**
+     * This field was added on 2026-10-14, hours into a 48-hour recording; without a
+     * default, every event written before it existed fails validation and a day of
+     * real traffic becomes unreplayable. Any field added to an event from here on
+     * needs the same treatment, and the test below says so.
      */
-    operator: z.string().nullable(),
+    operator: z.string().nullable().default(null),
     category: z.string().nullable(),
     type_code: z.string().nullable(),
     vrate_fpm: z.number().nullable(),
@@ -96,26 +105,6 @@ export function toPublicEvent(event: CityEvent): PublicEvent {
     sim: event.sim,
     scheduled: event.scheduled,
   };
-}
-
-/** The client-facing shape, so the browser can be typed against the real contract. */
-export interface PublicEvent {
-  readonly id: string;
-  readonly t: number;
-  readonly type: EventType;
-  readonly geo: CityEvent['geo'];
-  readonly rel: CityEvent['rel'];
-  readonly attrs: {
-    readonly category: string | null;
-    readonly heavy: boolean;
-    readonly described_as: string;
-    readonly operator: string | null;
-    readonly vrate_fpm: number | null;
-  };
-  readonly salience: number;
-  readonly caption: string;
-  readonly sim: boolean;
-  readonly scheduled: boolean;
 }
 
 /**

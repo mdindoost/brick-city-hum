@@ -11,12 +11,23 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <main id="app">
+    <header>
       <h1>Brick City Hum</h1>
-      <p>A live radio that turns Newark into music.</p>
-      <!-- SPEC §2.1: audio never starts before a user gesture. The real start
-           screen and ▶ button arrive in Phase 1. -->
-      <p class="status">Phase 0 — no audio yet.</p>
+      <!-- Named by the server from places.yaml, so the page ships no coordinates. -->
+      <span id="origin" class="origin">—</span>
+      <div class="meta">
+        <span id="mode">—</span>
+        <span id="clock">syncing…</span>
+        <span id="count">0 events</span>
+        <span id="status">connecting</span>
+      </div>
+    </header>
+    <main>
+      <canvas id="map"></canvas>
+      <ul id="captions"></ul>
+      <!-- SPEC §2.1: audio never starts before a user gesture. The ▶ and the voices
+           arrive next; this half of Phase 1 is the picture and the shared clock. -->
+      <footer>north is up · you are the dot<br />no audio yet</footer>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

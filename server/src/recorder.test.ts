@@ -5,6 +5,7 @@ import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { dayStamp, readRecording, Recorder } from './recorder.js';
 import type { Observation } from './observation.js';
+import { eventSchema } from './events.js';
 
 /** The timestamp from SPEC §4's sample event. Note it resolves to 2025-10-14. */
 const SAMPLE_T = 1760458800123;
@@ -197,5 +198,36 @@ describe('write failures are visible', () => {
     recorder.recordObservations([observation()], Date.UTC(2026, 9, 16, 12));
     await recorder.close();
     expect(readdirSync(dir).filter((n) => n.endsWith('-observation.ndjson.gz'))).toHaveLength(3);
+  });
+});
+
+describe('a recording outlives the schema that wrote it', () => {
+  it('replays an event recorded before `operator` existed', () => {
+    // Real shape from data/recordings/2026-10-14, written hours before the field was
+    // added. A recording is history: it cannot be migrated, so the schema must accept
+    // what older code wrote or a day of real traffic becomes unreplayable.
+    const before = {
+      id: '01M4XYYYM5KGPEWRD4MKC3XWCM',
+      t: 1792006912116,
+      type: 'overflight_city',
+      source: 'adsb.lol',
+      geo: { lat: 40.751643, lon: -74.148102, alt_ft: 900 },
+      rel: { bearing_deg: 67.4, distance_km: 2.81 },
+      attrs: {
+        callsign: null,
+        category: 'A7',
+        type_code: 'S76',
+        vrate_fpm: 128,
+        heavy: false,
+        described_as: 'a helicopter',
+      },
+      salience: 0.465,
+      caption: '✈ a helicopter over the city',
+      sim: false,
+      scheduled: false,
+    };
+    const parsed = eventSchema.safeParse(before);
+    expect(parsed.success).toBe(true);
+    expect(parsed.data?.attrs.operator).toBeNull();
   });
 });
