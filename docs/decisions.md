@@ -143,3 +143,29 @@ market-wide risk with our own receiver named as the licence-free endgame.
 
 **Still open: (c) our own RTL-SDR receiver.** Mohammad asked for precise costing
 before deciding. Not a Phase 0 or Phase 1 item either way.
+
+## 2026-10-14 · Own receiver recorded as a Phase 3 option, costing deferred
+
+**Decision (Mohammad):** record it in the spec, re-price it when we reach Phase 3.
+
+Precise costing was attempted and **failed honestly**: only one US price could be
+confirmed (FlightAware Pro Stick Plus, $45.99, and even its stock is ambiguous). The
+FlightAware 26" antenna reads as discontinued at several retailers, the RTL-SDR Blog
+V4 kit is out of stock or retired everywhere checked, and what remains is
+foreign-currency or second-hand. Amazon is not readable by our tooling. Re-researching
+now would produce numbers that are stale before the decision is made.
+
+Useful facts that **will not** go stale, and are now in SPEC §3.6: no Raspberry Pi is
+needed (the §11.1 laptop suffices, saving ~$60–80); `readsb` + `tar1090` are free and
+GPL-3.0; a dongle with a built-in 1090 filter removes a separate purchase, and
+FlightAware recommend filtering in exactly our kind of RF environment; and the radio
+horizon means a 25 nm radius reaches aircraft above ~413 ft, so **buildings are the
+constraint, not altitude**.
+
+**Correction worth recording.** The costing agent reported that our claim about
+adsb.lol announcing a future API key was unverified. It was looking at the wrong
+repository — `adsblol/feed` rather than `adsblol/api`, where an earlier agent had
+quoted the README verbatim: *"In the future, you will require an API key which you can
+obtain by feeding adsb.lol."* The original claim stands, and §14 is unchanged. Noted
+because it is a reminder that a subagent's confident negative needs the same scrutiny
+as its positive.

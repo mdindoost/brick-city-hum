@@ -122,6 +122,48 @@ These set the **mood** (§6.2), not notes. Emit `state_change` messages when a v
 - **City simulator** (`server/sim/`): generates realistic synthetic events (statistical replay of recorded days). It is used for development, for tests, and as a labeled fallback if all real sources fail. Simulated events are always flagged `sim: true` and captioned as "replay".
 - **Recorder:** every normalized event is appended to `data/recordings/YYYY-MM-DD.ndjson`. Recordings power the listening lab (§7) and the simulator.
 
+### 3.6 Our own 1090 MHz receiver (option, Phase 3 — not decided)
+
+Verification on 2026-10-14 found that free unconditional ADS-B access is closing
+across the whole market (§14), which makes receiving the signal ourselves the only
+option with **no licence question at all**: we would own the data, so no aggregator's
+terms touch what we do with it musically. It also closes the §14 adsb.lol risk from
+the other end — their API repo's README states *"In the future, you will require an
+API key which you can obtain by feeding adsb.lol"*, and feeding is what earns it.
+
+It fits §1.2 ("every sound is true") better than any API does: an antenna on an NJIT
+roof hearing an aircraft directly is as close to the source as this project can get.
+
+**Confirmed:**
+- Software is free and open source: **`readsb`** (maintained fork of `dump1090`) plus
+  **`tar1090`** for the map, both GPL-3.0. Feeding adsb.lol needs only "BEAST out on
+  port 30005". Feeding several aggregators from one receiver is normal and documented.
+- **No Raspberry Pi needed.** adsb.lol's own docs say any Debian-like Linux works, and
+  §11.1 already puts an always-on laptop in place. Saves ~$60–80.
+- A dongle with a **built-in 1090 MHz filter** (e.g. FlightAware Pro Stick Plus,
+  $45.99, the one price confirmed) avoids buying a separate SAW filter. FlightAware
+  themselves recommend filtering "in urban environments or with known high power radio
+  transmitters nearby" — Newark, 12 km from Manhattan, is exactly that.
+- **Radio horizon:** at a 25 nm radius a ground-level receiver reaches aircraft above
+  roughly **413 ft** (d_nm ≈ 1.23·√h_ft). EWR traffic is above that except on the
+  runway itself, so our radius is physically well within reach. **The limit is
+  buildings, not altitude.**
+
+**Not confirmed (deliberately not pinned down yet):**
+- Antenna and cable prices. The FlightAware 26" antenna shows as discontinued at
+  several retailers, the RTL-SDR Blog V4 kit is out of stock or retired everywhere
+  checked, and remaining listings are foreign-currency or second-hand. **The market
+  for these specific parts has thinned** — worth knowing before buying.
+- Achieved range at NJIT specifically. Forum anecdotes only: ~300 nm from a high
+  rooftop, 200–250 nm from an unobstructed window, 50–100 nm when blocked, ~10 nm
+  from an interior room. No controlled test.
+- Rooftop access from NJIT, and mast/weatherproofing/surge-protection costs.
+
+**Decision deferred to Phase 3 by Mohammad**, with prices to be re-checked then —
+today's figures will be stale by the time it matters. **This is a complement, never a
+replacement:** one receiver needs line of sight and will miss low or distant aircraft,
+so the network sources stay primary.
+
 ---
 
 ## 4. Event model
