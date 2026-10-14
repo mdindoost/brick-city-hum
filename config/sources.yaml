@@ -107,6 +107,37 @@ detection:
     above_ft: 10000
   helicopter:
     emitter_category: A7
+    # Emitter category alone misses real helicopters. A Bell 407 over the city on
+    # 14/10/2026 broadcast category D0 — the "reserved" code, i.e. no category at
+    # all — so it was never seen as a helicopter and was captioned "a plane over
+    # the city". Transponder category is configured by hand and is often wrong or
+    # absent; a type code is not. An aircraft matching EITHER is a helicopter.
+    # Deliberately a short list of what actually flies over Newark, kept in step
+    # with the "a helicopter" entries in aircraft_vocabulary.by_type below.
+    type_codes:
+      [
+        S76,
+        S92,
+        B06,
+        B407,
+        B412,
+        B429,
+        B505,
+        A109,
+        A119,
+        A139,
+        A169,
+        A189,
+        EC30,
+        EC35,
+        EC45,
+        EC55,
+        AS50,
+        AS65,
+        R44,
+        R66,
+        H60,
+      ]
     below_ft: 3000
     within_km_of_origin: 5
   heavy:
@@ -168,12 +199,25 @@ aircraft_vocabulary:
     H25B: a private jet
     EC35: a helicopter
     EC30: a helicopter
+    EC45: a helicopter
+    EC55: a helicopter
     AS50: a helicopter
+    AS65: a helicopter
     R44: a small helicopter
     R66: a small helicopter
     B06: a small helicopter
+    B407: a helicopter
+    B412: a helicopter
+    B429: a helicopter
+    B505: a small helicopter
     S76: a helicopter
+    S92: a large helicopter
+    A109: a helicopter
+    A119: a helicopter
     A139: a helicopter
+    A169: a helicopter
+    A189: a helicopter
+    H60: a military helicopter
   by_category:
     A1: a small plane
     A2: a small jet

@@ -183,6 +183,8 @@ const sourcesSchema = z.object({
     }),
     helicopter: z.object({
       emitter_category: z.string().min(1),
+      // Either signal identifies a rotorcraft: see the comment in sources.yaml.
+      type_codes: z.array(z.string().min(1)),
       below_ft: z.number().positive(),
       within_km_of_origin: z.number().positive(),
     }),

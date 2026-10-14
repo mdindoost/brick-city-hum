@@ -351,6 +351,31 @@ describe('helicopter', () => {
     expect(events.map((e) => e.type)).toContain('helicopter');
   });
 
+  it('fires for a rotorcraft type code whose emitter category is missing', () => {
+    // Found by the P0-8 validation table on real data: a Bell 407 crossing the city
+    // reported emitter category D0 — "reserved", i.e. no category — so it produced
+    // no helicopter event and was captioned "✈ a plane over the city".
+    const events = detector().detect(
+      track([{ category: 'D0', altFt: 800, typeCode: 'B407' }], northOfOrigin(2)),
+    );
+    expect(events.map((e) => e.type)).toContain('helicopter');
+    const heli = events.find((e) => e.type === 'helicopter')!;
+    expect(heli.attrs.described_as).toBe('a helicopter');
+    expect(heli.caption.startsWith('🚁')).toBe(true);
+  });
+
+  it('describes a rotorcraft with no category as a helicopter, not a plane', () => {
+    // The caption side of the same defect: every type code in the helicopter
+    // detection list must also resolve to a helicopter in the vocabulary, or the
+    // event fires with the wrong words.
+    const vocabulary = sources.aircraft_vocabulary.by_type;
+    for (const code of sources.detection.helicopter.type_codes) {
+      expect(vocabulary[code], `${code} is missing from aircraft_vocabulary.by_type`).toMatch(
+        /helicopter/,
+      );
+    }
+  });
+
   it('does not fire for a non-helicopter in the same place', () => {
     const events = detector().detect(track([{ category: 'A3', altFt: 1200 }], northOfOrigin(2)));
     expect(events.map((e) => e.type)).not.toContain('helicopter');

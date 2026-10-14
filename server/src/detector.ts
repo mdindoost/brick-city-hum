@@ -175,8 +175,16 @@ export class Detector {
     }
 
     // --- Helicopter ----------------------------------------------------------
+    // Emitter category alone is not enough. A Bell 407 crossing the city reported
+    // category D0 — "reserved", i.e. no category at all — so it was neither
+    // detected as a helicopter nor captioned as one ("a plane over the city").
+    // Category is hand-configured in the transponder and often absent; a type code
+    // is not. Either signal counts, and both lists live in config.
+    const isRotorcraft =
+      current.category === detection.helicopter.emitter_category ||
+      (current.typeCode !== null && detection.helicopter.type_codes.includes(current.typeCode));
     const heliInside =
-      current.category === detection.helicopter.emitter_category &&
+      isRotorcraft &&
       distanceToOrigin <= detection.helicopter.within_km_of_origin &&
       current.altFt !== null &&
       current.altFt < detection.helicopter.below_ft;

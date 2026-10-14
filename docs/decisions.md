@@ -707,3 +707,52 @@ these are free services run by volunteers and they return **no rate-limit header
 (docs/verification.md), so we cannot see we are being impolite until we are refused.
 Rebuild-and-restart during development is a request to a stranger's server. Prefer
 `npm run check` and the replay harness over restarting the live collector.
+
+## 2026-10-14 · A helicopter with no emitter category — recognise rotorcraft by type code
+
+Preparing the §13 spot-check table for Mohammad, one row (a Bell 407 crossing the
+city at 800 ft) was captioned "✈ a plane over the city" and produced no `helicopter`
+event at all.
+
+**Cause.** `detection.helicopter` matched on `emitter_category: A7` only, and the
+caption vocabulary had no entry for the type code `B407`. The aircraft broadcast
+category **D0** — the "reserved" code, meaning no category — so the detector did not
+see a helicopter and the caption fell through to the floor, `a plane`.
+
+Replaying the day's observations shows **the same airframe reporting A0, A7 and D0 at
+different times**, which is the general lesson and not one bad transponder: emitter
+category is configured by hand on the ground, and is often absent or wrong. A type
+code comes from the airframe and is not.
+
+**Decision.** An aircraft is a rotorcraft if it matches **either** signal:
+`detection.helicopter.type_codes` (21 types) **or** `emitter_category`. Both lists
+live in `config/sources.yaml` — the detection list and the caption vocabulary — and a
+test asserts every code in the detection list resolves to a caption containing
+"helicopter", so the two cannot drift apart. Rejected the tempting alternative of
+deriving one list from the other by matching the word "helicopter" in the caption
+text: that makes behaviour depend on prose, which is the one part of config meant to
+be freely rewritten.
+
+Measured over the window both recordings cover: `helicopter` events 5 → 8, while
+`overflight_city` (19) and `overflight_high` (2) are unchanged — the control showing
+only the intended rule moved. The live container was **not** restarted for this; it is
+inside the 48-hour recording the gate needs, and the fix reaches it at the next
+natural restart.
+
+## 2026-10-14 · [HUMAN] Phase 1's route naming needs the endpoint on the correct side
+
+Found while gathering independent evidence for the same table, and flagged rather than
+built, because the rule it changes is Mohammad's (§3.2 as amended).
+
+The agreed rule is: name operator and route **only when a route resolves and one
+endpoint matches the airport we observed**. Two rows show that is not quite enough. An
+independent schedule database is keyed on the callsign and is **date-less** — it holds
+one leg of a flight number, not that day's flight. For two arrivals into Newark it
+returned Newark as the _origin_. Under the rule as written, EWR matches, and we would
+caption an aircraft at 950 ft on final approach as "United 1499 **to** Los Angeles".
+
+The repair is small: for an `ewr_arrival` the matching endpoint must be the
+**destination**, and for an `ewr_departure` the **origin**; a match on the wrong side
+is treated as no match and the caption stays type-based. Noted here so Phase 1's
+route enrichment is written this way from the start, and so the correctness check that
+§3.2 leans on actually carries the weight it was given.
