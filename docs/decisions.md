@@ -98,3 +98,48 @@ address blocked, an allowlisted address passed.
 **Fresh clones must run `git config core.hooksPath .githooks`** — git does not carry
 hook configuration in a clone. This will be wired into the P0-1 scaffold's setup
 script so it is not a thing anyone has to remember.
+
+## 2026-10-14 · Aircraft source strategy after verifying every alternative
+
+**Context.** Verifying SPEC §3.1's fallback chain turned up a market-wide problem
+rather than a per-source one. Full evidence in `docs/verification.md`.
+
+| Source | Status |
+|---|---|
+| adsb.lol (A1) | works, keyless today; README says a key *will* be required, earned by feeding |
+| adsb.fi (A2) | works; envelope key is `aircraft` not `ac` |
+| OpenSky (A3) | **written licence required** for operational use, regardless of non-profit status |
+| airplanes.live | **HTTP 403**, gated on an emailed project description |
+| Flightradar24 | economically impossible: ~258,000 req/month needed vs 30,000 credits on its $9 tier |
+| ADS-B Exchange | commercial-licence wording explicitly covers non-profits |
+| FlightAware AeroAPI | per-query pricing; free tier limited to "personal or academic" |
+
+**Decisions (Mohammad):**
+
+- **(a) OpenSky: build the collector, ship it disabled.** The code is written in Phase
+  1 behind a config flag, default **off**, and stays off until a written licence
+  arrives. Writing code is not use. Requesting permission by email from an `@njit.edu`
+  address, since their own FAQ asks institutional applicants to do exactly that.
+  *Rejected alternatives: dropping A3 entirely (loses a ready fallback for a request
+  that costs one email) and enabling it now (§1.7 makes zero licensing exposure a
+  principle, not a preference).*
+- **(b) Request access from airplanes.live too.** Its 403 message invites exactly this,
+  and its own guide header says "Non-Commercial Use", so the fit is plausible. Two
+  emails, sent together. Drafts in `docs/outreach.md`.
+- **Until either replies, the chain is A1 → A2 → simulator.** §3.5 already designates
+  the simulator as the labelled last resort, and its events carry `sim: true` with
+  "replay" captions, so a listener is never misled about what they are hearing.
+  Phase 0 and Phase 1 need nothing more than this.
+- **Flightradar24 ruled out on arithmetic, not licence.** Its terms could not be read
+  (every page 403s), so the licence question stays open — but at 10 s polling we need
+  ~258,000 requests/month against 30,000 credits on its cheapest tier, and reducing
+  the poll rate to fit would break §6.4's moving `overflight_city` voice and the
+  altitude-crossing departure detection. A subscription-dependent source is also a
+  structural mismatch for a project §13 Phase 4 says is never finished.
+
+**SPEC amended:** §3.1 row A3 now records the licence gate and the disabled-by-default
+flag, a new row A3b tracks the airplanes.live request, and §14 gains a row for the
+market-wide risk with our own receiver named as the licence-free endgame.
+
+**Still open: (c) our own RTL-SDR receiver.** Mohammad asked for precise costing
+before deciding. Not a Phase 0 or Phase 1 item either way.
