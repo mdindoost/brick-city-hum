@@ -86,16 +86,36 @@ days from recorded statistics (§3.5). Everything it emits carries `sim: true`.
 deterministically from a fixed seed; no emitted event is missing `sim: true`;
 captions say "replay" (§3.5).
 
-### P0-7 · Listening-lab skeleton — *implementer* · ~5 h
-`lab/render.ts`: Playwright + headless Chromium + `Tone.Offline`, replaying a
-recording slice through the client engine to a WAV, deterministic from a seed.
-`lab/analyze.py`: integrated LUFS, loudness range, true peak (`ffmpeg -af ebur128`),
-spectrogram PNG (`ffmpeg showspectrumpic`), onset density per minute.
-Report to `lab/reports/<date>-<preset>.md`.
-**Accept:** the same seed renders a bit-identical WAV twice; a 10-minute render
-produces a report with real numbers and a viewable PNG.
-**Blocked on:** ffmpeg installed; see questions.
-**⚠ Needs your decision — see "Open question A" below.**
+### P0-7 · Listening-lab skeleton + probe voice — *implementer* · ~7 h
+**P0-7a · the interface (do this first, ~1 h).** Define the event→voice interface that
+every Phase 1 voice will implement, and the master chain it feeds (compressor +
+−1 dBTP limiter, §6.8). This is the one piece of Phase 0 audio design that is *not*
+disposable — Phase 1's aircraft voices implement it — so it is worth getting right
+and worth a reviewer pass of its own.
+
+**P0-7b · the probe (~1 h).** `lab/fixtures/probe-voice.ts`: one bell per event,
+quantized to the grid and panned by bearing, plus one sustained drone. First
+implementation of the P0-7a interface, routed through the real master chain, **never
+a bypass**. Excluded from the production client bundle.
+
+**P0-7c · the renderer (~3 h).** `lab/render.ts`: Playwright + headless Chromium +
+`Tone.Offline`, replaying a recording slice to a WAV, deterministic from a seed.
+**Determinism is the hard part, not ffmpeg.** `Tone.Reverb` generates its impulse
+response from `Math.random` noise, so it defeats bit-identical rendering: either keep
+it out of the probe or install the seeded PRNG over `Math.random` **before any audio
+node is constructed**. Audit the engine for every other `Math.random` and `Date.now`
+— `Tone.Noise` textures included, since §6.2's rain and wind will use them.
+
+**P0-7d · the analysis (~2 h).** `lab/analyze.py`: integrated LUFS, loudness range,
+true peak (`ffmpeg -af ebur128`), spectrogram PNG (`ffmpeg showspectrumpic`), onset
+density per minute. Report to `lab/reports/<date>-<preset>.md`.
+
+**Accept:** a 10-minute render produces a report with real numbers and a viewable
+PNG; **the same slice rendered twice gives an identical SHA-256**. Documented
+fallback if exact identity proves impossible: max sample difference below −90 dBFS,
+reason logged in `docs/decisions.md`. The hash is then recorded as the renderer's
+**regression fixture** — a later mismatch means the renderer changed, not the music.
+**Blocked on:** ffmpeg installed.
 
 ### P0-8 · Detector validation — *api-scout* (gather) + **M** (judge) · ~2 h
 Pick 20 detected events spread across dayparts from the real recording; for each,
@@ -121,29 +141,15 @@ It has fresh eyes and no write access by design.
 
 ---
 
-## Open question A — what does Phase 0's lab actually render? ⚠
+## Resolved: what Phase 0's lab renders ✅
 
-§13 puts "listening-lab skeleton: offline render + LUFS + spectrogram" and "the lab
-renders a 10-minute WAV and a report" in **Phase 0**, but the audio engine it would
-render *through* — Ground layer, aircraft voices, spatialization — is **Phase 1**
-(§13, Phase 1). As written, Phase 0 cannot be completed: there is nothing to record.
-
-Three ways out. My recommendation is **(2)**:
-
-1. **Move the lab to Phase 1.** Honest, but it delays the one tool that makes sound
-   measurable, and §7 is explicit that measurement is not optional.
-2. **Build a deliberately crude "probe voice" in Phase 0** — one short bell per
-   event, quantized and panned by bearing, plus a single sustained drone. ~1 hour of
-   work, thrown away or absorbed in Phase 1. It proves
-   recording → replay → render → LUFS → spectrogram → report works, which is the
-   actual point of a skeleton, and it means Phase 1's first real voices land in a
-   pipeline that already measures them. It will not sound good, and should not be
-   judged as music.
-3. **Render a synthetic test signal.** Proves ffmpeg works, proves nothing about our
-   pipeline. Weakest option.
-
-**(2)** keeps the §13 gate meaningful at the cost of ~1 hour of disposable code.
-Your call — I will not pick this one for you.
+§13 asked for the lab in Phase 0 but the audio engine in Phase 1, which was circular.
+**Decided 2026-10-14: Phase 0 renders through a probe voice** (option 2 of three),
+with three binding refinements — the probe implements the real event→voice interface
+and real master chain, determinism traps (`Tone.Reverb`'s `Math.random` impulse
+response above all) are handled with a bit-identical-render acceptance bar, and the
+probe is demoted to a regression fixture rather than deleted. Full reasoning in
+`docs/decisions.md`; SPEC §13 updated. See P0-7 above.
 
 ## Dependencies outside the code
 - **ffmpeg** — not installed; P0-7 is blocked without it.

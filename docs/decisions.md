@@ -28,3 +28,44 @@ What was decided, why, and when (SPEC §0). Newest last. Music decisions live in
   keep only normalized output, re-tuning means another 48 h wait.
 - **ffmpeg was missing** from the machine; needed for the lab's LUFS and spectrograms
   (§7.3). Mohammad authorized installing it.
+
+## 2026-10-14 · Phase 0 renders through a probe voice (SPEC §13 amended)
+
+**Problem.** §13 required the listening lab in Phase 0 and its gate was "the lab
+renders a 10-minute WAV", but §7.3 defines rendering as replaying *through the client
+audio engine* — which §13 schedules for Phase 1. Phase 0 could not complete as
+written: circular dependency, a spec bug rather than a misreading.
+
+**Decision (Mohammad, option 2 of three).** Phase 0 builds a deliberately crude
+**probe voice** so the measurement chain is proven before Phase 1's real voices land
+in it. Rejected: moving the lab to Phase 1 (Phase 1 would then debug engine and
+renderer against each other) and rendering a synthetic test signal (proves ffmpeg
+works and nothing else). SPEC §13 Phase 0 updated accordingly.
+
+**Three refinements, all from Mohammad, all binding:**
+
+1. **The probe plugs into the real interface, not a side door.** Define the
+   event→voice interface Phase 1 voices will implement, and make the probe its first
+   implementation. Route its output through the planned master chain (compressor +
+   −1 dBTP limiter). *Rationale: a harness that bypasses the real path lets Phase 1
+   discover interface bugs late, which is the exact cost we were buying our way out of.*
+
+2. **Determinism traps are real and must be handled explicitly.** `Tone.Reverb`
+   builds its impulse response from noise generated with `Math.random`, so renders
+   will **not** be bit-identical even from a fixed seed. Either keep `Tone.Reverb`
+   out of the probe, or substitute the seeded PRNG for `Math.random` during offline
+   renders. The same applies to any other `Math.random` or `Date.now` inside the
+   engine — including `Tone.Noise`-based textures, which §6.2's rain and wind
+   textures will use. The substitution must be installed **before** the engine
+   constructs any audio node, or the IR is already generated from unseeded noise.
+   **Acceptance: render the same slice twice → identical SHA-256.** Documented
+   fallback: max sample difference below −90 dBFS, with the reason logged here.
+   *Rationale: without this, every later A/B comparison is confounded by renderer
+   noise and we cannot tell a musical change from a rendering artifact.*
+
+3. **Demote the probe, do not delete it.** It moves to
+   `lab/fixtures/probe-voice.ts`, is excluded from the production client bundle, and
+   is retained as the renderer's regression fixture — a CI-style check that the
+   harness still produces the known hash. *Rationale: when something sounds wrong
+   months from now, one run distinguishes "the renderer changed" from "the music
+   changed". This supersedes the earlier plan to delete the probe after Phase 1.*

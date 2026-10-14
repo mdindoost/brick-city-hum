@@ -405,8 +405,21 @@ Source health, live event rate, governor stats, listener count, current section 
 - adsb.lol collector + recorder running; **record at least 2 full days** of raw aircraft data.
 - Event detector for `ewr_departure`, `ewr_arrival`, `overflight_city`, `helicopter`, validated against the recordings (spot-check 20 events manually against a public flight tracker).
 - Simulator that replays recordings.
-- Listening-lab skeleton: offline render + LUFS + spectrogram.
-- ✅ *Accept when:* detector precision looks right on spot checks; the lab renders a 10-minute WAV and a report.
+- Listening-lab skeleton: offline render + LUFS + spectrogram. The engine does not
+  exist yet in Phase 0, so the lab renders through a **probe voice**: one bell per
+  event panned by bearing, plus a single drone. It is the **first implementation of
+  the event→voice interface** that Phase 1's real voices implement, and its output
+  goes through the planned master chain (compressor + −1 dBTP limiter) — the harness
+  must exercise the same path real voices will use, never a bypass.
+  The probe lives at `lab/fixtures/probe-voice.ts`, is excluded from the production
+  client bundle, and is kept afterwards as the renderer's **regression fixture**
+  (a known-hash check that answers "did the renderer change, or did the music?").
+  It is a measurement fixture, **not a musical artifact, and is never tuned.**
+- ✅ *Accept when:* detector precision looks right on spot checks; the lab renders a
+  10-minute WAV and a report; **the same slice rendered twice is bit-identical
+  (matching SHA-256)**. If exact identity is impossible for a documented reason, the
+  fallback bar is a max sample difference below −90 dBFS, with the reason recorded in
+  `docs/decisions.md`.
 
 ### Phase 1: MVP, "planes + people" (≈ 1 week)
 - Clock sync, transport, Ground layer, aircraft voices, spatialization, density governor, taps, captions, minimal map.
