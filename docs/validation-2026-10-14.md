@@ -98,7 +98,7 @@ discarded before recording (§3.2), not that we failed to read it.
 | 7   | 15:53:27    | 19:53:27 | `helicopter`      | —        | S76  | 40.7039, -74.1681 | 125      | +256         | 🚁 a helicopter crossing Newark       | ✓ type                |       |                                                       |
 | 8   | 15:55:01    | 19:55:01 | `overflight_city` | —        | S76  | 40.7217, -74.1756 | 625      | −64          | ✈ a helicopter over the city          | ✓ type                |       |                                                       |
 | 9   | 15:55:40    | 19:55:40 | `overflight_city` | —        | B407 | 40.7567, -74.1594 | 800      | −64          | ✈ a plane over the city               | **❌ defect — fixed** | ❌    | caption wrong: a Bell 407 is a helicopter. See below. |
-| 10  | 15:56:08    | 19:56:08 | `ewr_departure`   | RPA5829  | —    | 40.6630, -74.1841 | 1500     | +1280        | ✈ an airliner departing Newark        | ? no match            |       |                                                       |
+| 10  | 15:56:08    | 19:56:08 | `ewr_departure`   | RPA5829  | —    | 40.6630, -74.1841 | 1500     | +1280        | ✈ an airliner departing Newark        | ? no match            | ✅    | FlightAware: EWR→BOS, held on the ground. See below.  |
 | 11  | 16:00:21    | 20:00:21 | `ewr_departure`   | UAL124   | —    | 40.6464, -74.1977 | 1575     | +1088        | ✈ a heavy jet departing Newark        | ✓ airport+direction   |       |                                                       |
 | 12  | 16:01:54    | 20:01:54 | `ewr_arrival`     | GJS4560  | —    | 40.7383, -74.1356 | 1000     | −576         | ✈ a small jet arriving at Newark      | ✓ airport+direction   |       |                                                       |
 | 13  | 16:02:28    | 20:02:28 | `overflight_city` | UAL124   | —    | 40.7250, -74.1917 | 6450     | +2944        | ✈ a heavy jet over the city           | ✓ + arithmetic        |       |                                                       |
@@ -141,6 +141,24 @@ right direction — Newark appears nowhere in the database's route, so the rule 
 naming it and the caption stays type-based ("an airliner arriving at Newark") rather
 than confidently announcing a flight to Seattle. A wrong route was available and the
 rule refused it.
+
+## Checked against a tracker: row 10, and why gate times are not our times
+
+FlightAware has RPA5829 leaving **gate A4 at 14:51 EDT** for Boston — an hour before
+we saw it. That gap is not a disagreement: 14:51 is the **gate** time, and the same
+page carries a delay notice for Boston Logan, so the aircraft pushed back early and
+then waited on the ground.
+
+Our figures close it. At 15:56:08 it was at 1 500 ft climbing 1 280 ft/min, so it
+left the runway about **70 seconds earlier, around 15:55**. It reached its Boston gate
+at 16:53 — 58 minutes later, against a typical EWR–BOS airborne time of 45–50 minutes
+plus taxi. The numbers meet. **✅**
+
+Worth stating plainly because it will come up again whenever a schedule is used as
+evidence: **a gate time is not a wheels-off time**, and the two differed by an hour
+here. We read ADS-B, so our timestamp is the physical event; a schedule describes the
+door. Where a tracker page offers both, the one to compare against is its own
+_Takeoff_ / _Landing_ field, not the gate row.
 
 ## The defect this table found: row 9
 
