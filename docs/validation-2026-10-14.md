@@ -93,7 +93,7 @@ discarded before recording (§3.2), not that we failed to read it.
 | 2   | 15:41:52    | 19:41:52 | `overflight_city` | —        | S76  | 40.7516, -74.1481 | 900      | +128         | ✈ a helicopter over the city          | ✓ type                |       |                                                       |
 | 3   | 15:47:29    | 19:47:29 | `ewr_arrival`     | ASA295   | —    | 40.7344, -74.1381 | 900      | −832         | ✈ an airliner arriving at Newark      | ? no match            | ✅    | FlightAware: SEA→EWR, landed 15:49 EDT. See below.    |
 | 4   | 15:48:13    | 19:48:13 | `ewr_departure`   | UAL1021  | —    | 40.6382, -74.2025 | 1850     | +640         | ✈ an airliner departing Newark        | ✓ airport+direction   |       |                                                       |
-| 5   | 15:52:16    | 19:52:16 | `ewr_arrival`     | UAL1499  | —    | 40.7373, -74.1361 | 950      | −832         | ✈ an airliner arriving at Newark      | ~ airport only        |       |                                                       |
+| 5   | 15:52:16    | 19:52:16 | `ewr_arrival`     | UAL1499  | —    | 40.7373, -74.1361 | 950      | −832         | ✈ an airliner arriving at Newark      | ~ airport only        | ✅    | FlightAware: AUS→EWR, at gate 15:58 EDT.              |
 | 6   | 15:52:38    | 19:52:38 | `ewr_departure`   | UAL1498  | —    | 40.6509, -74.1917 | 1525     | +1024        | ✈ an airliner departing Newark        | ✓ airport+direction   |       |                                                       |
 | 7   | 15:53:27    | 19:53:27 | `helicopter`      | —        | S76  | 40.7039, -74.1681 | 125      | +256         | 🚁 a helicopter crossing Newark       | ✓ type                |       |                                                       |
 | 8   | 15:55:01    | 19:55:01 | `overflight_city` | —        | S76  | 40.7217, -74.1756 | 625      | −64          | ✈ a helicopter over the city          | ✓ type                |       |                                                       |
@@ -183,9 +183,14 @@ checked, and in all five the database was simply describing a different flight:
 | JZA497   | YSJ→YYZ      | **EWR→YUL**        |
 | JBU685   | JFK→RDU      | **EWR→FLL**        |
 
-Five for five, and two more rows (5 and 16) have Newark on the wrong side, which is
-the same failure in a milder form. Of the thirteen callsigns looked up, seven are
-demonstrably describing some other leg or some other day.
+Five for five. The two rows with Newark on the _wrong side_ are the same failure in a
+milder form, and row 5 has now been checked too: the database calls UAL1499 EWR→LAX,
+while it actually flew **AUS→EWR** and was on final approach when we saw it. Newark
+was its destination, not its origin — so this is no longer a hypothesis about what a
+side-blind rule would do. Without the direction check, an aircraft at 950 ft on short
+final would have been announced as a flight **to** Los Angeles. Of the thirteen callsigns looked up, six are
+now demonstrably describing some other leg or some other day, with a seventh (row 16)
+unchecked.
 
 The seven rows where it _did_ agree with us are not thereby worthless. The failure we
 observed is "describes a different flight", which produces **disagreement**; for a
