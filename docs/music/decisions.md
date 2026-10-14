@@ -66,3 +66,46 @@ independently), and nothing sustained above ~6 kHz, so §6.8's high shelf is wor
 **What this does not tell us:** anything about whether it is pleasant. §7.3 step 5
 still requires a human A/B win before any musical change is adopted, and the probe may
 never be cited in one.
+
+## 2026-10-14 · The first aircraft voices
+
+The first sound in this project that is allowed to be judged as music. (The probe
+voice is not and never will be — see the top of this file.)
+
+**Scale: D minor pentatonic.** §6.2 requires "no wrong notes, ever", and a pentatonic
+is the only scale where that holds by construction: every pair of degrees is
+consonant, so an event landing on any degree against any drone still works. The piece
+has no harmonic walk yet to resolve a semitone, and will not until Phase 2's palettes.
+Modes with semitones are strictly better _once there is somewhere for them to go_.
+
+**Ground is a bare fifth, D2 + A2.** Omitting the third leaves the harmony undecided,
+so an event note may colour it major or minor without ever contradicting the bed.
+
+**Each gesture is a gesture, not a note** (§6.4). A departure rises, an arrival falls
+with a softer attack, an overflight sustains, a helicopter flutters, a high overflight
+shimmers. The attack difference between departure and arrival matters as much as the
+direction: it is what makes the pair read as opposites to someone who is not
+listening, which is most of the time.
+
+**Climb rate sets the figure's speed.** An aircraft clawing for altitude hurries its
+three notes along; one easing off lets them breathe. This is the one place the data's
+own dynamics reach the music directly.
+
+**Three findings from the first renders, all from numbers, none from ears:**
+
+1. The first render was **silent in the events** and nobody would have known from the
+   file size. A node-release optimisation written for the live page disposed each
+   event's chain moments after it was scheduled, because in an offline render every
+   event is scheduled before a single sample exists. The giveaway was the pitch-class
+   histogram being _identical to four decimal places_ after an event-gain change.
+   Releasing against the context clock rather than the scheduled time fixed it.
+2. **Loudness must come from the Ground, not the master trim.** Pushing the trim
+   raised integrated loudness by 0.3 LU per dB while driving true peak from −1.5 to
+   −0.1 dBTP — over §6.8's ceiling. The drone carries the integrated figure because it
+   is continuous; the events carry the peaks. They are different knobs.
+3. **A sample-domain limiter at −1 dBTP does not produce −1 dBTP.** Measured −0.8 with
+   the ceiling at −1. It is set to −1.5 so the spec is met after reconstruction.
+
+**Open, and only ears can answer it:** how far forward the city voices should sit
+against the Ground. The two renders logged in `listening-log.md` differ in exactly
+that, at matched loudness.

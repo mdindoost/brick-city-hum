@@ -10,6 +10,7 @@
  */
 
 import { mulberry32 } from '../shared/random.js';
+import type { AudioConfig } from '../shared/protocol.js';
 
 export interface RenderInput {
   replay: { offsetSeconds: number; event: unknown }[];
@@ -18,6 +19,16 @@ export interface RenderInput {
   bpm: number;
   maxVoices: number;
   withReverb: boolean;
+  /**
+   * Which instrument to render through.
+   *
+   * `probe` is the Phase 0 measurement fixture and must stay available forever: it is
+   * the only way to answer "did the renderer change, or did the music change?" when
+   * a number moves months from now. `aircraft` is the real §6.4 voices.
+   */
+  voice: 'probe' | 'aircraft';
+  /** The score, from config/score.yaml. Required for `aircraft`. */
+  audio: AudioConfig | null;
 }
 
 /**
@@ -75,21 +86,42 @@ export async function renderOffline(input: RenderInput): Promise<{
   const buffer = await Tone.Offline(
     async ({ transport }) => {
       transport.bpm.value = input.bpm;
+      const audio = input.audio;
       const engine = new AudioEngine({
         maxVoices: input.maxVoices,
         targetLufs: -20,
         sectionSeed: input.seedNumber,
-        // A minor pentatonic on D — a placeholder scale for the fixture, not a
-        // palette decision. Palettes are §6.2 and Phase 2.
-        scale: [0, 3, 5, 7, 10],
-        rootMidi: 62,
+        // The fixture's own placeholder scale, kept so its hash never moves; the real
+        // palette comes from score.yaml with the aircraft voices.
+        scale: audio?.palette.scale ?? [0, 3, 5, 7, 10],
+        rootMidi: audio?.palette.root_midi ?? 62,
         bpm: input.bpm,
+        master: audio?.master ?? {
+          // The fixture's historical chain, kept literal so the probe's hash cannot
+          // move when the score is tuned. See lab/fixtures/probe-voice.ts.
+          gain_db: 0,
+          high_shelf_hz: 6000,
+          high_shelf_db: -6,
+          compressor_threshold_db: -24,
+          compressor_ratio: 2.5,
+          compressor_attack_s: 0.05,
+          compressor_release_s: 0.4,
+          limiter_ceiling_db: -1,
+          reverb_decay_s: 4,
+        },
       });
-      engine.register(new ProbeVoice());
-      await engine.prepare({ withReverb: input.withReverb });
 
-      const drone = new ProbeDrone();
-      drone.start(62, Tone.getDestination(), 0);
+      if (input.voice === 'aircraft' && audio !== null) {
+        const { aircraftVoices } = await import('../client/src/audio/voices/aircraft.js');
+        const { Ground } = await import('../client/src/audio/ground.js');
+        for (const voice of aircraftVoices(audio)) engine.register(voice);
+        await engine.prepare({ withReverb: input.withReverb });
+        new Ground(audio).start(Tone.getDestination(), 0);
+      } else {
+        engine.register(new ProbeVoice());
+        await engine.prepare({ withReverb: input.withReverb });
+        new ProbeDrone().start(62, Tone.getDestination(), 0);
+      }
 
       for (const item of input.replay) {
         const accepted = engine.schedule(

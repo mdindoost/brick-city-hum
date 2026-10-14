@@ -86,6 +86,7 @@ async function main(): Promise<void> {
     server,
     origin: { lat: places.origin.lat, lon: places.origin.lon, name: places.origin.name },
     visual: score.visual,
+    audio: score.audio,
     playLeadMs: score.play_lead_ms,
     replay: true,
     replaySpeed: SPEED,

@@ -20,6 +20,7 @@
         <span id="clock">syncing…</span>
         <span id="count">0 events</span>
         <span id="status">connecting</span>
+        <button id="play" type="button" aria-pressed="false" disabled>▶ listen</button>
       </div>
     </header>
     <main>
@@ -27,7 +28,7 @@
       <ul id="captions"></ul>
       <!-- SPEC §2.1: audio never starts before a user gesture. The ▶ and the voices
            arrive next; this half of Phase 1 is the picture and the shared clock. -->
-      <footer>north is up · you are the dot<br />no audio yet</footer>
+      <footer>north is up · you are the dot<br />press ▶ to hear the city</footer>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

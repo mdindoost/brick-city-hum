@@ -157,3 +157,30 @@ footer {
     animation: none;
   }
 }
+
+#play {
+  /* The only control on the page (§2.1). Quiet enough not to be the subject of it. */
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  color: var(--ink);
+  cursor: pointer;
+  font:
+    12px ui-monospace,
+    monospace;
+  padding: 3px 12px;
+}
+
+#play:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+#play:disabled {
+  color: var(--faint);
+  cursor: default;
+}
+
+#play[aria-pressed='true'] {
+  border-color: #6fbf73;
+  color: #6fbf73;
+}

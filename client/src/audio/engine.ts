@@ -10,6 +10,7 @@
  */
 
 import * as Tone from 'tone';
+import type { AudioConfig } from '../../../shared/protocol.js';
 import {
   bearingToPan,
   distanceToMix,
@@ -30,22 +31,29 @@ export interface EngineOptions {
   readonly scale: readonly number[];
   readonly rootMidi: number;
   readonly bpm: number;
+  /** The master chain, from score.yaml (§6.8). */
+  readonly master: AudioConfig['master'];
 }
 
 interface ScheduledVoice {
   readonly event: PublicEvent;
   readonly endsAt: number;
   readonly salience: number;
+  /** The per-event chain, released once the gesture is over. */
+  readonly nodes: readonly { dispose: () => void }[];
 }
 
 export class AudioEngine {
   private readonly compressor: Tone.Compressor;
   private readonly limiter: Tone.Limiter;
   private readonly highShelf: Tone.Filter;
+  private readonly trim: Tone.Gain;
   private readonly reverb: Tone.Reverb;
   private readonly busInput: Tone.Gain;
   private readonly voices: Voice[] = [];
   private active: ScheduledVoice[] = [];
+  /** Finished or stolen gestures, awaiting release once the context has passed them. */
+  private retired: ScheduledVoice[] = [];
   private stolen = 0;
 
   constructor(private readonly options: EngineOptions) {
@@ -56,21 +64,27 @@ export class AudioEngine {
     //    voice can produce a true-peak overshoot however badly it behaves;
     //  - the high shelf tames energy above ~6 kHz, because harshness is the
     //    failure mode that makes an ambient piece unlistenable for hours.
-    this.limiter = new Tone.Limiter(-1).toDestination();
+    const master = options.master;
+    this.limiter = new Tone.Limiter(master.limiter_ceiling_db).toDestination();
     this.compressor = new Tone.Compressor({
-      threshold: -24,
-      ratio: 2.5,
-      attack: 0.05,
-      release: 0.4,
+      threshold: master.compressor_threshold_db,
+      ratio: master.compressor_ratio,
+      attack: master.compressor_attack_s,
+      release: master.compressor_release_s,
     }).connect(this.limiter);
-    this.highShelf = new Tone.Filter({ type: 'highshelf', frequency: 6000, gain: -6 }).connect(
-      this.compressor,
-    );
+    // The trim the lab moves to reach §6.8's loudness target, ahead of the dynamics
+    // so raising it does not change how the compressor behaves on the balance.
+    this.trim = new Tone.Gain(Tone.dbToGain(master.gain_db)).connect(this.compressor);
+    this.highShelf = new Tone.Filter({
+      type: 'highshelf',
+      frequency: master.high_shelf_hz,
+      gain: master.high_shelf_db,
+    }).connect(this.trim);
     // NOTE on determinism: Tone.Reverb generates its impulse response from noise
     // produced with Math.random, so a render including it is NOT bit-identical.
     // The lab's deterministic preset therefore omits reverb; see lab/render.ts and
     // docs/decisions.md. This is why reverb is created here but bypassable.
-    this.reverb = new Tone.Reverb({ decay: 4, wet: 1 }).connect(this.highShelf);
+    this.reverb = new Tone.Reverb({ decay: master.reverb_decay_s, wet: 1 }).connect(this.highShelf);
     this.busInput = new Tone.Gain(1).connect(this.highShelf);
   }
 
@@ -108,6 +122,12 @@ export class AudioEngine {
    * piece from the one the numbers describe.
    */
   schedule(event: PublicEvent, playAt: number): boolean {
+    this.releaseFinished();
+    // The voice budget is about overlap at the moment the gesture sounds, so it is
+    // counted against `playAt` — not against the context clock.
+    for (const scheduled of this.active) {
+      if (scheduled.endsAt <= playAt) this.retired.push(scheduled);
+    }
     this.active = this.active.filter((scheduled) => scheduled.endsAt > playAt);
 
     if (this.active.length >= this.options.maxVoices && !this.steal(event, playAt)) {
@@ -121,9 +141,15 @@ export class AudioEngine {
     const panner = new Tone.Panner(bearingToPan(event.rel.bearing_deg));
     const tone = new Tone.Filter({ type: 'lowpass', frequency: mix.cutoffHz });
     const gain = new Tone.Gain(mix.gain * (0.4 + 0.6 * event.salience));
+    // Farther is quieter, darker AND wetter (§6.4) — the third of those was built
+    // and then never connected, so distance read as "quiet and muffled" rather than
+    // "far away". The send is per event because the reverb is shared.
+    const send = new Tone.Gain(mix.reverbSend);
     panner.connect(tone);
     tone.connect(gain);
     gain.connect(this.busInput);
+    gain.connect(send);
+    send.connect(this.reverb);
 
     const context: VoiceContext = {
       playAt,
@@ -136,8 +162,37 @@ export class AudioEngine {
     const output: VoiceOutput = { destination: panner };
 
     const duration = voice.schedule(event, context, output);
-    this.active.push({ event, endsAt: playAt + duration, salience: event.salience });
+    this.active.push({
+      event,
+      endsAt: playAt + duration,
+      salience: event.salience,
+      nodes: [panner, tone, gain, send],
+    });
     return true;
+  }
+
+  /**
+   * Release the chains of gestures the **context clock** has passed.
+   *
+   * Against the context clock and not the scheduled time, and the difference is not
+   * academic: in an offline render every event is scheduled synchronously before a
+   * single sample exists, so releasing on scheduled time disposed each chain moments
+   * after it was built and the first render of the real voices came out silent. Live,
+   * `Tone.now()` advances with the music and the chains are freed as they end — which
+   * matters, because a page left open all afternoon builds four nodes per event.
+   */
+  private releaseFinished(): void {
+    const now = Tone.now();
+    const keep: ScheduledVoice[] = [];
+    for (const scheduled of this.retired) {
+      // A tail beyond the gesture's own end, so a reverb send is not cut short.
+      if (scheduled.endsAt + 6 <= now) {
+        for (const node of scheduled.nodes) node.dispose();
+      } else {
+        keep.push(scheduled);
+      }
+    }
+    this.retired = keep;
   }
 
   /**
@@ -160,7 +215,12 @@ export class AudioEngine {
       }
     }
     if (worstIndex === -1 || worstScore >= incoming.salience) return false;
-    this.active.splice(worstIndex, 1);
+    const [victim] = this.active.splice(worstIndex, 1);
+    // Stealing frees a budget slot; it does not cut the sound off. Disposing the
+    // chain here would silence a sounding note instantly, which is a click — exactly
+    // the sudden transient §6.8 forbids. It is retired instead and released when it
+    // has finished of its own accord.
+    if (victim !== undefined) this.retired.push(victim);
     this.stolen += 1;
     return true;
   }

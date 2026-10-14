@@ -17,7 +17,12 @@
 import type { Server } from 'node:http';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { toPublicEvent, type CityEvent } from './events.js';
-import type { EventsMessage, HelloMessage, VisualConfig } from '../../shared/protocol.js';
+import type {
+  AudioConfig,
+  EventsMessage,
+  HelloMessage,
+  VisualConfig,
+} from '../../shared/protocol.js';
 import { playAt, timeReply } from './clock.js';
 
 export interface HubOptions {
@@ -25,6 +30,7 @@ export interface HubOptions {
   readonly path?: string;
   readonly origin: HelloMessage['origin'];
   readonly visual: VisualConfig;
+  readonly audio: AudioConfig;
   readonly playLeadMs: number;
   readonly replay: boolean;
   readonly replaySpeed: number | null;
@@ -85,6 +91,7 @@ export class Hub {
       server_ms: Date.now(),
       origin: this.options.origin,
       visual: this.options.visual,
+      audio: this.options.audio,
       replay: this.options.replay,
       replay_speed: this.options.replaySpeed,
       listeners: this.sockets.size,

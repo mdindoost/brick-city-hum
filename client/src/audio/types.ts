@@ -13,23 +13,14 @@
  * may be trusted with (§6.8).
  */
 
-/** The client-facing event — SPEC §5.2's `event` message, after §3.2's stripping. */
-export interface PublicEvent {
-  readonly id: string;
-  readonly t: number;
-  readonly type: string;
-  readonly geo: { readonly lat: number; readonly lon: number; readonly alt_ft: number | null };
-  readonly rel: { readonly bearing_deg: number; readonly distance_km: number };
-  readonly attrs: {
-    readonly category: string | null;
-    readonly heavy: boolean;
-    readonly described_as: string;
-  };
-  readonly salience: number;
-  readonly caption: string;
-  readonly sim: boolean;
-  readonly scheduled: boolean;
-}
+/**
+ * The client-facing event. Re-exported rather than redefined: `shared/protocol.ts`
+ * is the one description of what crosses the wire, and a second copy here is a
+ * second thing to forget to update — this file's copy had already fallen behind by
+ * two fields.
+ */
+export type { PublicEvent } from '../../../shared/protocol.js';
+import type { PublicEvent } from '../../../shared/protocol.js';
 
 /**
  * Everything a voice is told, beyond the event itself.

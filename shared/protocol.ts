@@ -56,11 +56,94 @@ export interface VisualConfig {
   readonly caption_life_s: number;
 }
 
+/**
+ * The sounding half of `score.yaml`, shipped to the browser.
+ *
+ * The client holds no tuning value of its own (SPEC §1.5): a number the music
+ * director cannot reach from config is a number that will never be tuned, and this
+ * aesthetic is tuned forever after launch.
+ */
+export interface AudioConfig {
+  readonly master: {
+    readonly gain_db: number;
+    readonly high_shelf_hz: number;
+    readonly high_shelf_db: number;
+    readonly compressor_threshold_db: number;
+    readonly compressor_ratio: number;
+    readonly compressor_attack_s: number;
+    readonly compressor_release_s: number;
+    readonly limiter_ceiling_db: number;
+    readonly reverb_decay_s: number;
+  };
+  readonly transport: { readonly bpm: number; readonly quantize_beats: number };
+  readonly palette: {
+    readonly name: string;
+    readonly root_midi: number;
+    readonly scale: readonly number[];
+  };
+  readonly ground: {
+    readonly midi: readonly number[];
+    readonly gain: number;
+    readonly attack_s: number;
+    readonly loop_s: readonly number[];
+    readonly lfo_s: readonly number[];
+    readonly cutoff_hz: number;
+    readonly cutoff_sweep_hz: number;
+  };
+  readonly voices: {
+    readonly max_desktop: number;
+    readonly max_mobile: number;
+    readonly min_attack_s: number;
+    readonly ewr_departure: FigureParams;
+    readonly ewr_arrival: FigureParams;
+    readonly overflight_city: {
+      readonly attack_s: number;
+      readonly hold_s: number;
+      readonly release_s: number;
+      readonly detune_cents: number;
+      readonly bend_cents: number;
+      readonly gain: number;
+    };
+    readonly overflight_high: {
+      readonly attack_s: number;
+      readonly release_s: number;
+      readonly gain: number;
+      readonly octave_offset: number;
+    };
+    readonly helicopter: {
+      readonly tremolo_hz: number;
+      readonly tremolo_depth: number;
+      readonly attack_s: number;
+      readonly hold_s: number;
+      readonly release_s: number;
+      readonly gain: number;
+    };
+    readonly heavy: {
+      readonly octave_offset: number;
+      readonly release_multiplier: number;
+      readonly cutoff_multiplier: number;
+    };
+  };
+}
+
+/** A two- or three-note rising or falling figure (§6.4). */
+export interface FigureParams {
+  readonly notes: number;
+  readonly step_degrees: number;
+  readonly attack_s: number;
+  readonly release_s: number;
+  readonly gap_beats_slow: number;
+  readonly gap_beats_fast: number;
+  readonly vrate_fast_fpm: number;
+  readonly gain: number;
+}
+
 export interface HelloMessage {
   readonly type: 'hello';
   readonly server_ms: number;
   readonly origin: { readonly lat: number; readonly lon: number; readonly name: string };
   readonly visual: VisualConfig;
+  readonly audio: AudioConfig;
   /** True when these events are a recording being replayed. The page must say so. */
   readonly replay: boolean;
   /**

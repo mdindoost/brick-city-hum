@@ -26,6 +26,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
 import { readRecording } from '../server/src/recorder.js';
+import { loadScore } from '../server/src/config.js';
 import { seedFromString } from '../shared/random.js';
 
 export interface RenderOptions {
@@ -35,6 +36,8 @@ export interface RenderOptions {
   readonly seed: string;
   /** `deterministic` omits reverb so the render is bit-identical. */
   readonly preset: 'deterministic' | 'with-reverb';
+  /** `probe` is the Phase 0 regression fixture; `aircraft` is the real §6.4 voices. */
+  readonly voice: 'probe' | 'aircraft';
   readonly outDir: string;
   readonly bpm: number;
   readonly maxVoices: number;
@@ -134,6 +137,8 @@ export async function render(options: RenderOptions): Promise<RenderResult> {
         bpm: number;
         maxVoices: number;
         withReverb: boolean;
+        voice: 'probe' | 'aircraft';
+        audio: unknown;
       }) => {
         const api = (globalThis as unknown as { BrickCityLab: Record<string, unknown> })
           .BrickCityLab;
@@ -153,6 +158,8 @@ export async function render(options: RenderOptions): Promise<RenderResult> {
         bpm: options.bpm,
         maxVoices: options.maxVoices,
         withReverb: options.preset === 'with-reverb',
+        voice: options.voice,
+        audio: options.voice === 'aircraft' ? loadScore().audio : null,
       },
     );
 
@@ -182,7 +189,7 @@ export async function render(options: RenderOptions): Promise<RenderResult> {
     });
 
     const wav = Buffer.concat(parts);
-    const name = `${new Date().toISOString().slice(0, 10)}-${options.preset}-${options.seed}.wav`;
+    const name = `${new Date().toISOString().slice(0, 10)}-${options.voice}-${options.preset}-${options.seed}.wav`;
     const wavPath = join(options.outDir, name);
     writeFileSync(wavPath, wav);
 
@@ -194,7 +201,7 @@ export async function render(options: RenderOptions): Promise<RenderResult> {
       stolenVoices: meta.stolen,
       durationSeconds,
       reproducible: options.preset === 'deterministic',
-      voice: 'probe',
+      voice: options.voice,
     };
   } finally {
     await browser.close();
@@ -206,6 +213,10 @@ function parseArgs(argv: string[]): RenderOptions {
     const index = argv.indexOf(`--${flag}`);
     return index === -1 ? fallback : (argv[index + 1] ?? fallback);
   };
+  const voice = get('voice', 'probe');
+  if (voice !== 'probe' && voice !== 'aircraft') {
+    throw new Error(`unknown voice ${voice}; use probe or aircraft`);
+  }
   const preset = get('preset', 'deterministic');
   if (preset !== 'deterministic' && preset !== 'with-reverb') {
     throw new Error(`unknown preset ${preset}; use deterministic or with-reverb`);
@@ -218,6 +229,7 @@ function parseArgs(argv: string[]): RenderOptions {
     minutes: Number(get('minutes', '10')),
     seed: get('seed', 'demo'),
     preset,
+    voice,
     outDir: get('out', 'lab/renders'),
     bpm: Number(get('bpm', '68')),
     maxVoices: Number(get('max-voices', '24')),

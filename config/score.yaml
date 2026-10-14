@@ -24,3 +24,134 @@ visual:
   # The caption ticker.
   caption_lines: 8
   caption_life_s: 120
+
+# ---------------------------------------------------------------------------------
+# Sound. SPEC §6. Every number here is a default for the music director to tune (§7),
+# and the server ships this block to the browser so the client holds no tuning value
+# of its own.
+#
+# Phase 1 is one palette. §6.2's six dayparts, the weather modifiers and the harmonic
+# walk are Phase 2 — this is the fixed afternoon the rest will vary from.
+audio:
+  # The master chain (§6.8). These were hard-coded in engine.ts, which by §1.5 is a
+  # bug: the loudness target is explicitly "[HUMAN] tune by ear; measure in the lab",
+  # and a number the music director cannot reach is a number that never gets tuned.
+  master:
+    # Trim before the compressor. The lab measures integrated loudness; this is how it
+    # gets moved without touching the balance between the ground and the voices.
+    gain_db: 0
+    # Harshness is what makes an ambient piece unlistenable over hours (§6.8).
+    high_shelf_hz: 6000
+    high_shelf_db: -6
+    compressor_threshold_db: -24
+    compressor_ratio: 2.5
+    compressor_attack_s: 0.05
+    compressor_release_s: 0.4
+    # Last thing before the output. Set below §6.8's −1 dBTP on purpose: a limiter
+    # works on samples, and reconstruction between them overshoots. Measured: with
+    # the ceiling at −1 the render came back at −0.8 dBTP, i.e. over the spec.
+    limiter_ceiling_db: -1.5
+    # Impulse-response length of the shared reverb, in seconds.
+    reverb_decay_s: 4
+
+  transport:
+    # Slow enough that quantisation feels like breathing rather than rhythm (§6.3).
+    bpm: 66
+    # Events land on the next half-beat. At 66 BPM that is a 455 ms grid: tight enough
+    # that the city "falls into" the music, loose enough that nothing sounds drilled.
+    quantize_beats: 0.5
+
+  palette:
+    name: afternoon
+    # D minor pentatonic. §6.2 says "no wrong notes, ever", and a pentatonic is the
+    # only scale where that is true by construction: every pair of degrees is
+    # consonant, so an event arriving on any degree against any drone still works.
+    # Modes with semitones (Dorian, Aeolian) arrive in Phase 2 with the palettes,
+    # when a harmonic walk exists to resolve them.
+    root_midi: 62 # D4
+    scale: [0, 3, 5, 7, 10]
+
+  # The Ground layer (§6.1): the air of the city, always there, never the subject.
+  ground:
+    # Root and fifth, two octaves down. A bare fifth leaves the third undefined, so
+    # event notes may colour the harmony either way without ever contradicting it.
+    midi: [38, 45]
+    gain: 0.26
+    attack_s: 8
+    # Mutually prime loop lengths (§6.7.1 — the Music for Airports technique). Their
+    # combination repeats once every 17 × 23 × 31 ≈ 3.4 hours.
+    loop_s: [17, 23, 31]
+    # Slow filter and level movement, also on prime periods (§6.7.2).
+    lfo_s: [43, 61, 79]
+    cutoff_hz: 420
+    cutoff_sweep_hz: 180
+
+  voices:
+    max_desktop: 24
+    max_mobile: 12
+    # §6.8: no sudden transients. Every voice's attack is clamped to at least this.
+    min_attack_s: 0.005
+
+    ewr_departure:
+      # A rising figure (§6.4). Three notes reads as a gesture; two reads as an
+      # interval and four starts to sound like a melody competing for attention.
+      notes: 3
+      step_degrees: 2
+      attack_s: 0.02
+      release_s: 2.4
+      # Climb rate sets glide speed: a steep climb hurries the figure along.
+      gap_beats_slow: 1.0
+      gap_beats_fast: 0.4
+      vrate_fast_fpm: 2500
+      gain: 0.9
+
+    ewr_arrival:
+      # Falling, with a softer attack (§6.4) — the difference in attack is what makes
+      # the two read as opposites even when the listener is not attending.
+      notes: 3
+      step_degrees: 2
+      attack_s: 0.12
+      release_s: 3.2
+      gap_beats_slow: 1.2
+      gap_beats_fast: 0.5
+      vrate_fast_fpm: 1800
+      gain: 0.8
+
+    overflight_city:
+      # A sustained tone, not a figure: the aircraft is passing over, not arriving.
+      attack_s: 1.6
+      hold_s: 4.0
+      release_s: 5.0
+      # Two oscillators a few cents apart, which beats slowly and gives the tone the
+      # width a single oscillator cannot have.
+      detune_cents: 7
+      # A barely-there pitch drift, the Doppler hint of §6.4 — well under the ~6 cent
+      # threshold where a listener starts hearing it as being out of tune.
+      bend_cents: 4
+      gain: 0.6
+
+    overflight_high:
+      # "Barely audible shimmer" (§6.4). It should be noticed only in its absence.
+      attack_s: 3.0
+      release_s: 6.0
+      gain: 0.2
+      # Two octaves up: present in the air without occupying any register the city
+      # voices use.
+      octave_offset: 2
+
+    helicopter:
+      # A flutter, not a note. The tremolo rate is the identifying feature, and it is
+      # deliberately slower than a real rotor — a real 5–8 Hz beat is agitating, and
+      # §1.4 wants this pleasant for hours.
+      tremolo_hz: 5.5
+      tremolo_depth: 0.7
+      attack_s: 0.4
+      hold_s: 2.5
+      release_s: 2.0
+      gain: 0.55
+
+    # A heavy aircraft is lower, longer and warmer (§6.4). A modifier, not a voice.
+    heavy:
+      octave_offset: -1
+      release_multiplier: 1.5
+      cutoff_multiplier: 0.6

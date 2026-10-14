@@ -1,18 +1,19 @@
 /**
  * Brick City Hum — client entry point.
  *
- * Phase 1, first half: the picture and the shared clock. There is deliberately no
- * audio here yet. SPEC §1.1 says sound quality is the product and §7 makes the
- * listening workflow mandatory, so a voice shipped quickly to have *something*
- * playing would be the one kind of progress this project does not want.
+ * Phase 1: the picture, the shared clock and the first voices.
  *
- * §2.1 still governs what comes next: audio never starts before the listener's ▶.
+ * §2.1 governs the order of everything here: the page draws immediately and is
+ * useful in silence, and audio begins only when the listener presses ▶. Events are
+ * scheduled against the server's `play_at` rather than their arrival time, so the
+ * glyph and the note happen together and two browsers agree.
  */
 
 import { Radio } from './net/socket.js';
+import { RadioAudio } from './audio/radio-audio.js';
 import { CityMap } from './visual/map.js';
 import { Captions } from './visual/captions.js';
-import type { PublicEvent, VisualConfig } from '../../shared/protocol.js';
+import type { AudioConfig, PublicEvent, VisualConfig } from '../../shared/protocol.js';
 
 interface Pending {
   readonly playAt: number;
@@ -42,13 +43,39 @@ function main(): void {
   const captions = new Captions(ticker, visual);
   const pending: Pending[] = [];
   let seen = 0;
+  let audio: RadioAudio | null = null;
+  let audioConfig: AudioConfig | null = null;
+
+  // §2.1: audio never starts before the listener's gesture, and the button is the
+  // only thing that may start it.
+  const play = document.querySelector<HTMLButtonElement>('#play');
+  play?.addEventListener('click', () => {
+    void (async () => {
+      if (audioConfig === null) return;
+      if (audio === null) audio = new RadioAudio(audioConfig);
+      if (audio.running) {
+        audio.stop();
+        audio = null;
+        play.textContent = '▶ listen';
+        play.setAttribute('aria-pressed', 'false');
+        return;
+      }
+      play.disabled = true;
+      await audio.start();
+      play.disabled = false;
+      play.textContent = '■ stop';
+      play.setAttribute('aria-pressed', 'true');
+    })();
+  });
 
   const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
   const radio = new Radio(url, {
     onHello: (hello) => {
       visual = hello.visual;
+      audioConfig = hello.audio;
       map.configure(visual);
       captions.configure(visual);
+      if (play !== null) play.disabled = false;
       text('#origin', hello.origin.name);
       const speed = hello.replay_speed;
       const rate = speed !== null && speed !== 1 ? ` · ${String(speed)}×` : '';
@@ -74,6 +101,7 @@ function main(): void {
       const due = pending.shift()!;
       map.add(due.events, due.playAt);
       captions.add(due.events, serverNow);
+      audio?.schedule(due.events, due.playAt, serverNow);
       seen += due.events.length;
     }
     map.render(serverNow);

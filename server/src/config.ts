@@ -274,6 +274,17 @@ export function loadPlaces(configDir: string = defaultConfigDir()): PlacesConfig
  * and this one is how it is *rendered*. The music director edits this one and should
  * never have to read the other.
  */
+const figureSchema = z.object({
+  notes: z.number().int().min(1).max(6),
+  step_degrees: z.number().int(),
+  attack_s: z.number().min(0),
+  release_s: z.number().positive(),
+  gap_beats_slow: z.number().positive(),
+  gap_beats_fast: z.number().positive(),
+  vrate_fast_fpm: z.number().positive(),
+  gain: z.number().min(0).max(1),
+});
+
 const scoreSchema = z.object({
   play_lead_ms: z.number().positive(),
   visual: z.object({
@@ -283,6 +294,71 @@ const scoreSchema = z.object({
     arrival_grow_s: z.number().positive(),
     caption_lines: z.number().int().positive(),
     caption_life_s: z.number().positive(),
+  }),
+  audio: z.object({
+    master: z.object({
+      gain_db: z.number(),
+      high_shelf_hz: z.number().positive(),
+      high_shelf_db: z.number(),
+      compressor_threshold_db: z.number(),
+      compressor_ratio: z.number().positive(),
+      compressor_attack_s: z.number().positive(),
+      compressor_release_s: z.number().positive(),
+      limiter_ceiling_db: z.number(),
+      reverb_decay_s: z.number().positive(),
+    }),
+    transport: z.object({
+      bpm: z.number().positive(),
+      quantize_beats: z.number().positive(),
+    }),
+    palette: z.object({
+      name: z.string().min(1),
+      root_midi: z.number().int().min(0).max(127),
+      scale: z.array(z.number().int()).min(1),
+    }),
+    ground: z.object({
+      midi: z.array(z.number().int().min(0).max(127)).min(1),
+      gain: z.number().min(0).max(1),
+      attack_s: z.number().positive(),
+      loop_s: z.array(z.number().positive()).min(1),
+      lfo_s: z.array(z.number().positive()).min(1),
+      cutoff_hz: z.number().positive(),
+      cutoff_sweep_hz: z.number().min(0),
+    }),
+    voices: z.object({
+      max_desktop: z.number().int().positive(),
+      max_mobile: z.number().int().positive(),
+      min_attack_s: z.number().min(0),
+      ewr_departure: figureSchema,
+      ewr_arrival: figureSchema,
+      overflight_city: z.object({
+        attack_s: z.number().min(0),
+        hold_s: z.number().min(0),
+        release_s: z.number().positive(),
+        detune_cents: z.number().min(0),
+        bend_cents: z.number().min(0),
+        gain: z.number().min(0).max(1),
+      }),
+      overflight_high: z.object({
+        attack_s: z.number().min(0),
+        release_s: z.number().positive(),
+        gain: z.number().min(0).max(1),
+        octave_offset: z.number().int(),
+      }),
+      helicopter: z.object({
+        tremolo_hz: z.number().positive(),
+        tremolo_depth: z.number().min(0).max(1),
+        attack_s: z.number().min(0),
+        hold_s: z.number().min(0),
+        release_s: z.number().positive(),
+        gain: z.number().min(0).max(1),
+      }),
+      heavy: z.object({
+        octave_offset: z.number().int(),
+        release_multiplier: z.number().positive(),
+        cutoff_multiplier: z.number().positive(),
+      }),
+    }),
   }),
 });
 
