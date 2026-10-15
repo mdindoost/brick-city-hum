@@ -26,7 +26,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
 import { readRecording } from '../server/src/recorder.js';
-import { loadScore } from '../server/src/config.js';
+import { loadScore, type ScoreConfig } from '../server/src/config.js';
+import { Spreader } from '../server/src/spreader.js';
 import { seedFromString } from '../shared/random.js';
 
 export interface RenderOptions {
@@ -43,6 +44,14 @@ export interface RenderOptions {
   readonly maxVoices: number;
   /** Where the committed CC0 kits are. */
   readonly samplesDir: string;
+  /**
+   * Put the events through the server's release queue before rendering (§1.4).
+   *
+   * On by default, because it is what a listener hears. `--spread 0` renders the
+   * recording's own poll rhythm, which is the only way to A/B the change and the only
+   * way to reproduce a render made before it existed.
+   */
+  readonly spread: boolean;
 }
 
 export interface RenderResult {
@@ -71,6 +80,50 @@ interface RecordedEventLine {
     sim: boolean;
     scheduled: boolean;
   }[];
+}
+
+/**
+ * Put the replay list through the server's release queue (§1.4).
+ *
+ * A recording's timestamps are poll timestamps: every event in one poll shares one,
+ * so a flattened recording is 25 chords rather than 684 notes. The live server spreads
+ * them (`server/src/spreader.ts`), so a render that did not would be measuring a piece
+ * nobody will hear — and this is the change the next A/B is about.
+ *
+ * The real `Spreader` is driven here by a virtual clock at its own tick, which is why
+ * it is generic over anything with a salience.
+ */
+export function spreadReplay(
+  replay: readonly { offsetSeconds: number; event: unknown }[],
+  score: ScoreConfig,
+): { offsetSeconds: number; event: unknown }[] {
+  const spread = score.spread;
+  const spreader = new Spreader<{ readonly salience: number }>({ score });
+  const out: { offsetSeconds: number; event: unknown }[] = [];
+  const last = replay.length === 0 ? 0 : (replay[replay.length - 1]?.offsetSeconds ?? 0);
+  const endMs = (last + spread.max_delay_s + spread.window_s + 1) * 1000;
+  let index = 0;
+  for (let ms = 0; ms <= endMs; ms += spread.tick_ms) {
+    const batch: { readonly salience: number }[] = [];
+    while (index < replay.length) {
+      const item = replay[index];
+      if (item === undefined || item.offsetSeconds * 1000 > ms) break;
+      batch.push(item.event as { readonly salience: number });
+      index += 1;
+    }
+    if (batch.length > 0) spreader.offer(batch, ms);
+    for (const event of spreader.drain(ms)) out.push({ offsetSeconds: ms / 1000, event });
+  }
+  // Anything the queue is still holding would be silence that is not in the city's
+  // record, so it is appended at the end rather than dropped. With `max_delay_s` in
+  // force this is empty in practice; it is here so a configuration mistake cannot
+  // quietly lose events.
+  let tail = endMs / 1000;
+  for (const event of spreader.drain(endMs + spread.max_delay_s * 1000)) {
+    out.push({ offsetSeconds: tail, event });
+    tail += spread.tick_ms / 1000;
+  }
+  return out;
 }
 
 /** Flatten a recording into a replay list, with times relative to the slice start. */
@@ -136,7 +189,8 @@ function wavHeader(dataBytes: number, channelCount: number, sampleRate: number):
 }
 
 export async function render(options: RenderOptions): Promise<RenderResult> {
-  const replay = await loadEvents(options.eventsPath, options.minutes);
+  const recorded = await loadEvents(options.eventsPath, options.minutes);
+  const replay = options.spread ? spreadReplay(recorded, loadScore()) : recorded;
   const durationSeconds = Math.max(10, options.minutes * 60);
   const seedNumber = seedFromString(options.seed);
 
@@ -262,6 +316,7 @@ function parseArgs(argv: string[]): RenderOptions {
     voice,
     outDir: get('out', 'lab/renders'),
     samplesDir: get('samples', 'client/public/samples'),
+    spread: get('spread', '1') !== '0',
     bpm: Number(get('bpm', '68')),
     // From the score, not a literal: the lab had its own 24 while §6.8's desktop cap
     // was tuned to 40, so a render dropped events the live page would have played and

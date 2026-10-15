@@ -23,6 +23,7 @@ import { SkyCollector } from './collectors/sky.js';
 import { TapLimiter } from './taps.js';
 import { Hub } from './ws.js';
 import { Replayer } from './sim/replay.js';
+import { Spreader } from './spreader.js';
 import type { CityEvent } from './events.js';
 
 const PORT = Number(process.env.PORT ?? 8090);
@@ -34,7 +35,6 @@ const RECORDINGS = resolve('data/recordings');
 // The page states the speed, so nothing is misrepresented. REPLAY_SPEED=1 gives the
 // city's real rhythm.
 const SPEED = Number(process.env.REPLAY_SPEED ?? 4);
-const TICK_MS = 250;
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -137,14 +137,22 @@ async function main(): Promise<void> {
 
   out.broadcast = (events) => hub.broadcast(events);
 
+  // The recording's own rhythm is a poll rhythm: every event in one poll shares one
+  // timestamp, so `due` returns sixteen events at once and then nothing for eleven
+  // seconds. The spreader turns that back into a stream before it is broadcast —
+  // the same object the live server uses, so the demo page hears what a listener
+  // will (see server/src/spreader.ts).
+  const spreader = new Spreader<CityEvent>({ score });
   const startedAt = Date.now();
   let since = -1;
   setInterval(() => {
     const now = Date.now() - startedAt;
     const due = replayer.due(since, now);
     since = now;
-    hub.broadcast(due);
-  }, TICK_MS).unref?.();
+    if (due.length > 0) spreader.offer(due, now);
+    const release = spreader.drain(now);
+    if (release.length > 0) hub.broadcast(release);
+  }, score.spread.tick_ms).unref?.();
 
   server.listen(PORT, HOST, () => {
     const span = Math.round(replayer.spanMs / 60000);

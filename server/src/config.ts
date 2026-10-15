@@ -363,6 +363,12 @@ const scoreSchema = z.object({
     night: z.object({ min: z.number().min(0), max: z.number().positive() }),
     texture_gain: z.number().min(0).max(1),
   }),
+  spread: z.object({
+    tick_ms: z.number().positive(),
+    window_s: z.number().positive(),
+    max_per_tick: z.number().int().positive(),
+    max_delay_s: z.number().positive(),
+  }),
   visual: z.object({
     horizon_km: z.number().positive(),
     rings_km: z.array(z.number().positive()).min(1),

@@ -36,6 +36,29 @@ governor:
   # What a demoted event is played at, relative to its own voice.
   texture_gain: 0.45
 
+# The release queue (§1.4, §6.3). One poll of the ADS-B feed is one batch, and every
+# event in a batch shares one `play_at` — so 684 events in six minutes arrived as 25
+# chords of sixteen notes with eleven seconds of drone between them, one of which held
+# 161 events. The rate was right and the rhythm was a pulse. These numbers turn the
+# batch back into a stream.
+spread:
+  # How often the server releases. 250 ms is the demo server's existing tick and is
+  # well inside `play_lead_ms`, so a released event is still comfortably in the future
+  # by the time it reaches a browser.
+  tick_ms: 250
+  # Spread a batch over roughly the gap to the next one: the measured median is 11.3 s
+  # and the aircraft poll is 10 s, so nine seconds empties the queue just before the
+  # next poll lands rather than fighting it.
+  window_s: 9
+  # The ceiling on one tick, which is what stops the 161-event batch from becoming a
+  # chord again: three notes inside 250 ms is a gesture, sixteen is a wash.
+  max_per_tick: 3
+  # Past this an event is released whatever the queue looks like. §1.3 asks that every
+  # note trace to a real event in the last seconds or minutes; thirty seconds is still
+  # true, and a queue deep enough to hold anything longer is a city we are not keeping
+  # up with — better late and audible than silently discarded.
+  max_delay_s: 30
+
 visual:
   # The map is centred on the listener, not on the airport — SPEC §1.1, you are
   # standing at NJIT. Anything beyond the horizon is simply not drawn.
