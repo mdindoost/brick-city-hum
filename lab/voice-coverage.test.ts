@@ -89,7 +89,7 @@ describe('voice coverage', () => {
     const manifest = JSON.parse(
       readFileSync('client/public/samples/manifest.json', 'utf8'),
     ) as Record<string, number[]>;
-    for (const instrument of new Set(requiredInstruments(audio))) {
+    for (const instrument of new Set([...requiredInstruments(audio), audio.ground.instrument])) {
       const notes = manifest[instrument];
       expect(notes, `score.yaml asks for the ${instrument} kit`).toBeDefined();
       expect(notes?.length ?? 0).toBeGreaterThan(2);

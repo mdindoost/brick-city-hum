@@ -409,6 +409,9 @@ const scoreSchema = z.object({
       scale: z.array(z.number().int()).min(1),
     }),
     ground: z.object({
+      source: z.enum(['oscillator', 'sample']),
+      instrument: z.string().min(1),
+      swell_s: z.number().positive(),
       midi: z.array(z.number().int().min(0).max(127)).min(1),
       gain: z.number().min(0).max(1),
       attack_s: z.number().positive(),

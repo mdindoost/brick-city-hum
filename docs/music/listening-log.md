@@ -7,6 +7,7 @@ that win are adopted.
 | Date       | Render A                              | Render B                              | Listeners | Pleasant | Alive | Annoying | Leave it on | Winner    | Notes                                                                              |
 | ---------- | ------------------------------------- | ------------------------------------- | --------- | -------- | ----- | -------- | ----------- | --------- | ---------------------------------------------------------------------------------- |
 | 2026-10-14 | `aircraft-with-reverb-ground-forward` | `aircraft-with-reverb-voices-forward` | _pending_ |          |       |          |             | _pending_ | First round. One variable: how far forward the city voices sit against the Ground. |
+| 2026-10-15 | `v4-all-5` (the poll rhythm)          | `v4-spread` (spread in time)          | 1         |          |       |          |             | **B**     | "B, more alive." One variable: when the events play. Adopted.                      |
 
 ### Round 3 — 2026-10-15 — struck samples, and how far forward the city sits
 
@@ -233,4 +234,12 @@ more self-similar than a pulse, and §1.4 wants the even one.
 4. Can you tell a departure (marimba, dry) from an arrival (vibraphone, ringing)?
 5. Anything harsh, and any single event that jumps out of the mix.
 
-**Result:** _pending._
+**Result: B wins.** Mohammad's verdict, 2026-10-15: _"من ب رو بیشتر پسندیدم زنده تر بودش"_
+— B, more alive. First round in four that produced a winner rather than a rejection,
+and the change it chose was time, not timbre: the same notes at the same levels, dealt
+out one at a time instead of sixteen at once. `spread` stays on by default.
+
+**What it did not settle**, because it was not the variable: whether the piece sounds
+like someone striking a note. His next observation went straight past the voices to
+the bed — _"I think that background noise is there because you are synthesising it"_ —
+which is round 5.

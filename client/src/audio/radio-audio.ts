@@ -98,6 +98,26 @@ export class RadioAudio {
     this.started = true;
 
     const kits = await this.loadKits();
+
+    // The sampled bed cannot be the first sound, because it is a download; the
+    // oscillator bed can, because it is arithmetic. So the page starts synthesised
+    // and crosses over when the contrabass arrives — over the same `attack_s` the
+    // bed fades in with, which makes the handover the same gesture as the start
+    // rather than an event of its own.
+    if (this.audio.ground.source === 'sample' && kits.has(this.audio.ground.instrument)) {
+      const sampled = new Ground(this.audio);
+      // Five minutes scheduled now and topped up as it goes: a page is meant to stay
+      // open for hours and the entries cannot all exist at the start.
+      sampled.start(engine.groundDestination, Tone.now(), {
+        kits,
+        seconds: 300,
+        refill: true,
+      });
+      const fade = this.audio.ground.attack_s;
+      ground.stop(Tone.now(), fade);
+      this.ground = sampled;
+      setTimeout(() => ground.dispose(), (fade + 2) * 1000);
+    }
     for (const voice of aircraftVoices(this.audio, kits)) engine.register(voice);
     engine.register(new RailVoice(this.audio));
     engine.register(new TapVoice(this.audio));
@@ -128,7 +148,8 @@ export class RadioAudio {
       // nothing throws: every voice whose kit is absent is left out of the piece
       // (voices/aircraft.ts) and the radio plays on, quieter and poorer, sounding
       // like a tuning decision rather than a broken build. Say which.
-      const missing = requiredInstruments(this.audio).filter((name) => !kits.has(name));
+      const wanted = [...requiredInstruments(this.audio), this.audio.ground.instrument];
+      const missing = wanted.filter((name) => !kits.has(name));
       if (missing.length > 0) {
         this.sampleError = `no samples for ${[...new Set(missing)].sort().join(', ')}`;
       }

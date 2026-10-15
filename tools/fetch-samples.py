@@ -52,8 +52,19 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-RAW = "https://raw.githubusercontent.com/sgossner/VCSL/master"
-API = "https://api.github.com/repos/sgossner/VCSL/contents"
+# Two CC0 libraries, both §6.9 names. VCSL is the struck and plucked instruments;
+# VSCO 2 CE is where the sustained orchestral ones are, and the Ground needs a bowed
+# note at 73 Hz that VCSL simply does not have.
+VCSL = "sgossner/VCSL"
+VSCO = "sgossner/VSCO-2-CE"
+
+
+def raw_url(repo: str) -> str:
+    return f"https://raw.githubusercontent.com/{repo}/master"
+
+
+def api_url(repo: str) -> str:
+    return f"https://api.github.com/repos/{repo}/contents"
 SEMITONE = {"C": 0, "C#": 1, "D": 2, "D#": 3, "E": 4, "F": 5,
             "F#": 6, "G": 7, "G#": 8, "A": 9, "A#": 10, "B": 11}
 
@@ -88,8 +99,15 @@ class Kit:
 
     def __init__(self, name: str, folder: str, filename: str,
                  layers: list[str], notes: list[str], max_s: float, used_for: str,
-                 instrument: str, octave_offset: int = OCTAVE_MIDDLE_C3) -> None:
+                 instrument: str, octave_offset: int = OCTAVE_MIDDLE_C3,
+                 repo: str = VCSL, prefer_longest: bool = False) -> None:
         self.name = name
+        self.repo = repo
+        # The Ground wants length, not softness: a drone is built from overlapping
+        # entries of one long note, and a seven-second sample has to be re-entered
+        # twice as often — which is audible as a pulse (§6.7.1 is about avoiding
+        # exactly that).
+        self.prefer_longest = prefer_longest
         self.instrument = instrument
         self.octave_offset = octave_offset
         self.folder = folder
@@ -135,6 +153,25 @@ KITS = [
     # character; for this one it is fatal, because ring crossings are the most
     # frequent sound in the piece and §6.2 promises no wrong notes, ever. A harp is
     # plucked, soft, and in tune.
+    # The Ground (§6.1). Mohammad's own diagnosis of what was left of the "background
+    # noise": the bed is three triangle oscillators at 73 and 110 Hz behind a 420 Hz
+    # lowpass, and a filtered triangle that low is not a drone — it is the sound of a
+    # transformer. Eno's own Music for Airports, which §6.7.1 cites for the technique,
+    # is tape loops of recorded voices and piano, not oscillators.
+    #
+    # A solo contrabass, bowed, **non-vibrato**: vibrato is a wobble with a period of
+    # its own and would fight the §6.7.1 loops. VCSL has nothing sustained this low —
+    # its one long bowed note is a psaltery, which measures A#4–C6 and would have to
+    # be pitched down two octaves — so this kit comes from the other library §6.9
+    # names. The naming is the same middle-C-is-C3 convention as the idiophones, which
+    # puts `D1` and `A1` at MIDI 38 and 45: the Ground's own two notes, unbent. The
+    # whole file is kept (`max_s` 14) because the Ground fades it in and out itself.
+    Kit("contrabass", "Strings/Solo Contrabass/SusNV",
+        r"BKCtbss_SusNV_{note}_{layer}_rr\d+\.wav", ["v1", "v3"],
+        ["D1", "E1", "G1", "A1"], 14.0,
+        "the Ground — a bowed string instead of an oscillator",
+        "Solo Contrabass, sustained non-vibrato", OCTAVE_MIDDLE_C3, VSCO,
+        prefer_longest=True),
     Kit("harp", "Chordophones/Composite Chordophones/Concert Harp",
         r"KSHarp_{note}_{layer}\d+\.wav", ["mf", "f"],
         ["A2", "E3", "B3", "F4", "C5", "G5", "D6", "A6", "F7"], 3.0,
@@ -172,19 +209,19 @@ def run(args: list[str]) -> str:
     return done.stderr + done.stdout
 
 
-def listing(folder: str) -> list[str]:
-    url = f"{API}/{urllib.parse.quote(folder)}"
+def listing(folder: str, repo: str = VCSL) -> list[str]:
+    url = f"{api_url(repo)}/{urllib.parse.quote(folder)}"
     request = urllib.request.Request(url, headers={"User-Agent": "brick-city-hum (sample fetch)"})
     with urllib.request.urlopen(request, timeout=60) as response:
         entries = json.load(response)
     return sorted(e["name"] for e in entries if e["type"] == "file")
 
 
-def download(folder: str, name: str, into: Path) -> Path:
+def download(folder: str, name: str, into: Path, repo: str = VCSL) -> Path:
     into.parent.mkdir(parents=True, exist_ok=True)
     if into.exists() and into.stat().st_size > 0:
         return into
-    url = f"{RAW}/{urllib.parse.quote(folder + '/' + name)}"
+    url = f"{raw_url(repo)}/{urllib.parse.quote(folder + '/' + name)}"
     request = urllib.request.Request(url, headers={"User-Agent": "brick-city-hum (sample fetch)"})
     with urllib.request.urlopen(request, timeout=180) as response:
         into.write_bytes(response.read())
@@ -257,21 +294,26 @@ def main() -> int:
     manifest: dict[str, list[int]] = {}
     rows: list[str] = []
     for kit in kits:
-        available = listing(kit.folder)
+        available = listing(kit.folder, kit.repo)
         chosen: dict[int, tuple[str, str, float]] = {}
         for note in kit.notes:
+            candidates: list[tuple[float, str, str, float]] = []
             for layer in kit.layers:
                 pattern = kit.pattern(note, layer)
                 names = [name for name in available if pattern.fullmatch(name)]
                 if not names:
                     continue
-                source = download(kit.folder, names[0], cache / kit.name / names[0])
+                source = download(kit.folder, names[0], cache / kit.name / names[0], kit.repo)
                 peak = mono_peak_db(source)
-                if peak >= USABLE_PEAK_DB or layer == kit.layers[-1]:
-                    chosen[midi_of(note, kit.octave_offset)] = (names[0], layer or "-", peak)
+                candidates.append((duration_s(source), names[0], layer or "-", peak))
+                if not kit.prefer_longest and (peak >= USABLE_PEAK_DB or layer == kit.layers[-1]):
                     break
-            else:
+            if not candidates:
                 print(f"  ! {kit.name} {note}: no file matched", file=sys.stderr)
+                continue
+            usable = [c for c in candidates if c[3] >= USABLE_PEAK_DB] or candidates
+            pick = max(usable, key=lambda c: c[0]) if kit.prefer_longest else usable[-1]
+            chosen[midi_of(note, kit.octave_offset)] = (pick[1], pick[2], pick[3])
 
         directory = out / kit.name
         # Clear the kit first. A rebuild after a note list or an octave offset changed

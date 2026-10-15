@@ -126,6 +126,15 @@ export interface AudioConfig {
     readonly scale: readonly number[];
   };
   readonly ground: {
+    /**
+     * `sample` plays a recording of a bowed contrabass; `oscillator` is the original
+     * synthesised bed, kept for the A/B and as the fallback if the kit is missing.
+     */
+    readonly source: 'oscillator' | 'sample';
+    /** Which kit under `samples.base_url`, when `source` is `sample`. */
+    readonly instrument: string;
+    /** Fade at each end of one entry, in seconds: how the bed has no seam. */
+    readonly swell_s: number;
     readonly midi: readonly number[];
     readonly gain: number;
     readonly attack_s: number;

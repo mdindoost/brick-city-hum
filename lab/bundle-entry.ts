@@ -163,7 +163,12 @@ export async function renderOffline(input: RenderInput): Promise<{
         for (const voice of aircraftVoices(audio, kits)) engine.register(voice);
         engine.register(new RailVoice(audio));
         await engine.prepare({ withReverb: input.withReverb });
-        new Ground(audio).start(engine.groundDestination, 0);
+        // The whole render's worth of bed, in advance: an offline context has no
+        // wall clock to refill against.
+        new Ground(audio).start(engine.groundDestination, 0, {
+          kits,
+          seconds: input.durationSeconds,
+        });
       } else {
         engine.register(new ProbeVoice());
         await engine.prepare({ withReverb: input.withReverb });
