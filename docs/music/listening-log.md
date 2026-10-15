@@ -46,7 +46,16 @@ event sits against the Ground. This is the question this log has had open since 
 Ratings go in the table at the top of this file; whichever wins becomes the default in
 `score.yaml`.
 
-**Result:** _pending Mohammad's ears._
+**Result: void.** The files contained the harp, the helicopter, the PATH bell and the
+Ground, and nothing else. `manifest.json` listed one kit of five, and a voice whose kit
+is missing is left out by design — so marimba, vibraphone, tubular bells and
+glockenspiel were never in the render. The round's one question was asked of a file in
+which 89% of the events were a single harp sample. The two numbers above that read as
+evidence about the samples were measuring four absent voices. See
+`docs/decisions.md`, and `decisions.md` here for what it says about trusting the lab.
+
+Re-rendered as round 4 with the same slice, the same seed and the same two values of
+`voices_gain_db`, so the comparison survives intact.
 
 ### Round 2 — 2026-10-15 — density, no clicks, minor vs major
 
@@ -131,3 +140,54 @@ music itself.** The first is measured, not a guess — see `docs/decisions.md`, 
 entry on the sky we were throwing away.
 
 _Phase 1 gate (§13): median "would leave it on" ≥ 3.5/5 across 10–20 testers._
+
+### Round 4 — 2026-10-15 — five instruments, and whether the city is audible at all
+
+Round 3 re-rendered with every kit present (`v4-all-5`), plus a second render that
+changes one thing: the balance between the events and each other.
+
+**What the analytic levels say, before any listening.** Each event's peak comes out of
+`engine.schedule` as `voice.gain × distance × (0.4 + 0.6 × salience) × tier`, so the
+whole distribution can be computed from the recording without rendering anything. For
+the same six minutes, at `voices_gain_db: 5`:
+
+| voice             | events | median peak | loudest |
+| ----------------- | ------ | ----------- | ------- |
+| `sky`             | 611    | −24.8 dBFS  | −15.0   |
+| `altitude_band`   | 62     | −26.5       | −17.6   |
+| `ewr_arrival`     | 5      | −5.4        | −5.2    |
+| `ewr_departure`   | 3      | −5.5        | −5.3    |
+| `overflight_city` | 2      | −8.4        | −8.4    |
+| `helicopter`      | 1      | −15.0       | −15.0   |
+
+The Ground measures −22.6 LUFS, about −19 dBFS peak. **So the median event in this
+piece peaks about 6 dB below the drone, and the named events are 20 dB above the
+carpet.** That is not a dense ambient piece; it is a drone with a rare loud note. It
+is also, read back against round 2's verdict — _"there are far too few events"_ — a
+better explanation of that verdict than the one acted on at the time: the events were
+there, at eighty a minute, and almost none of them cleared the bed.
+
+Measured in the same window, no band of the mix shows a transient structure at all:
+median to maximum frame energy is 2–3 dB above 700 Hz, where a struck note should be
+obvious. The rewritten onset detector finds 9 onsets a minute where roughly 80 events
+played.
+
+**The second render raises the carpet and lowers the peaks**, which is the one change
+that can be made without touching the loudness spec: `sky` 0.16 → 0.30,
+`altitude_band` 0.14 → 0.26, `ewr_departure` 0.50 → 0.29, `ewr_arrival` 0.45 → 0.26,
+`overflight_city` 0.32 → 0.27, `overflight_high` 0.12 → 0.16. The spread goes from
+20 dB to about 10, the median event lands level with the drone rather than under it,
+and §6.8's two numbers are re-measured rather than assumed.
+
+**What to listen for, in order:**
+
+1. **Is there a city in it?** In A, can you hear the eighty events a minute at all, or
+   only the drone and the occasional aeroplane?
+2. Does B become busy or tiring — the other failure, and the one the numbers cannot
+   see?
+3. Does it sound like someone striking a note? Round 3 asked this of a file with four
+   of the five instruments missing, so it is still open.
+4. Can you tell a departure (marimba, dry) from an arrival (vibraphone, ringing)?
+5. Anything harsh, and any single event that jumps out.
+
+**Result:** _pending._

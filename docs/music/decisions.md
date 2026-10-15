@@ -284,3 +284,52 @@ against the file's median energy, and under a continuous drone a decaying note n
 clears it. The numbers here say only that the mix is legal, the limiter is no longer
 doing the mixing, and nothing is clipping. Whether a marimba sounds like someone
 striking a note is §7.2's question, and it is Mohammad's to answer.
+
+## 2026-10-15 · The vibraphone for altitude bands, and the shape a climb makes
+
+`altitude_band` — crossing 2,000 / 4,000 / 7,000 / 10,000 / 15,000 / 20,000 / 28,000
+feet, either way — had no voice at all. It is 9% of every event the city makes, about a
+hundred and sixty an hour.
+
+**The instrument.** A vibraphone, not the glockenspiel that sits next door at
+`overflight_high`. The glockenspiel is written to be "noticed only in its absence" at a
+rare event's gain (0.12); a high ping arriving every few seconds stops being a sound
+and becomes a tick, which is the opposite of §1.4. The vibraphone rings lower and
+rounder and sits under the harp rather than over it. Register `[60, 84]` against a kit
+that spans MIDI 53–88, so almost nothing bends. Gain 0.14, against the harp's 0.16 at
+nine times the frequency.
+
+**The pitch needed nothing new, which is the good part.** Altitude already chooses the
+scale degree (§6.4's "altitude → register"), and the seven thresholds land on seven
+_different_ degrees — 2,000 ft on degree 0, 28,000 on degree 8. So an aircraft climbing
+out of EWR plays an ascending line across its whole climb, one note per threshold,
+minutes apart; a descent plays the same line falling. The shape comes from the flight,
+not from a rule. No field was added to the event for it either: the recordings are
+history and cannot be migrated, and `geo.alt_ft` was already there.
+
+**What this does to the balance.** It adds 9% more sounding events, all of them in a
+register the piece was not using. Round 4's renders re-measure the city against the
+Ground from scratch, because round 3's figures were taken with four voices missing.
+
+## 2026-10-15 · Round 3 was void: four of the five instruments were not in the files
+
+The A/B sent on 2026-10-15 at 02:14 — `A-round3-drone-5dB-over.m4a` and
+`B-round3-city-forward.m4a` — contained the harp, the helicopter, the PATH bell and the
+Ground. The marimba, vibraphone, tubular bells and glockenspiel were absent, because
+`manifest.json` listed one kit of five and a voice without a kit is left out by design.
+See `docs/decisions.md`.
+
+So the one question round 3 asked — does it sound like someone striking a note? — was
+asked of a file in which 89% of the events were a single harp sample. The two numbers
+that looked like evidence about the samples (entropy 1.556 → 1.478, repetition 0.9869 →
+0.9949) were measuring the four missing voices.
+
+**The methodological lesson, which is the reason this entry exists.** Both lab numbers
+moved in the direction the change was supposed to move them, and both were explained in
+terms of the change. Neither was checked against the thing the change was supposed to
+do: play five instruments. A render that is missing four of five voices is not a quiet
+render — `onsets/min 0.17` was sitting in the log the whole time, and the onset detector
+being known-broken under a drone is what made it ignorable. **When the lab's numbers
+are the only witness, a number that is already known to be unreliable cannot also be
+the thing that would have caught the mistake.** Round 4 re-renders everything and the
+voice list is now pinned by a test.

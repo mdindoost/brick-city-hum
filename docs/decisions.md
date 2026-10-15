@@ -888,3 +888,59 @@ about 4 MB of JSON, and the loader becomes a map lookup.
   say so.
 - §6.9 asks for samples "lazy-loaded by palette"; every palette here uses all five
   kits, so they load up front with the Ground covering the wait.
+
+## 2026-10-15 · A manifest that described one kit of five, and the class of bug it belongs to
+
+`client/public/samples/manifest.json` listed the harp and nothing else. The other four
+kits — marimba, vibraphone, chimes, glockenspiel, 45 files and 3 MB — were committed,
+shipped in the image and served by the page, and never loaded by anyone.
+
+**Why.** `tools/fetch-samples.py` wrote the manifest from the kits built in that run,
+and the last run was `--kit harp`: the swap from VCSL's kalimba, whose A♯3 measured
+three semitones flat, to the concert harp. One rebuilt kit, one kit in the manifest.
+The `LICENSE.md` table one line below had already been guarded against exactly this
+(`if args.kit is None`), which is the part worth remembering: the same mistake had
+been seen, understood and fixed four lines away.
+
+**What it cost.** The client loads only what the manifest lists, and `aircraftVoices`
+leaves out a voice whose kit is missing — deliberately, so a missing sample can never
+silently become an oscillator again. So `ewr_departure`, `ewr_arrival`,
+`overflight_city` and `overflight_high` were not in the piece at all. It survived two
+commits, three renders and the round-3 A/B that was already in Mohammad's hands: what
+he had been sent was harp, helicopter, rail bell and drone. The entropy drop and the
+repetition rise in that render — read at the time as "the samples are more uniform
+than the oscillators" — were four missing voices.
+
+**The fix is an invariant, not a patch.** The manifest is now a reading of the output
+directory, so it cannot describe something that is not there whatever subset was
+rebuilt, and `tools/test-sample-pitch.py` fails when manifest and directory disagree,
+which puts it in `npm run check`. A manifest that loads but lists too little now sets
+`sampleFailure`, and the page header shows it — it was a getter nothing read.
+
+**And the class.** Three bugs this week have had the same shape: a thing that is built
+correctly, wired to nothing, and silent about it — the reverb send that was never
+connected, the limiter the Ground never passed through, and now a kit nobody loads.
+None is findable by listening (§7.2): the piece simply has less in it than it should.
+What they have in common is that no test could fail, because nothing asserted the
+connection. The three guards added since all assert exactly that, and the newest one,
+`lab/voice-coverage.test.ts`, is the general form: every event type the city can emit
+must be claimed by exactly one voice, or be listed as deliberately silent.
+
+## 2026-10-15 · `altitude_band` was 9% of the city and had no voice
+
+Found while measuring the manifest failure: of 684 events in the six-minute A/B slice,
+611 were `sky` ring crossings, 62 were `altitude_band`, and the remaining 11 were the
+named ones. `altitude_band` has a salience in `sources.yaml`, a caption template, a
+glyph on the map — and no voice's `handles` ever returned true for it. Every threshold
+crossing was captioned on the page and made no sound.
+
+It left no trace because `AudioEngine.schedule` returns `false` both for an event the
+voice budget refused and for an event no voice claimed, so 9% of the city showed up in
+the dropped count and read as governor pressure.
+
+The voice is in `score.yaml` (a vibraphone; the reasoning is in
+`docs/music/decisions.md`) and the guard is `lab/voice-coverage.test.ts`. `sunrise` and
+`sunset` remain deliberately silent: §6.4 gives them no instrument, they fire twice a
+day, and what a sunrise sounds like is a [HUMAN] question for §15 rather than something
+to invent here. The test lists them, so the next event type added forces an answer
+either way.

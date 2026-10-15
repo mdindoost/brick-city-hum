@@ -666,6 +666,16 @@ Source health, live event rate, governor stats, listener count, current section 
 4. Class change times for the chime (or skip it).
 5. GSA approval wording and logo use on the page.
 6. Lounge screen: is there one we can use, and who controls it?
+7. **What does a sunrise sound like?** §6.1 makes room for moments and §6.4 gives
+   `sunrise` and `sunset` no instrument, so they currently make no sound — the one
+   event type that is silent on purpose. They fire twice a day and they are the only
+   events in the piece that are about the day rather than the city.
+8. **§6.4 calls `overflight_city` "a sustained tone".** It is now a tubular bell: it
+   rings about as long, but it is struck rather than faded in, and its Doppler hint is
+   a real playback-rate drift rather than a pitch bend. Should the line say so?
+9. **§6.9 asks for samples "lazy-loaded per palette".** Every palette here uses all
+   five kits, so they load together at the first gesture (3.2 MB) with the Ground —
+   synthesis, instant — covering the wait. Keep the line as an aspiration, or amend it?
 
 ---
 
