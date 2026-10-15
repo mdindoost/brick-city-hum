@@ -141,15 +141,36 @@ entry on the sky we were throwing away.
 
 _Phase 1 gate (§13): median "would leave it on" ≥ 3.5/5 across 10–20 testers._
 
-### Round 4 — 2026-10-15 — five instruments, and whether the city is audible at all
+### Round 4 — 2026-10-15 — the city arrived in chords, and now it does not
 
-Round 3 re-rendered with every kit present (`v4-all-5`), plus a second render that
-changes one thing: the balance between the events and each other.
+`v4-all-5` and `v4-spread`. Same six minutes, same five instruments, same levels. The
+only difference is **when** the events play.
 
-**What the analytic levels say, before any listening.** Each event's peak comes out of
-`engine.schedule` as `voice.gain × distance × (0.4 + 0.6 × salience) × tier`, so the
-whole distribution can be computed from the recording without rendering anything. For
-the same six minutes, at `voices_gain_db: 5`:
+**What was found while re-rendering round 3.** The slice holds 684 events, about 114 a
+minute — the rate the last two rounds asked for. They arrive in **25 batches**: one
+poll of the ADS-B feed is one batch, every event in it shares one `play_at`, and the
+median gap between batches is 11.3 seconds. One batch held 161 events. So what a
+listener heard was sixteen notes inside a tenth of a second, then eleven seconds of
+drone, twenty-five times over — chaotic and then silent, which is both halves of §1.4
+in one piece.
+
+That is a better explanation of round 2's verdict — _"there are far too few events"_ —
+than the one acted on at the time. The events were there. They were all at the same
+instant, and two rounds went to timbre and level while the rhythm was a pulse.
+
+After spreading: the same 617 events land at 434 distinct instants instead of 255, at
+most three at once instead of 41, and the median gap is 0.25 s instead of 0.04 s
+followed by eleven seconds of nothing. Measured on the live WebSocket at real speed,
+the demo server now sends a median of one event per message, one second apart, where
+it used to send nine at once every eleven seconds.
+
+**One hole it cannot fill.** This slice has a genuine 41-second gap where the feed
+returned nothing. The spreader can only place events that exist; filling real silence
+is §6.6's memory fill, which is not built. Both files have it.
+
+**The levels, for the record** — computed from the recording and the score, no render
+needed, since every event's peak is `voice.gain × distance × (0.4 + 0.6 × salience) ×
+tier`:
 
 | voice             | events | median peak | loudest |
 | ----------------- | ------ | ----------- | ------- |
@@ -158,36 +179,44 @@ the same six minutes, at `voices_gain_db: 5`:
 | `ewr_arrival`     | 5      | −5.4        | −5.2    |
 | `ewr_departure`   | 3      | −5.5        | −5.3    |
 | `overflight_city` | 2      | −8.4        | −8.4    |
-| `helicopter`      | 1      | −15.0       | −15.0   |
 
-The Ground measures −22.6 LUFS, about −19 dBFS peak. **So the median event in this
-piece peaks about 6 dB below the drone, and the named events are 20 dB above the
-carpet.** That is not a dense ambient piece; it is a drone with a rare loud note. It
-is also, read back against round 2's verdict — _"there are far too few events"_ — a
-better explanation of that verdict than the one acted on at the time: the events were
-there, at eighty a minute, and almost none of them cleared the bed.
+The Ground measures −22.6 LUFS, about −19 dBFS peak, so the median event peaks about
+6 dB **below** the drone while the named events sit 20 dB above the carpet. That is a
+second finding and a separate round: raising the carpet and lowering the peaks is one
+change, and this round is about time. Nothing about the levels was touched.
 
-Measured in the same window, no band of the mix shows a transient structure at all:
-median to maximum frame energy is 2–3 dB above 700 Hz, where a struck note should be
-obvious. The rewritten onset detector finds 9 onsets a minute where roughly 80 events
-played.
+**The numbers, both files, same six minutes:**
 
-**The second render raises the carpet and lowers the peaks**, which is the one change
-that can be made without touching the loudness spec: `sky` 0.16 → 0.30,
-`altitude_band` 0.14 → 0.26, `ewr_departure` 0.50 → 0.29, `ewr_arrival` 0.45 → 0.26,
-`overflight_city` 0.32 → 0.27, `overflight_high` 0.12 → 0.16. The spread goes from
-20 dB to about 10, the median event lands level with the drone rather than under it,
-and §6.8's two numbers are re-measured rather than assumed.
+|                        | A — `v4-all-5` (as it is) | B — `v4-spread` |
+| ---------------------- | ------------------------- | --------------- |
+| events played          | 603                       | **617**         |
+| events dropped         | 14                        | **0**           |
+| voices stolen          | 115                       | **0**           |
+| integrated             | −20.7 LUFS                | −20.7 LUFS      |
+| true peak              | −1.5 dBFS                 | **−2.7**        |
+| onsets heard           | 17.0 /min                 | **23.8 /min**   |
+| pitch-class entropy    | 1.488 bits                | **1.534**       |
+| repetition             | 0.982                     | 0.987           |
+
+**Zero dropped and zero stolen is the finding inside the finding.** The clumps were
+what exhausted the 40-voice budget: forty notes inside one tenth of a second is the
+cap, so the engine was refusing events and cutting others' slots short *because* of
+the rhythm. Spread out, the same city fits inside the budget with room to spare and
+every event it made is heard. The peak drops 1.2 dB for the same loudness, for the
+same reason.
+
+Repetition rose slightly, which is the known limit of that measure: an even texture is
+more self-similar than a pulse, and §1.4 wants the even one.
 
 **What to listen for, in order:**
 
-1. **Is there a city in it?** In A, can you hear the eighty events a minute at all, or
-   only the drone and the occasional aeroplane?
-2. Does B become busy or tiring — the other failure, and the one the numbers cannot
-   see?
+1. **Is it a stream or a pulse?** In A, can you hear the clumps — a handful of notes
+   together, then nothing? In B, does the city become continuous?
+2. Does B turn into a wash or get tiring? That is the other failure and the numbers
+   cannot see it.
 3. Does it sound like someone striking a note? Round 3 asked this of a file with four
    of the five instruments missing, so it is still open.
 4. Can you tell a departure (marimba, dry) from an arrival (vibraphone, ringing)?
-5. Anything harsh, and any single event that jumps out.
+5. Anything harsh, and any single event that jumps out of the mix.
 
 **Result:** _pending._
