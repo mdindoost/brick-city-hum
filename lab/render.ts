@@ -232,7 +232,10 @@ function parseArgs(argv: string[]): RenderOptions {
     voice,
     outDir: get('out', 'lab/renders'),
     bpm: Number(get('bpm', '68')),
-    maxVoices: Number(get('max-voices', '24')),
+    // From the score, not a literal: the lab had its own 24 while §6.8's desktop cap
+    // was tuned to 40, so a render dropped events the live page would have played and
+    // measured a thinner piece than anyone hears.
+    maxVoices: Number(get('max-voices', String(loadScore().audio.voices.max_desktop))),
   };
 }
 
