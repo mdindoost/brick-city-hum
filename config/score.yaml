@@ -120,7 +120,7 @@ audio:
     # filter, and the city rose about 3 dB where it had been texture — so the whole
     # mix landed at −25.6 LUFS, five decibels under spec. +3.5 brings it back to
     # −21.1 LUFS and −2.3 dBTP with the limiter still untouched.
-    gain_db: 4.5
+    gain_db: 5.5
     # Harshness is what makes an ambient piece unlistenable over hours (§6.8).
     high_shelf_hz: 6000
     high_shelf_db: -6
