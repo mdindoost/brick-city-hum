@@ -207,13 +207,18 @@ audio:
     # not loaded. Sustained non-vibrato, because vibrato is a wobble with a period of
     # its own and §6.7.1 is about not having one of those.
     source: sample
-    instrument: contrabass
+    instrument: cello
     # The fade at each end of one entry. Each entry plays the whole recording once and
     # the next begins `body − swell_s` later, so one is always rising while the other
     # falls and the bed has no loop point at all. Four seconds is long enough to hide
     # a bow attack, which is the one part of a real sustained note that would give the
     # entry away.
-    swell_s: 4
+    swell_s: 3
+    # How much of each recording is held back so that consecutive entries can start
+    # at different points in it. Without it the bed is one phrase repeating every few
+    # seconds — §6.7.1's loop, rebuilt out of samples. The offset walks by the golden
+    # ratio, which is the least periodic step there is and the same for every listener.
+    rotate_s: 2
     # Root and fifth, two octaves down. A bare fifth leaves the third undefined, so
     # event notes may colour the harmony either way without ever contradicting it.
     #

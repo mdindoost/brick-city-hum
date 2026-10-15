@@ -135,6 +135,8 @@ export interface AudioConfig {
     readonly instrument: string;
     /** Fade at each end of one entry, in seconds: how the bed has no seam. */
     readonly swell_s: number;
+    /** Held back from each recording so entries can start at different points. */
+    readonly rotate_s: number;
     readonly midi: readonly number[];
     readonly gain: number;
     readonly attack_s: number;

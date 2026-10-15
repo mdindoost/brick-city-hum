@@ -43,7 +43,9 @@ Usage:  python3 tools/fetch-samples.py [--out client/public/samples] [--kit mari
 from __future__ import annotations
 
 import argparse
+import array
 import json
+import math
 import re
 import shutil
 import subprocess
@@ -100,7 +102,8 @@ class Kit:
     def __init__(self, name: str, folder: str, filename: str,
                  layers: list[str], notes: list[str], max_s: float, used_for: str,
                  instrument: str, octave_offset: int = OCTAVE_MIDDLE_C3,
-                 repo: str = VCSL, prefer_longest: bool = False) -> None:
+                 repo: str = VCSL, prefer_longest: bool = False,
+                 sustain: bool = False) -> None:
         self.name = name
         self.repo = repo
         # The Ground wants length, not softness: a drone is built from overlapping
@@ -108,6 +111,8 @@ class Kit:
         # twice as often — which is audible as a pulse (§6.7.1 is about avoiding
         # exactly that).
         self.prefer_longest = prefer_longest
+        # Cut each file to the part that actually sustains. See `sustain_window`.
+        self.sustain = sustain
         self.instrument = instrument
         self.octave_offset = octave_offset
         self.folder = folder
@@ -154,24 +159,28 @@ KITS = [
     # frequent sound in the piece and §6.2 promises no wrong notes, ever. A harp is
     # plucked, soft, and in tune.
     # The Ground (§6.1). Mohammad's own diagnosis of what was left of the "background
-    # noise": the bed is three triangle oscillators at 73 and 110 Hz behind a 420 Hz
+    # noise": the bed was three triangle oscillators at 73 and 110 Hz behind a 420 Hz
     # lowpass, and a filtered triangle that low is not a drone — it is the sound of a
     # transformer. Eno's own Music for Airports, which §6.7.1 cites for the technique,
     # is tape loops of recorded voices and piano, not oscillators.
     #
-    # A solo contrabass, bowed, **non-vibrato**: vibrato is a wobble with a period of
-    # its own and would fight the §6.7.1 loops. VCSL has nothing sustained this low —
-    # its one long bowed note is a psaltery, which measures A#4–C6 and would have to
-    # be pitched down two octaves — so this kit comes from the other library §6.9
-    # names. The naming is the same middle-C-is-C3 convention as the idiophones, which
-    # puts `D1` and `A1` at MIDI 38 and 45: the Ground's own two notes, unbent. The
-    # whole file is kept (`max_s` 14) because the Ground fades it in and out itself.
-    Kit("contrabass", "Strings/Solo Contrabass/SusNV",
-        r"BKCtbss_SusNV_{note}_{layer}_rr\d+\.wav", ["v1", "v3"],
-        ["D1", "E1", "G1", "A1"], 14.0,
-        "the Ground — a bowed string instead of an oscillator",
-        "Solo Contrabass, sustained non-vibrato", OCTAVE_MIDDLE_C3, VSCO,
-        prefer_longest=True),
+    # A **cello section**, not the solo contrabass that was tried first. Two reasons,
+    # both measured: the solo takes are several separate bow strokes with silence
+    # between them, so a bed built from one had a hole in it every ten seconds; and a
+    # section is several players, whose vibrato and bow noise average into a shimmer
+    # instead of one audible wobble. `sustain=True` cuts each file to the stretch that
+    # actually sustains, which is what makes the entries overlap into one sound.
+    #
+    # VSCO 2 CE puts middle C at C3 in these names, so C1 is MIDI 36 and D2 is 50.
+    Kit("cello", "Strings/Cello Section/susvib",
+        r"susvib_{note}_{layer}_\d+\.wav", ["v1", "v2", "v3"],
+        # A cello section is sampled in thirds, so the Ground's D and A are not in it:
+        # they come from the neighbours, bent a whole tone at most, which on a bowed
+        # sustain is ordinary sampler behaviour and inaudible as a stretch.
+        ["C1", "E1", "G1", "B1", "D2"], 12.0,
+        "the Ground — a bowed section instead of an oscillator",
+        "Cello Section, sustained", OCTAVE_MIDDLE_C3, VSCO,
+        prefer_longest=True, sustain=True),
     Kit("harp", "Chordophones/Composite Chordophones/Concert Harp",
         r"KSHarp_{note}_{layer}\d+\.wav", ["mf", "f"],
         ["A2", "E3", "B3", "F4", "C5", "G5", "D6", "A6", "F7"], 3.0,
@@ -257,18 +266,77 @@ def mono_peak_db(path: Path) -> float:
     return peak_db(path, "aformat=channel_layouts=mono")
 
 
+def sustain_window(path: Path, floor_db: float = -9.0, min_s: float = 2.0) -> tuple[float, float]:
+    """The longest stretch of one take that stays near its own peak.
+
+    VCSL and VSCO call these files sustains, and several of them are not one note:
+    the solo contrabass's "SusNV" takes are two or three separate bow strokes with
+    silence between, and a bed built from the whole file has a hole in it every time
+    the bow lifts. On the bed-only spectrogram that is a dark stripe every ten
+    seconds — §6.7.1's pulse, arriving through the back door.
+
+    So the Ground's kit is cut to the part that actually sustains: the longest run of
+    50 ms frames within `floor_db` of the file's peak, allowing a dip of up to a
+    quarter second so one bow wobble does not end the run.
+    """
+    raw = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", str(path), "-ac", "1", "-ar", "8000",
+         "-f", "s16le", "-"], capture_output=True, check=True).stdout
+    frames = array.array("h")
+    frames.frombytes(raw)
+    hop = 400  # 50 ms at 8 kHz
+    levels = []
+    for start in range(0, len(frames) - hop, hop):
+        window = frames[start : start + hop]
+        rms = math.sqrt(sum(v * v for v in window) / len(window)) / 32768
+        levels.append(20 * math.log10(max(rms, 1e-9)))
+    if not levels:
+        return (0.0, 0.0)
+
+    threshold = max(levels) + floor_db
+    gap_frames = 5  # 250 ms
+    best = (0, 0)
+    start = None
+    quiet = 0
+    for index, level in enumerate(levels):
+        if level >= threshold:
+            if start is None:
+                start = index
+            quiet = 0
+        elif start is not None:
+            quiet += 1
+            if quiet > gap_frames:
+                run = (start, index - quiet)
+                if run[1] - run[0] > best[1] - best[0]:
+                    best = run
+                start = None
+                quiet = 0
+    if start is not None:
+        run = (start, len(levels))
+        if run[1] - run[0] > best[1] - best[0]:
+            best = run
+
+    length = (best[1] - best[0]) * hop / 8000
+    if length < min_s:
+        return (0.0, len(frames) / 8000)
+    return (best[0] * hop / 8000, length)
+
+
 FADE_S = 0.25
 
 
-def convert(source: Path, target: Path, work: Path, max_s: float, gain_db: float) -> float:
+def convert(source: Path, target: Path, work: Path, max_s: float, gain_db: float,
+            window: tuple[float, float] | None = None) -> float:
     """Mono, lifted, head-trimmed, capped and faded. Returns the final length."""
     target.parent.mkdir(parents=True, exist_ok=True)
     work.parent.mkdir(parents=True, exist_ok=True)
 
     # The gain goes on before the trim so that −60 dB means "60 dB below this note"
     # rather than "60 dB below full scale, whatever VCSL recorded at".
-    run(["ffmpeg", "-v", "error", "-y", "-i", str(source), "-ac", "1", "-ar", "44100",
-         "-t", f"{max_s:.3f}", "-af",
+    seek = [] if window is None else ["-ss", f"{window[0]:.3f}"]
+    length_s = max_s if window is None else min(max_s, window[1])
+    run(["ffmpeg", "-v", "error", "-y"] + seek + ["-i", str(source), "-ac", "1", "-ar", "44100",
+         "-t", f"{length_s:.3f}", "-af",
          f"volume={gain_db:.2f}dB,"
          # −60 dB rather than a comfortable −40: the first cycles of a struck sound
          # are quiet, and they are what makes it sound struck.
@@ -276,7 +344,7 @@ def convert(source: Path, target: Path, work: Path, max_s: float, gain_db: float
          "-c:a", "pcm_s16le", str(work)])
 
     length = duration_s(work)
-    fade_at = max(0.0, min(max_s, length) - FADE_S)
+    fade_at = max(0.0, min(length_s, length) - FADE_S)
     run(["ffmpeg", "-v", "error", "-y", "-i", str(work), "-af",
          f"afade=t=out:st={fade_at:.3f}:d={FADE_S}",
          "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(target)])
@@ -332,8 +400,10 @@ def main() -> int:
                 stale.unlink()
         for midi, (name, layer, peak) in sorted(chosen.items()):
             gain = min(MAX_BOOST_DB, TARGET_PEAK_DB - peak)
+            window = (sustain_window(cache / kit.name / name) if kit.sustain else None)
             length = convert(cache / kit.name / name, directory / f"{midi}.m4a",
-                             cache / "processed" / kit.name / f"{midi}.wav", kit.max_s, gain)
+                             cache / "processed" / kit.name / f"{midi}.wav", kit.max_s, gain,
+                             window)
             rows.append(f"| `{kit.name}/{midi}.m4a` | `{name}` | {layer} | "
                         f"{peak:+.1f} | {gain:+.1f} | {length:.2f} |")
         manifest[kit.name] = sorted(chosen)

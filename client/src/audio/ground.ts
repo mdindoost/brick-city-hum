@@ -46,6 +46,26 @@ export interface GroundOptions {
   readonly refill?: boolean;
 }
 
+/**
+ * The gain shape of one entry: equal power in, flat, equal power out.
+ *
+ * Sampled rather than ramped because the Web Audio API has no sine ramp — and
+ * because the curve is the part that must be exactly right. Two overlapping entries
+ * are the same recording at different offsets, so they are uncorrelated and their
+ * **powers** add: `sin²+cos² = 1` holds the bed flat, while the linear fade it
+ * replaced dropped it 3 dB at every handover.
+ */
+function equalPowerWindow(bodySeconds: number, swellSeconds: number, points = 256): number[] {
+  const curve: number[] = new Array<number>(points);
+  for (let index = 0; index < points; index += 1) {
+    const at = (index / (points - 1)) * bodySeconds;
+    const rising = Math.min(1, at / swellSeconds);
+    const falling = Math.min(1, (bodySeconds - at) / swellSeconds);
+    curve[index] = Math.sin((Math.PI / 2) * Math.min(rising, falling));
+  }
+  return curve;
+}
+
 export class Ground {
   private readonly nodes: { dispose: () => void }[] = [];
   private readonly filters: Tone.Filter[] = [];
@@ -171,28 +191,44 @@ export class Ground {
 
       const { buffer, semitones } = kit.pick(midi);
       const rate = 2 ** (semitones / 12);
-      const body = buffer.duration / rate;
+      const span = buffer.duration / rate;
+      // Part of the recording is held back so that consecutive entries can start at
+      // different points in it. Without that, the bed is one five-second phrase
+      // played over and over — the loop §6.7.1 is written to avoid, rebuilt out of
+      // samples instead of oscillators.
+      const rotate = Math.min(ground.rotate_s, span / 3);
+      const body = span - rotate;
       // Two swells have to fit inside one entry, or the fades would overlap each
       // other and the note would never reach full level.
       const swell = Math.min(ground.swell_s, body / 2.5);
+      // Each note's own recording decides its period, so the two never share one.
       const period = Math.max(1, body - swell);
+
+      // An equal-power window, not a linear one.
+      //
+      // Tone's own fades are linear or exponential, and both are wrong here: two
+      // entries of the same recording at different offsets are uncorrelated, so
+      // their powers add rather than their amplitudes, and a linear crossfade drops
+      // the bed by 3 dB at every handover. On the bed-only spectrogram that is a
+      // dark vertical stripe every ten seconds — a pulse, which is the one thing
+      // §6.7.1 exists to prevent. `sin`/`cos` keeps the sum flat.
+      const window = equalPowerWindow(body, swell);
 
       const schedule = (from: number, until: number): void => {
         for (let entry = from; entry < until; entry += period) {
-          const source = new Tone.ToneBufferSource({
-            url: buffer,
-            playbackRate: rate,
-            fadeIn: swell,
-            fadeOut: swell,
-            // Linear, so two overlapping entries sum to one amplitude. Equal-power
-            // would be the textbook choice for uncorrelated signals, and these are
-            // the same recording at different offsets — correlated enough that
-            // linear is the closer of the two Tone offers.
-            curve: 'linear',
-          });
-          source.connect(filter);
-          source.start(entry, 0, body);
-          this.nodes.push(source);
+          // Which part of the recording this entry plays. The golden ratio because
+          // it is the least periodic rotation there is, and a fixed one because §5
+          // forbids a listener hearing a different bed from everyone else — this is
+          // determined by the entry's index and nothing else.
+          const step = Math.round((entry - at) / period);
+          const offset = (((step * 0.6180339887) % 1) + 1) % 1;
+          const source = new Tone.ToneBufferSource({ url: buffer, playbackRate: rate });
+          const shape = new Tone.Gain(0);
+          source.connect(shape);
+          shape.connect(filter);
+          shape.gain.setValueCurveAtTime(window, entry, body);
+          source.start(entry, offset * rotate * rate, body);
+          this.nodes.push(source, shape);
         }
       };
       schedule(at, at + horizon);
