@@ -15,12 +15,14 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "setup": "git config core.hooksPath .githooks && echo 'git hooks enabled'",
-    "check": "npm run lint && npm run typecheck && npm run test",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run test:samples",
     "lab:bundle": "vite build --config lab/vite.bundle.config.ts",
     "lab:render": "npm run lab:bundle && tsx lab/render.ts",
     "lab:analyze": "python3 lab/analyze.py",
     "build:client": "vite build",
-    "demo": "npm run build:client && tsx server/src/dev-replay.ts"
+    "demo": "npm run build:client && tsx server/src/dev-replay.ts",
+    "test:samples": "python3 tools/test-sample-pitch.py",
+    "samples": "python3 tools/fetch-samples.py"
   },
   "repository": {
     "type": "git",
