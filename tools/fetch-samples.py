@@ -293,7 +293,26 @@ def main() -> int:
               f"{total / 1024:7.0f} KiB  midi {min(chosen)}..{max(chosen)}")
 
     out.mkdir(parents=True, exist_ok=True)
-    (out / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    # The manifest is a reading of the directory, never a reading of this run.
+    #
+    # Writing it from `kits` was wrong in exactly one case, and that case happened: a
+    # `--kit harp` rebuild left the other four kits' files on disk and erased them
+    # from the manifest. Nothing failed. The client loads only what the manifest
+    # lists, and a voice without a kit is left out by design (aircraft.ts), so four
+    # of five aircraft voices simply were not in the piece — through two commits, a
+    # render and a listening round. The LICENSE table below was already guarded
+    # against the same partial run; the manifest, one line above it, was not.
+    # tools/test-sample-pitch.py now fails if directory and manifest disagree.
+    on_disk = {
+        directory.name: sorted(int(path.stem) for path in directory.glob("*.m4a"))
+        for directory in sorted(out.iterdir())
+        if directory.is_dir()
+    }
+    written = {name: notes for name, notes in on_disk.items() if notes}
+    missing = sorted(set(manifest) - set(written))
+    if missing:
+        print(f"  ! built but not on disk: {', '.join(missing)}", file=sys.stderr)
+    (out / "manifest.json").write_text(json.dumps(written, indent=2, sort_keys=True) + "\n")
 
     kit_table = ["## Kits", "",
                  "| directory | VCSL instrument | used for |", "|---|---|---|"]

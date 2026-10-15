@@ -26,7 +26,7 @@ import type { AudioConfig, PublicEvent } from '../../../shared/protocol.js';
 import { AudioEngine } from './engine.js';
 import { Ground } from './ground.js';
 import { loadSampleKits, type SampleKit, type SampleManifest } from './samples.js';
-import { aircraftVoices } from './voices/aircraft.js';
+import { aircraftVoices, requiredInstruments } from './voices/aircraft.js';
 import { RailVoice } from './voices/rail.js';
 import { TapVoice } from './voices/tap.js';
 
@@ -123,7 +123,16 @@ export class RadioAudio {
       const response = await fetch(`${base.endsWith('/') ? base : `${base}/`}manifest.json`);
       if (!response.ok) throw new Error(`manifest: HTTP ${String(response.status)}`);
       const manifest = (await response.json()) as SampleManifest;
-      return await loadSampleKits({ baseUrl: base, manifest });
+      const kits = await loadSampleKits({ baseUrl: base, manifest });
+      // A manifest that loads but lists too little is the dangerous case, because
+      // nothing throws: every voice whose kit is absent is left out of the piece
+      // (voices/aircraft.ts) and the radio plays on, quieter and poorer, sounding
+      // like a tuning decision rather than a broken build. Say which.
+      const missing = requiredInstruments(this.audio).filter((name) => !kits.has(name));
+      if (missing.length > 0) {
+        this.sampleError = `no samples for ${[...new Set(missing)].sort().join(', ')}`;
+      }
+      return kits;
     } catch (error) {
       this.sampleError = error instanceof Error ? error.message : String(error);
       return new Map();

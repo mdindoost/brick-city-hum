@@ -359,7 +359,23 @@ class SkyVoice extends AircraftVoice {
  * oscillator: a fallback would mean the piece quietly sounded like the version that
  * lost two listening rounds, and the engine already copes with an event no voice
  * claims. `kits` is empty only before the samples have loaded.
+ *
+ * Which means a missing kit costs a whole voice in silence, and that happened: a
+ * `manifest.json` written by a partial rebuild listed one kit of five, so four of
+ * these voices were never constructed — through two commits and a listening round,
+ * with every sample sitting in the repo. `requiredInstruments` exists so the page
+ * can say so out loud; `tools/test-sample-pitch.py` is what stops it recurring.
  */
+export function requiredInstruments(audio: AudioConfig): string[] {
+  return [
+    audio.voices.ewr_departure.instrument,
+    audio.voices.ewr_arrival.instrument,
+    audio.voices.overflight_city.instrument,
+    audio.voices.overflight_high.instrument,
+    audio.voices.sky.instrument,
+  ];
+}
+
 export function aircraftVoices(audio: AudioConfig, kits: Map<string, SampleKit>): Voice[] {
   const voices: Voice[] = [];
   const kitFor = (params: StruckParams): SampleKit | undefined => kits.get(params.instrument);

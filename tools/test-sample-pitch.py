@@ -33,6 +33,7 @@ Usage:  python3 tools/test-sample-pitch.py [client/public/samples]
 
 from __future__ import annotations
 
+import json
 import math
 import struct
 import subprocess
@@ -86,6 +87,30 @@ def main() -> int:
     failures: list[str] = []
     notes: list[str] = []
     by_kit: dict[str, list[int]] = {}
+
+    # The manifest must describe the directory exactly.
+    #
+    # It is the only thing the client reads, and a voice whose kit it does not list is
+    # left out of the piece on purpose (voices/aircraft.ts). So a kit present on disk
+    # and absent from the manifest is perfectly silent and perfectly quiet about it:
+    # that is how four of five aircraft voices went missing through two commits and a
+    # listening round, with 3 MB of marimba sitting in the repo the whole time.
+    manifest_path = root / "manifest.json"
+    if not manifest_path.exists():
+        print(f"no manifest at {manifest_path}", file=sys.stderr)
+        return 1
+    listed: dict[str, list[int]] = json.loads(manifest_path.read_text())
+    on_disk: dict[str, list[int]] = {}
+    for path in files:
+        on_disk.setdefault(path.parent.name, []).append(int(path.stem))
+    for kit in sorted(set(listed) | set(on_disk)):
+        have = sorted(on_disk.get(kit, []))
+        says = sorted(listed.get(kit, []))
+        if have != says:
+            failures.append(
+                f"kit {kit}: manifest.json lists {says or 'nothing'} but the "
+                f"directory holds {have or 'nothing'}. The client loads the manifest, "
+                f"so every note missing from it is silent.")
 
     for path in files:
         claimed = int(path.stem)

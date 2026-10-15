@@ -189,7 +189,16 @@ function main(): void {
     captions.trim(serverNow);
     const rtt = radio.clock.roundTripMs;
     text('#clock', rtt === null ? 'syncing…' : `±${String(Math.round(rtt / 2))} ms`);
-    text('#count', `${String(seen)} events`);
+    // A broken sample build is not a cosmetic problem: it silently removes voices
+    // from the piece, so it goes where the event count already is rather than into a
+    // console nobody has open.
+    const sampleFailure = audio?.sampleFailure ?? null;
+    text(
+      '#count',
+      sampleFailure === null
+        ? `${String(seen)} events`
+        : `${String(seen)} events · ${sampleFailure}`,
+    );
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
