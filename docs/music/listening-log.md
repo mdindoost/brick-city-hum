@@ -8,6 +8,46 @@ that win are adopted.
 | ---------- | ------------------------------------- | ------------------------------------- | --------- | -------- | ----- | -------- | ----------- | --------- | ---------------------------------------------------------------------------------- |
 | 2026-10-14 | `aircraft-with-reverb-ground-forward` | `aircraft-with-reverb-voices-forward` | _pending_ |          |       |          |             | _pending_ | First round. One variable: how far forward the city voices sit against the Ground. |
 
+### Round 3 — 2026-10-15 — struck samples, and how far forward the city sits
+
+`v3-forward-5` and `v3-forward-9`. Same six minutes of real traffic as round 2, same
+540 events, so the only thing that changed from that round is the instruments — and
+between these two files, the only thing that changes is one number.
+
+**What is new.** Four of the five aircraft voices now play CC0 samples instead of
+oscillators: marimba for departures, vibraphone for arrivals, tubular bells for
+overflights, glockenspiel for the high ones, concert harp for ring crossings. That is
+round 2's verdict taken literally — "as if someone was really striking the note" is a
+description of a transient, and no oscillator has one. The reasoning and the four
+things that had to be measured are in `decisions.md`.
+
+**The one variable between A and B** is `master.voices_gain_db`, how far forward every
+event sits against the Ground. This is the question this log has had open since round
+1 and never actually asked, because until now there was no single number for it.
+
+|                            | A — `v3-forward-5` | B — `v3-forward-9` |
+| -------------------------- | ------------------ | ------------------ |
+| the city against the drone | drone 5 dB over    | within a decibel   |
+| integrated                 | −21.4 LUFS         | −21.1 LUFS         |
+| true peak                  | −5.3 dBTP          | −2.0 dBTP          |
+| limiter                    | never engages      | never engages      |
+
+**What to listen for, in order:**
+
+1. **Does it sound like someone striking a note?** That is the whole round. If the
+   answer is still no, the instruments are wrong and the balance does not matter.
+2. Which of the two would you still want on after ten minutes?
+3. Can you tell a departure (marimba, dry) from an arrival (vibraphone, ringing)
+   without looking?
+4. In B, does the Ground stop being the air and become just another voice? In A, do
+   the events ever disappear under it?
+5. Anything harsh, and any single event that jumps out of the mix.
+
+Ratings go in the table at the top of this file; whichever wins becomes the default in
+`score.yaml`.
+
+**Result:** _pending Mohammad's ears._
+
 ### Round 2 — 2026-10-15 — density, no clicks, minor vs major
 
 Same six minutes of real traffic through the distance rings and the governor;

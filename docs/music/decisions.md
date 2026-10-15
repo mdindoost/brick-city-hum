@@ -241,3 +241,46 @@ parallel, after the ▶ press — and the Ground, which is synthesis and needs n
 starts immediately so the page is making sound while the 3 MB arrives. A kit that
 fails to load drops its voice rather than falling back to an oscillator: a fallback
 would mean the piece quietly sounded like the version that lost two rounds.
+
+### The balance, measured properly the second time
+
+The first measurement of how far back the voices sat was taken by filtering a
+finished render into bands — below 200 Hz for the drone, above 300 Hz for the voices
+— and it said the gap was 15 dB. **That was wrong, and wrong in a way worth recording
+so it is not repeated.** The Ground's own lowpass sits at 420–620 Hz, so a ">300 Hz"
+band is full of drone: raising the voices by 4 dB moved that band by 2.3.
+
+The right way costs one render: silence the Ground and render the same six minutes
+again. Then
+
+| `voices_gain_db`       | voices alone | Ground alone | gap                       |
+| ---------------------- | ------------ | ------------ | ------------------------- |
+| 0 (where this started) | −32.6 LUFS   | −22.6 LUFS   | drone 10 dB over the city |
+| **+5**                 | −27.6 LUFS   | −22.6 LUFS   | drone 5 dB over           |
+| **+9**                 | −23.6 LUFS   | −22.6 LUFS   | within a decibel          |
+
+Ten decibels is too far back for an event to be the subject when it speaks, so the
+knob was needed; it is not the fifteen the band split claimed. The independent
+evidence that stands either way is the pitch-class histogram: 93% of the piece's
+tonal energy was on the drone's own root and fifth, which is §6.1's Ground being the
+subject.
+
+### What the numbers say about the samples themselves
+
+Same six minutes, same 540 events, oscillators against samples at the balance each
+was tuned for:
+
+|                     | round 2 (oscillators) | round 3 (samples, +5) | round 3 (samples, +9) |
+| ------------------- | --------------------- | --------------------- | --------------------- |
+| integrated          | −20.2 LUFS            | −21.4                 | −21.1                 |
+| true peak           | −3.7 dBTP             | −5.3                  | −2.0                  |
+| limiter working     | —                     | never                 | never                 |
+| loudness range      | 5.0 LU                | 4.5                   | —                     |
+| pitch-class entropy | 1.556 bits            | 1.478                 | —                     |
+
+**None of that is the reason to prefer one.** Entropy went _down_, repetition went
+_up_, and the onset detector still cannot see most of what it should — it thresholds
+against the file's median energy, and under a continuous drone a decaying note never
+clears it. The numbers here say only that the mix is legal, the limiter is no longer
+doing the mixing, and nothing is clipping. Whether a marimba sounds like someone
+striking a note is §7.2's question, and it is Mohammad's to answer.

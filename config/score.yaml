@@ -89,13 +89,23 @@ audio:
     # question only ears can answer", and until now there was no number for it — the
     # balance was whatever the sum of the individual voice gains happened to give.
     #
-    # Measured on the first render of the sampled voices: the voice band (>300 Hz)
-    # sat **15 dB** under the drone band (<200 Hz), and 93% of the piece's tonal
-    # energy was the drone's own root and fifth. A struck note decays, so it adds far
-    # less average energy than the sustained oscillator it replaced — the two renders
-    # hit the same −20 LUFS with the voices 3.6 dB further back. §6.1 says the Ground
-    # is never the subject, so this corrects a balance that had drifted, rather than
-    # choosing a new one. [HUMAN] it is the single number to A/B by ear.
+    # Measured properly, by rendering the same six minutes with the Ground silenced:
+    # at +5 the voices are −27.6 LUFS against the drone's −22.6, so **the drone is
+    # 5 dB over the city**; at 0, where this started, it was 10 dB over, and 93% of
+    # the piece's tonal energy was the drone's own root and fifth. A struck note
+    # decays, so it adds far less average energy than the sustained oscillator it
+    # replaced — the two renders hit the same −20 LUFS with the voices 3.6 dB further
+    # back. §6.1 says the Ground is never the subject, so this corrects a balance
+    # that had drifted rather than choosing a new one.
+    #
+    # Do not measure this by filtering a finished render into bands. The first attempt
+    # did, called it a 15 dB gap, and was wrong: the Ground's own lowpass sits at
+    # 420–620 Hz, so a ">300 Hz" band is full of drone and a 4 dB change in the voices
+    # moves it by 2.3. Silence the Ground and render again; it costs one render.
+    #
+    # [HUMAN] this is the single number to A/B by ear. Round 3 offers +5, where the
+    # drone sits 5 dB over the city, against +9, where the two are within a decibel
+    # of each other.
     voices_gain_db: 5
     # Last thing before the output. Set below §6.8's −1 dBTP on purpose: a limiter
     # works on samples, and reconstruction between them overshoots. Measured: with
