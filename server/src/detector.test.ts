@@ -687,10 +687,18 @@ describe('captions come from config, not from code', () => {
       // Words the altitude-band caption is built from, not templates themselves.
       climbing,
       descending,
+      // A list of distance-keyed templates, checked separately below.
+      sky_by_distance,
       ...eventTemplates
     } = sources.captions;
     expect(compass).toHaveLength(8);
     expect(climbing).not.toBe(descending);
+    // Every distance band must render, and they must not all say the same thing —
+    // the whole reason the band exists is that one aircraft crosses fourteen rings.
+    for (const band of sky_by_distance) {
+      expect(band.text).not.toMatch(/\{(?!aircraft|direction)\w+\}/);
+    }
+    expect(new Set(sky_by_distance.map((b) => b.text)).size).toBe(sky_by_distance.length);
     for (const template of Object.values(eventTemplates)) {
       expect(template).not.toMatch(/\{(?!aircraft|place|direction|vertical|altitude)\w+\}/);
     }
