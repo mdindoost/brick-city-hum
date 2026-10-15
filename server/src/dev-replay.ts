@@ -18,7 +18,8 @@
 import { createReadStream, existsSync, readdirSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, normalize, resolve } from 'node:path';
-import { loadPlaces, loadScore } from './config.js';
+import { loadPlaces, loadScore, loadSources } from './config.js';
+import { SkyCollector } from './collectors/sky.js';
 import { Hub } from './ws.js';
 import { Replayer } from './sim/replay.js';
 
@@ -73,6 +74,7 @@ function latestRecording(): string {
 async function main(): Promise<void> {
   const places = loadPlaces();
   const score = loadScore();
+  const sky = new SkyCollector({ sources: loadSources(), places });
 
   const path = latestRecording();
   const replayer = new Replayer({ path, speed: SPEED, loop: true });
@@ -107,6 +109,17 @@ async function main(): Promise<void> {
     playLeadMs: score.play_lead_ms,
     replay: true,
     replaySpeed: SPEED,
+    sky: () => {
+      const state = sky.state(Date.now());
+      return {
+        daypart: state.daypart,
+        daypart_progress: state.daypartProgress,
+        sun_altitude_deg: state.sunAltitudeDeg,
+        sun_azimuth_deg: state.sunAzimuthDeg,
+        moon_illumination: state.moonIllumination,
+        is_daylight: state.isDaylight,
+      };
+    },
   });
 
   const startedAt = Date.now();

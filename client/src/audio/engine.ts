@@ -57,8 +57,10 @@ export class AudioEngine {
   /** Finished or stolen gestures, awaiting release once the context has passed them. */
   private retired: ScheduledVoice[] = [];
   private stolen = 0;
+  private palette: { rootMidi: number; scale: readonly number[] };
 
   constructor(private readonly options: EngineOptions) {
+    this.palette = { rootMidi: options.rootMidi, scale: options.scale };
     // Master chain, in order: bus → high-shelf → compressor → limiter → out.
     //
     // §6.8's rules are enforced structurally rather than by convention:
@@ -88,6 +90,18 @@ export class AudioEngine {
     // docs/decisions.md. This is why reverb is created here but bypassable.
     this.reverb = new Tone.Reverb({ decay: master.reverb_decay_s, wet: 1 }).connect(this.highShelf);
     this.busInput = new Tone.Gain(1).connect(this.highShelf);
+  }
+
+  /**
+   * Move to another palette (§6.2).
+   *
+   * New events use it immediately; sounding ones are left alone, because retuning a
+   * note in flight is the one thing a listener would certainly notice. §6.2 asks for
+   * a crossfade over 5–10 minutes and this is its first half — the Ground's own
+   * transition is ramped by the caller.
+   */
+  setPalette(palette: { rootMidi: number; scale: readonly number[] }): void {
+    this.palette = palette;
   }
 
   register(voice: Voice): void {
@@ -161,8 +175,8 @@ export class AudioEngine {
       playAt,
       // Per-event seeding so jitter does not depend on arrival order (§5).
       random: randomForEvent(this.options.sectionSeed, event.id),
-      scale: this.options.scale,
-      rootMidi: this.options.rootMidi,
+      scale: this.palette.scale,
+      rootMidi: this.palette.rootMidi,
       secondsPerBeat: this.secondsPerBeat,
     };
     const output: VoiceOutput = { destination: panner };

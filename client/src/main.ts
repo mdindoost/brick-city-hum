@@ -45,6 +45,9 @@ function main(): void {
   let seen = 0;
   let audio: RadioAudio | null = null;
   let audioConfig: AudioConfig | null = null;
+  // The palette follows the sky, so a listener who presses play an hour later starts
+  // in the right one rather than in whatever the file happened to ship with.
+  let daypart: string | null = null;
 
   // §2.1: audio never starts before the listener's gesture, and the button is the
   // only thing that may start it.
@@ -63,6 +66,7 @@ function main(): void {
       }
       play.disabled = true;
       await audio.start();
+      if (daypart !== null) audio.setDaypart(daypart, 0);
       play.disabled = false;
       play.textContent = '■ stop';
       play.setAttribute('aria-pressed', 'true');
@@ -85,6 +89,10 @@ function main(): void {
       audioConfig = sent?.transport === undefined ? null : sent;
       map.configure(visual);
       captions.configure(visual);
+      if (hello.sky !== null) {
+        daypart = hello.sky.daypart;
+        text('#daypart', hello.sky.daypart.replace('_', ' '));
+      }
       if (play !== null) {
         play.disabled = audioConfig === null;
         play.title = audioConfig === null ? 'the server sent no score — restart it' : '';
@@ -97,6 +105,11 @@ function main(): void {
     },
     onEvents: (message) => {
       pending.push({ playAt: message.play_at, events: message.events });
+    },
+    onSky: (message) => {
+      daypart = message.daypart;
+      audio?.setDaypart(message.daypart);
+      text('#daypart', message.daypart.replace('_', ' '));
     },
     onStatus: (status) => {
       text('#status', status);

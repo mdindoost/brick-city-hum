@@ -88,6 +88,37 @@ audio:
     # that the city "falls into" the music, loose enough that nothing sounds drilled.
     quantize_beats: 0.5
 
+  # Palettes by daypart (§6.2). The sky collector decides which is current from the
+  # sun's altitude, so these follow the actual sky and stay right across the year.
+  #
+  # This is the honest form of "make it brighter": the day really is brighter than
+  # three in the morning, and a listener who leaves the page open hears the city
+  # change colour because the city changed colour.
+  palettes:
+    night:
+      # Minor pentatonic, low and dark. The fifth is left bare in the ground.
+      root_midi: 55
+      scale: [0, 3, 5, 7, 10]
+      ground_cutoff_hz: 300
+      ground_gain: 0.22
+    twilight:
+      root_midi: 60
+      scale: [0, 2, 3, 5, 7, 10]
+      ground_cutoff_hz: 380
+      ground_gain: 0.24
+    low_sun:
+      root_midi: 62
+      scale: [0, 2, 4, 7, 9]
+      ground_cutoff_hz: 480
+      ground_gain: 0.26
+    day:
+      # Major pentatonic, a fourth higher and twice as open. Nothing here can make a
+      # wrong note; what changes is where the light is.
+      root_midi: 67
+      scale: [0, 2, 4, 7, 9]
+      ground_cutoff_hz: 620
+      ground_gain: 0.26
+
   palette:
     name: afternoon
     # D minor pentatonic. §6.2 says "no wrong notes, ever", and a pentatonic is the

@@ -223,9 +223,17 @@ const sourcesSchema = z.object({
       rearm_s: z.number().positive(),
     }),
   }),
+  sky: z.object({
+    enabled: z.boolean(),
+    interval_s: z.number().positive(),
+    dayparts: z.array(z.object({ name: z.string().min(1), sun_below_deg: z.number() })).min(2),
+    moments: z.object({ sunrise: z.boolean(), sunset: z.boolean() }),
+  }),
   salience: z.object({
     sky: z.number().min(0).max(1),
     altitude_band: z.number().min(0).max(1),
+    sunrise: z.number().min(0).max(1),
+    sunset: z.number().min(0).max(1),
     path_approaching: z.number().min(0).max(1),
     path_arrival: z.number().min(0).max(1),
     ewr_departure: z.number().min(0).max(1),
@@ -264,6 +272,8 @@ const sourcesSchema = z.object({
       .array(z.object({ within_km: z.number().positive(), text: z.string().min(1) }))
       .min(1),
     altitude_band: z.string().min(1),
+    sunrise: z.string().min(1),
+    sunset: z.string().min(1),
     climbing: z.string().min(1),
     descending: z.string().min(1),
     path_approaching: z.string().min(1),
@@ -360,6 +370,15 @@ const scoreSchema = z.object({
       bpm: z.number().positive(),
       quantize_beats: z.number().positive(),
     }),
+    palettes: z.record(
+      z.string(),
+      z.object({
+        root_midi: z.number().int().min(0).max(127),
+        scale: z.array(z.number().int()).min(1),
+        ground_cutoff_hz: z.number().positive(),
+        ground_gain: z.number().min(0).max(1),
+      }),
+    ),
     palette: z.object({
       name: z.string().min(1),
       root_midi: z.number().int().min(0).max(127),

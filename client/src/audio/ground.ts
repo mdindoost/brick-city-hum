@@ -19,6 +19,7 @@ import type { AudioConfig } from '../../../shared/protocol.js';
 
 export class Ground {
   private readonly nodes: { dispose: () => void }[] = [];
+  private readonly filters: Tone.Filter[] = [];
   private master: Tone.Gain | null = null;
 
   constructor(private readonly audio: AudioConfig) {}
@@ -67,6 +68,7 @@ export class Ground {
       filter.connect(level);
       level.connect(master);
       this.nodes.push(oscillator, filter, level, breath, colour);
+      this.filters.push(filter);
 
       oscillator.start(at);
       breath.start(at);
@@ -79,6 +81,20 @@ export class Ground {
     master.gain.linearRampToValueAtTime(ground.gain, at + ground.attack_s);
   }
 
+  /**
+   * Move the bed to another palette (§6.2).
+   *
+   * Only the brightness and the level move, and slowly: retuning the drone would be a
+   * key change in the middle of a piece that has no cadence to justify one. The pitch
+   * follows at the next natural boundary, which Phase 2's sections provide.
+   */
+  retune(cutoffHz: number, gain: number, at: number, seconds: number): void {
+    this.master?.gain.linearRampToValueAtTime(gain, at + seconds);
+    for (const filter of this.filters) {
+      filter.frequency.linearRampToValueAtTime(cutoffHz, at + seconds);
+    }
+  }
+
   /** Fade out and release. Used when the listener pauses. */
   stop(at: number, fadeSeconds = 2): void {
     this.master?.gain.linearRampToValueAtTime(0, at + fadeSeconds);
@@ -87,6 +103,7 @@ export class Ground {
   dispose(): void {
     for (const node of this.nodes) node.dispose();
     this.nodes.length = 0;
+    this.filters.length = 0;
     this.master = null;
   }
 }

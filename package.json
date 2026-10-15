@@ -34,6 +34,7 @@
   "description": "A live, browser-based radio that turns Newark into music.",
   "devDependencies": {
     "@types/node": "^26.6.5",
+    "@types/suncalc": "^1.9.2",
     "@types/ws": "^8.18.2",
     "eslint": "^10.12.0",
     "playwright": "^1.64.1",
@@ -45,6 +46,7 @@
   },
   "dependencies": {
     "@types/web": "^0.0.358",
+    "suncalc": "^2.1.1",
     "tone": "^15.1.22",
     "tsx": "^4.23.15",
     "ulid": "^3.0.2",

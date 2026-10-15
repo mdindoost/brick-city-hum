@@ -37,6 +37,9 @@ const COLOURS: Record<PublicEvent['type'], string> = {
   // An altitude crossing belongs to the same aircraft family as the rings, one step
   // warmer so a climb reads differently from a position.
   altitude_band: '#7e8fa6',
+  // The only warm light on the page, for the only events that are not traffic.
+  sunrise: '#f0c674',
+  sunset: '#e09b5a',
   // Rail is warm where the sky is cool, so a train is distinguishable from an
   // aircraft at a glance and without reading the caption.
   path_approaching: '#9c8f5a',
@@ -55,6 +58,8 @@ const GLYPHS: Record<PublicEvent['type'], GlyphKind> = {
   overflight_high: 'plane',
   sky: 'plane',
   altitude_band: 'plane',
+  sunrise: 'dot',
+  sunset: 'dot',
   helicopter: 'helicopter',
   path_approaching: 'train',
   path_arrival: 'train',

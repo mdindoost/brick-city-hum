@@ -25,6 +25,9 @@ export const EVENT_TYPES = [
   // Crossing an altitude threshold, either way (§6.5). Climbing through ten thousand
   // feet is a real moment in a flight, and it is one the data reports precisely.
   'altitude_band',
+  // Moments (§6.1): rare, and the piece makes room for them.
+  'sunrise',
+  'sunset',
   // Rail (§3.3). A train is not an aircraft and must not borrow its voice: §6.4 gives
   // each line a struck bell against the aircraft's sustained tones.
   'path_approaching',
@@ -99,6 +102,8 @@ export interface AudioConfig {
     readonly reverb_decay_s: number;
   };
   readonly transport: { readonly bpm: number; readonly quantize_beats: number };
+  /** Palette per daypart name (§6.2). The sky message says which is current. */
+  readonly palettes: Record<string, Palette>;
   readonly palette: {
     readonly name: string;
     readonly root_midi: number;
@@ -176,6 +181,24 @@ export interface FigureParams {
   readonly gain: number;
 }
 
+export interface Palette {
+  readonly root_midi: number;
+  readonly scale: readonly number[];
+  readonly ground_cutoff_hz: number;
+  readonly ground_gain: number;
+}
+
+/** Sun and moon, recomputed on the server (§6.2). Slow state, not an event. */
+export interface SkyMessage {
+  readonly type: 'sky';
+  readonly daypart: string;
+  readonly daypart_progress: number;
+  readonly sun_altitude_deg: number;
+  readonly sun_azimuth_deg: number;
+  readonly moon_illumination: number;
+  readonly is_daylight: boolean;
+}
+
 export interface HelloMessage {
   readonly type: 'hello';
   readonly server_ms: number;
@@ -190,6 +213,8 @@ export interface HelloMessage {
    * allow the page to be quietly wrong about that.
    */
   readonly replay_speed: number | null;
+  /** The sky at connection time, so the page starts in the right palette. */
+  readonly sky: Omit<SkyMessage, 'type'> | null;
   readonly listeners: number;
 }
 
@@ -207,7 +232,7 @@ export interface TimeMessage {
   readonly server_ms: number;
 }
 
-export type ServerMessage = HelloMessage | EventsMessage | TimeMessage;
+export type ServerMessage = HelloMessage | EventsMessage | TimeMessage | SkyMessage;
 
 /** The only thing a client may send: a clock probe. */
 export interface PingMessage {

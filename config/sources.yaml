@@ -214,6 +214,33 @@ rail:
     # again — the next train, not the same one jittering across the threshold.
     rearm_s: 300
 
+# Sun and moon (SPEC §3.1 S1, §6.2).
+#
+# Computed locally from the origin's coordinates — no network, no key, no rate limit
+# and nothing that can go down. It is the only source in this project that cannot
+# fail, which is why it is a good one to carry the piece's slowest layer.
+#
+# It produces **state** far more than events: §6.2 wants the palette to follow the
+# daypart, and that is what makes an afternoon sound different from three in the
+# morning. The handful of events it does emit are the moments §6.1 asks for.
+sky:
+  enabled: true
+  # The state is recomputed on this interval; the sun moves slowly enough that a
+  # minute is already finer than the ear can follow.
+  interval_s: 60
+  # Dayparts by solar altitude in degrees, not by clock time, so the piece follows
+  # the actual sky and stays right across the year. Ordered from darkest; the first
+  # whose ceiling the sun is below wins.
+  dayparts:
+    - { name: night, sun_below_deg: -12 }
+    - { name: twilight, sun_below_deg: -0.5 }
+    - { name: low_sun, sun_below_deg: 12 }
+    - { name: day, sun_below_deg: 90 }
+  # Moments worth marking (§6.1). Each fires once per day, as the sun crosses.
+  moments:
+    sunrise: true
+    sunset: true
+
 # How precisely an event reports itself, in decimal places.
 #
 # Accuracy beyond what a listener can perceive is not a goal, and reporting it is a
@@ -239,6 +266,9 @@ salience:
   # the same decision written twice.
   sky: 0.34
   altitude_band: 0.26
+  # A moment, not a note: rare, and the piece should make room for it (§6.1).
+  sunrise: 0.95
+  sunset: 0.95
   # A train is a near, certain, human-scale event: more salient than a distant
   # aircraft, less than a departure overhead.
   path_approaching: 0.3
@@ -462,6 +492,8 @@ captions:
     - { within_km: 20, text: '✈ {aircraft} to the {direction}' }
     - { within_km: 999, text: '✈ {aircraft} far to the {direction}' }
   altitude_band: '✈ {aircraft} {vertical} {altitude} ft to the {direction}'
+  sunrise: '☀ sunrise over Newark'
+  sunset: '☀ sunset over Newark'
   # Filled from the sign of the vertical rate.
   climbing: climbing through
   descending: descending through

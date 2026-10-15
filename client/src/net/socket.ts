@@ -13,6 +13,7 @@ import { ClockSync } from './clocksync.js';
 export interface RadioHandlers {
   readonly onHello: (message: Extract<ServerMessage, { type: 'hello' }>) => void;
   readonly onEvents: (message: Extract<ServerMessage, { type: 'events' }>) => void;
+  readonly onSky: (message: Extract<ServerMessage, { type: 'sky' }>) => void;
   readonly onStatus: (status: 'connecting' | 'live' | 'offline') => void;
 }
 
@@ -57,6 +58,9 @@ export class Radio {
           break;
         case 'events':
           this.handlers.onEvents(message);
+          break;
+        case 'sky':
+          this.handlers.onSky(message);
           break;
         case 'time':
           this.clock.accept(message.client_t0, message.server_ms, received);

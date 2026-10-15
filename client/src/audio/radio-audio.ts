@@ -99,6 +99,25 @@ export class RadioAudio {
     }
   }
 
+  /**
+   * Follow the sky (§6.2). Called when the server says the daypart moved.
+   *
+   * The crossfade is long on purpose: §6.2 says transitions take 5–10 minutes and
+   * never jump, and a listener who has had the page open for an hour should notice
+   * the light changing, not a switch being thrown.
+   */
+  setDaypart(daypart: string, crossfadeSeconds = 420): void {
+    const palette = this.audio.palettes[daypart];
+    if (palette === undefined || this.engine === null) return;
+    this.engine.setPalette({ rootMidi: palette.root_midi, scale: palette.scale });
+    this.ground?.retune(
+      palette.ground_cutoff_hz,
+      palette.ground_gain,
+      Tone.now(),
+      crossfadeSeconds,
+    );
+  }
+
   stop(): void {
     this.ground?.stop(Tone.now());
     this.started = false;

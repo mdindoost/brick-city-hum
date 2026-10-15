@@ -21,6 +21,7 @@ import type {
   AudioConfig,
   EventsMessage,
   HelloMessage,
+  SkyMessage,
   VisualConfig,
 } from '../../shared/protocol.js';
 import { playAt, timeReply } from './clock.js';
@@ -34,6 +35,8 @@ export interface HubOptions {
   readonly playLeadMs: number;
   readonly replay: boolean;
   readonly replaySpeed: number | null;
+  /** The current sky, read fresh for each hello (§6.2). */
+  readonly sky?: () => Omit<SkyMessage, 'type'> | null;
 }
 
 export class Hub {
@@ -79,6 +82,14 @@ export class Hub {
     }
   }
 
+  /** Push the sky to every listener. Slow state, sent only when the daypart moves. */
+  announceSky(sky: Omit<SkyMessage, 'type'>): void {
+    const payload = JSON.stringify({ type: 'sky', ...sky } satisfies SkyMessage);
+    for (const socket of this.sockets) {
+      if (socket.readyState === socket.OPEN) socket.send(payload);
+    }
+  }
+
   close(): void {
     for (const socket of this.sockets) socket.close();
     this.sockets.clear();
@@ -94,6 +105,7 @@ export class Hub {
       audio: this.options.audio,
       replay: this.options.replay,
       replay_speed: this.options.replaySpeed,
+      sky: this.options.sky?.() ?? null,
       listeners: this.sockets.size,
     };
   }

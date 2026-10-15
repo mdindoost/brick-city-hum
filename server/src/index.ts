@@ -15,6 +15,7 @@ import { loadPlaces, loadScore, loadSources } from './config.js';
 import { HealthRegistry } from './health.js';
 import { Recorder } from './recorder.js';
 import { DensityGovernor } from './governor.js';
+import { SkyCollector } from './collectors/sky.js';
 import { SimulatorFallback } from './sim/fallback.js';
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -69,6 +70,8 @@ function main(): void {
   // minute sound different in two tabs, which breaks the one promise this project
   // makes about being shared.
   const governor = new DensityGovernor({ score: loadScore() });
+  // The one source that cannot fail: no network, no key, nothing to be a guest on.
+  const sky = new SkyCollector({ sources, places });
 
   // SPEC §3.5's labelled last resort. Built from recorded days, so it redistributes
   // real traffic rather than inventing any (§1.2), and everything it emits says
@@ -103,6 +106,8 @@ function main(): void {
     },
   });
 
+  let skyState = sky.state(Date.now());
+
   const server = createServer((request, response) => {
     if (request.url === '/healthz') {
       // SPEC §3.5 and §11.3: an external monitor watches this. It reports 503 when
@@ -121,6 +126,7 @@ function main(): void {
         trackedAircraft: aircraft.tracks.size,
         eventsDetected: aircraft.eventCount(),
         recordingDay: recorder.today(),
+        daypart: skyState.daypart,
         recorder: recorderStats,
         simulator: {
           active: fallback.isActive,
@@ -145,6 +151,19 @@ function main(): void {
     console.log(`[boot] User-Agent: ${userAgent()}`);
     aircraft.start();
     path.start();
+
+    // Sun and moon. Slow state for the palette (§6.2) plus the rare moment (§6.1).
+    setInterval(() => {
+      const { state, events } = sky.tick(Date.now());
+      if (state.daypart !== skyState.daypart) {
+        console.log(`[sky] daypart ${skyState.daypart} -> ${state.daypart}`);
+      }
+      skyState = state;
+      if (events.length === 0) return;
+      const placed = governor.admit(events, Date.now());
+      recorder.recordEvents(placed, Date.now());
+      for (const event of placed) console.log(`[sky] ${event.caption}`);
+    }, sources.sky.interval_s * 1000).unref?.();
 
     // Load the traffic model in the background: it reads every recorded event file,
     // and the collector must not wait on it. Without a model there is simply no
