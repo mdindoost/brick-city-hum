@@ -144,3 +144,100 @@ _hears_, and the governor's job (§6.5, still to be built) is to decide which of
 20 become foreground. Giving it more to choose from is the right order of work.
 
 **Brightness is round 2's question**, and it is one config line: the palette's scale.
+
+## 2026-10-15 · Round 2 lost too, and the answer was recorded samples
+
+Mohammad's verdict on round 2 was round 1's verdict again, and sharper:
+
+> هیچکدام چون نویز بک گراند مانند دارد و حس موسیقیایی ندارد… ببین انکه من در
+> ویکیپدیا شنیدم اینجوری نبود انگار کسی نت را واقعا میزد.
+
+Neither one, because it has something like background noise and no musical feeling —
+and the Wikipedia one was not like this, it was as if someone was really _striking_
+the note.
+
+So the research question became: what is Listen to Wikipedia doing that we are not?
+Hatnote's piece plays **recorded samples, edited with SoX** — a bell for an addition,
+a string pluck for a removal, pitch inversely proportional to edit size, a pentatonic,
+a random pick among three takes. Not one oscillator anywhere. That is the whole
+difference, and it is not a question of taste: the attack transient of a struck bar
+or a plucked string is a broadband event lasting a few milliseconds, and it is what
+the ear uses to decide that a physical object was hit by a person. A sine with a 20 ms
+envelope has no transient at all, so it arrives as a tone appearing — a notification
+sound, which is exactly what "no musical feeling" describes.
+
+(No prior art exists for live ADS-B as ambient radio. The nearest neighbours are
+SonAir, which sonifies radar for controllers, and AeroSonicDB, which labels recorded
+aircraft audio. Neither is trying to be music.)
+
+**So: four of the five aircraft voices now play CC0 samples.** §6.9 already permitted
+this, from VCSL or VSCO 2 CE only.
+
+| voice             | was                               | is                | why that instrument                                                                                                                                       |
+| ----------------- | --------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ewr_departure`   | triangle PolySynth                | **marimba**       | dry and definite, shortest decay of the five — a rising figure needs each note to land and then clear the way                                             |
+| `ewr_arrival`     | triangle PolySynth, softer attack | **vibraphone**    | rings and settles. The pair now read as opposites through their instruments rather than through 100 ms of attack time                                     |
+| `overflight_city` | two detuned sines                 | **tubular bells** | the one struck sound that reads as sustained, and its partials beat against each other the way the detuned pair was imitating                             |
+| `overflight_high` | sine, two octaves up              | **glockenspiel**  | already lives up there, so the octave offset became the register                                                                                          |
+| `sky`             | sine                              | **concert harp**  | three or four of these per named event, so it must be the quietest and plainest thing in the set                                                          |
+| `helicopter`      | triangle + tremolo                | **unchanged**     | a rotor is a flutter and no struck sample flutters. §6.4 names the tremolo rate as the identifying feature, so a sample would cost the voice its identity |
+
+The PATH bell (FM, harmonicity 3.1) and the tap voices were already struck and are
+left alone.
+
+### Four things that had to be measured rather than assumed
+
+**VCSL has no single pitch-naming convention.** Its idiophones put middle C at C3.
+The Concert Harp uses the scientific convention — its `A2` measures a clean harmonic
+series on 110 Hz, MIDI 45. Tubular Bells 1 is named _two_ octaves below what it
+sounds: nine files called C3..E4 whose strongest partials form an exact whole-tone
+series on MIDI 72..88, which is C5..E6, the sounding range of a real chime set. One
+global offset built the harp above the top of a real harp and the chimes an octave
+low, **silently** — a transposed radio still works. `tools/test-sample-pitch.py` now
+decodes every committed file and fails on a kit whose median deviation is not zero.
+
+**The softest dynamic layer is not always usable.** VCSL's soft marimba F5 peaks at
+−68 dBFS. Lifting that to a usable level lifts its room tone with it, which is
+precisely the complaint this whole change exists to answer. The builder walks each
+note's layers from softest upward and takes the first whose mono peak clears −50 dBFS.
+
+**Mono peak, not stereo peak.** The engine pans every event itself (§6.4), and a
+downmix loses up to 6 dB on a wide recording. Measuring the stereo file under-levelled
+every kit by that much — the first build's gains were all 6 dB short.
+
+**Per-file normalisation, not per-kit.** One gain per instrument preserves its natural
+loudness curve across its range, which was the first instinct. But the measured spread
+_inside_ one VCSL kit is ~15 dB between neighbouring registers — marimba B4 sits 15 dB
+under F3 — and that is recording variation, not the instrument. Here one event is one
+note, so a 15 dB step between two altitude bands reads as a mixing fault. Every file
+goes to a −3 dBFS peak, with the lift capped at 42 dB so a pathologically quiet file
+cannot drag its room up with it.
+
+### The register problem, and why it folds instead of clamping
+
+No kit covers the two octaves the altitude mapping asks for; the chimes are nine files
+across sixteen semitones. Beyond its range the nearest sample has to be bent so far it
+stops sounding like the instrument — a chime pitched down a fifth is a slow, dull,
+audibly-stretched chime. So each voice declares a `register` in `score.yaml`.
+
+The first version clamped into it. That was wrong, and wrong in the project's
+characteristic way: clamping maps every note below the register onto a single pitch,
+so the bottom of the altitude range becomes one repeated note — the exact monotony the
+sampled voices exist to escape. It folds **by octaves** instead, which keeps the scale
+degree, so the note is still in the palette (§6.2's no wrong notes, ever) and the
+shape of the altitude mapping survives. Only its absolute octave becomes the
+instrument's choice rather than the aircraft's.
+
+The honest cost: `heavy`'s octave drop now survives only where the register has room
+for it, because a heavy note already at the bottom of a narrow register folds straight
+back up. The length multiplier always survives, and on a sampled voice length is most
+of what "heavy" sounds like.
+
+### Deviation from §6.9 worth flagging
+
+§6.9 asks for samples "lazy-loaded by palette". Every palette here uses all five kits,
+so per-palette loading would load all of them anyway. They load up front instead, in
+parallel, after the ▶ press — and the Ground, which is synthesis and needs nothing,
+starts immediately so the page is making sound while the 3 MB arrives. A kit that
+fails to load drops its voice rather than falling back to an oscillator: a fallback
+would mean the piece quietly sounded like the version that lost two rounds.

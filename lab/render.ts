@@ -22,7 +22,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
 import { readRecording } from '../server/src/recorder.js';
@@ -41,6 +41,8 @@ export interface RenderOptions {
   readonly outDir: string;
   readonly bpm: number;
   readonly maxVoices: number;
+  /** Where the committed CC0 kits are. */
+  readonly samplesDir: string;
 }
 
 export interface RenderResult {
@@ -85,6 +87,32 @@ export async function loadEvents(
     .filter((event) => event.t - start <= limit)
     .map((event) => ({ offsetSeconds: (event.t - start) / 1000, event }))
     .sort((a, b) => a.offsetSeconds - b.offsetSeconds);
+}
+
+/**
+ * Read the committed CC0 kits off disk, for the page to decode (§6.9).
+ *
+ * The render page has no origin and no network, so the samples travel as base64 in
+ * the `renderOffline` argument. Roughly 4 MB of JSON once encoded, which the
+ * Playwright bridge carries without complaint — and keeping the page offline is what
+ * makes a render depend on nothing but the bundle and the recording.
+ */
+function readSamples(directory: string): {
+  manifest: Record<string, number[]>;
+  files: Record<string, string>;
+} {
+  const manifest = JSON.parse(readFileSync(join(directory, 'manifest.json'), 'utf8')) as Record<
+    string,
+    number[]
+  >;
+  const files: Record<string, string> = {};
+  for (const [kit, midis] of Object.entries(manifest)) {
+    for (const midi of midis) {
+      const name = `${kit}/${String(midi)}.m4a`;
+      files[name] = readFileSync(join(directory, name)).toString('base64');
+    }
+  }
+  return { manifest, files };
 }
 
 /** WAV header for already-interleaved 16-bit PCM. */
@@ -139,6 +167,7 @@ export async function render(options: RenderOptions): Promise<RenderResult> {
         withReverb: boolean;
         voice: 'probe' | 'aircraft';
         audio: unknown;
+        samples: unknown;
       }) => {
         const api = (globalThis as unknown as { BrickCityLab: Record<string, unknown> })
           .BrickCityLab;
@@ -160,6 +189,7 @@ export async function render(options: RenderOptions): Promise<RenderResult> {
         withReverb: options.preset === 'with-reverb',
         voice: options.voice,
         audio: options.voice === 'aircraft' ? loadScore().audio : null,
+        samples: options.voice === 'aircraft' ? readSamples(options.samplesDir) : null,
       },
     );
 
@@ -231,6 +261,7 @@ function parseArgs(argv: string[]): RenderOptions {
     preset,
     voice,
     outDir: get('out', 'lab/renders'),
+    samplesDir: get('samples', 'client/public/samples'),
     bpm: Number(get('bpm', '68')),
     // From the score, not a literal: the lab had its own 24 while §6.8's desktop cap
     // was tuned to 40, so a render dropped events the live page would have played and

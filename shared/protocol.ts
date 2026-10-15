@@ -112,6 +112,8 @@ export interface AudioConfig {
     readonly compressor_ratio: number;
     readonly compressor_attack_s: number;
     readonly compressor_release_s: number;
+    /** How far forward every event voice sits against the Ground (§6.1, §6.8). */
+    readonly voices_gain_db: number;
     readonly limiter_ceiling_db: number;
     readonly reverb_decay_s: number;
   };
@@ -132,26 +134,19 @@ export interface AudioConfig {
     readonly cutoff_hz: number;
     readonly cutoff_sweep_hz: number;
   };
+  /** Where the CC0 kits are served from (§6.9). */
+  readonly samples: { readonly base_url: string };
   readonly voices: {
     readonly max_desktop: number;
     readonly max_mobile: number;
     readonly min_attack_s: number;
     readonly ewr_departure: FigureParams;
     readonly ewr_arrival: FigureParams;
-    readonly overflight_city: {
-      readonly attack_s: number;
-      readonly hold_s: number;
-      readonly release_s: number;
-      readonly detune_cents: number;
+    readonly overflight_city: StruckParams & {
+      /** Pitch drift across the pass: the Doppler hint of §6.4, in cents. */
       readonly bend_cents: number;
-      readonly gain: number;
     };
-    readonly overflight_high: {
-      readonly attack_s: number;
-      readonly release_s: number;
-      readonly gain: number;
-      readonly octave_offset: number;
-    };
+    readonly overflight_high: StruckParams;
     readonly helicopter: {
       readonly tremolo_hz: number;
       readonly tremolo_depth: number;
@@ -160,11 +155,7 @@ export interface AudioConfig {
       readonly release_s: number;
       readonly gain: number;
     };
-    readonly sky: {
-      readonly attack_s: number;
-      readonly release_s: number;
-      readonly gain: number;
-    };
+    readonly sky: StruckParams;
     readonly path: {
       readonly harmonicity: number;
       readonly modulation_index: number;
@@ -192,16 +183,33 @@ export interface AudioConfig {
   };
 }
 
+/**
+ * A voice that plays a CC0 sample rather than an oscillator (SPEC §6.9).
+ *
+ * `instrument` names a kit under `samples.base_url`; `register` is the MIDI window
+ * that kit is allowed to speak in, because no kit covers the two octaves the
+ * altitude mapping can ask for and a sample bent too far stops sounding like its
+ * instrument. The three times are a fade in, a total length and a fade out: a struck
+ * sample has its own decay, so there is no envelope to shape, only a window on the
+ * recording.
+ */
+export interface StruckParams {
+  readonly instrument: string;
+  /** `[lowest, highest]` MIDI note this voice may play. */
+  readonly register: readonly number[];
+  readonly fade_in_s: number;
+  readonly max_s: number;
+  readonly fade_out_s: number;
+  readonly gain: number;
+}
+
 /** A two- or three-note rising or falling figure (§6.4). */
-export interface FigureParams {
+export interface FigureParams extends StruckParams {
   readonly notes: number;
   readonly step_degrees: number;
-  readonly attack_s: number;
-  readonly release_s: number;
   readonly gap_beats_slow: number;
   readonly gap_beats_fast: number;
   readonly vrate_fast_fpm: number;
-  readonly gain: number;
 }
 
 export interface Palette {

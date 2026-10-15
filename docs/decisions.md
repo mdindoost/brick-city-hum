@@ -839,3 +839,52 @@ candidates then: reword §1.2 so the audio claims left–right while the **map**
 true direction (the eye resolves what the ear cannot), or adopt a binaural
 `PannerNode` with `panningModel: 'HRTF'` and test whether anyone can hear the
 difference. Recorded so the promise is not quietly broken in either direction.
+
+## 2026-10-15 · The aircraft voices play samples (§6.9)
+
+The reasoning and the measurements are in `docs/music/decisions.md`; this is what
+changed outside the music.
+
+**New: `tools/`.** `fetch-samples.py` builds `client/public/samples/` from VCSL and
+writes the provenance table in `LICENSE.md`; `test-sample-pitch.py` decodes every
+committed file and checks it against its filename. Both are stdlib + ffmpeg only, the
+rule `lab/analyze.py` already follows — a measurement tool that stops working after a
+dependency bump is worse than a simpler one. `npm run samples` and
+`npm run test:samples`, and `npm run check` now runs the second one.
+
+`tools/` is not in §5.1's repo layout. Proposed addition, since neither script is the
+listening lab and neither belongs in `lab/`.
+
+**The samples are committed.** 3.0 MB against §6.9's 15 MB budget. The alternative —
+fetching at build time — makes a deploy depend on raw.githubusercontent.com, and the
+files are CC0, so there is nothing to keep out of a public repository.
+
+**`VoiceOutput.own()`, which fixes a leak that predates this change.** A voice is
+registered once and `schedule`d thousands of times. Every voice kept its own list of
+the nodes it built and released them only when the engine shut down, so a page left
+open held one synth per event it had ever played — at the measured ~100 events a
+minute, six thousand live audio nodes an hour. The engine already disposed each
+event's spatialisation chain twelve seconds after its gesture ended; `own()` puts the
+voice's own nodes in the same hands. Found while writing the sampled voices, not by
+anything failing.
+
+**Schema changes to `score.yaml`.** `StruckParams` — `instrument`, `register`,
+`fade_in_s`, `max_s`, `fade_out_s`, `gain` — replaces the envelope fields on four
+voices. `overflight_city` lost `detune_cents` (there is no oscillator pair left to
+detune) and `overflight_high` lost `octave_offset` (its register is the offset).
+`heavy.cutoff_multiplier` stays in the schema and stays unread; it was already unread
+before this change, and removing a field SPEC §6.4 asks for is Mohammad's call.
+
+**The lab gets the samples as bytes, not over the network.** The render page is
+`about:blank` with one injected script and no origin, which is deliberate — it is what
+makes a render depend on nothing but the bundle and the recording. So `lab/render.ts`
+reads the committed files and passes them base64 in the `renderOffline` argument,
+about 4 MB of JSON, and the loader becomes a map lookup.
+
+**Needs Mohammad's yes, not a silent edit:**
+
+- §6.4 calls `overflight_city` "a sustained tone". It is now a tubular bell, which
+  rings for about as long but is struck rather than swelled. The line should probably
+  say so.
+- §6.9 asks for samples "lazy-loaded by palette"; every palette here uses all five
+  kits, so they load up front with the Ground covering the wait.

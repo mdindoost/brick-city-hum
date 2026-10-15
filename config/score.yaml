@@ -64,9 +64,18 @@ audio:
   # bug: the loudness target is explicitly "[HUMAN] tune by ear; measure in the lab",
   # and a number the music director cannot reach is a number that never gets tuned.
   master:
-    # Trim before the compressor. The lab measures integrated loudness; this is how it
-    # gets moved without touching the balance between the ground and the voices.
-    gain_db: 0
+    # The whole mix, Ground included, just before the limiter. The lab measures
+    # integrated loudness and this is the number that moves it.
+    #
+    # Negative on purpose. At 0 the first render of the sampled voices measured −19.9
+    # LUFS and −0.9 dBTP with the limiter working in 7% of 100 ms windows — legal, and
+    # the wrong kind of legal: a limiter riding the gain one window in fourteen is a
+    # mix element rather than the safety net §6.8 wants it to be, and struck voices
+    # stack into far higher peaks than the sustained tones this was first set against.
+    # At −1 the same minute measures **−20.9 LUFS, −1.9 dBTP, and the limiter never
+    # engages at all** — §6.8's two numbers met with margin instead of by luck, for
+    # 0.9 dB of loudness.
+    gain_db: -1
     # Harshness is what makes an ambient piece unlistenable over hours (§6.8).
     high_shelf_hz: 6000
     high_shelf_db: -6
@@ -74,6 +83,20 @@ audio:
     compressor_ratio: 2.5
     compressor_attack_s: 0.05
     compressor_release_s: 0.4
+    # How far forward every event voice sits against the Ground, in dB.
+    #
+    # This is the knob `docs/music/decisions.md` has had open since round 1 as "the
+    # question only ears can answer", and until now there was no number for it — the
+    # balance was whatever the sum of the individual voice gains happened to give.
+    #
+    # Measured on the first render of the sampled voices: the voice band (>300 Hz)
+    # sat **15 dB** under the drone band (<200 Hz), and 93% of the piece's tonal
+    # energy was the drone's own root and fifth. A struck note decays, so it adds far
+    # less average energy than the sustained oscillator it replaced — the two renders
+    # hit the same −20 LUFS with the voices 3.6 dB further back. §6.1 says the Ground
+    # is never the subject, so this corrects a balance that had drifted, rather than
+    # choosing a new one. [HUMAN] it is the single number to A/B by ear.
+    voices_gain_db: 5
     # Last thing before the output. Set below §6.8's −1 dBTP on purpose: a limiter
     # works on samples, and reconstruction between them overshoots. Measured: with
     # the ceiling at −1 the render came back at −0.8 dBTP, i.e. over the spec.
@@ -144,6 +167,18 @@ audio:
     cutoff_hz: 420
     cutoff_sweep_hz: 180
 
+  # The CC0 sample kits (§6.9, §12). Built by `npm run samples`; every file's VCSL
+  # source, dynamic layer and gain is listed in client/public/samples/LICENSE.md.
+  #
+  # This is the change the first two listening rounds asked for. The verdict both
+  # times was the same — background noise, no musical feeling, and about Listen to
+  # Wikipedia, "as if someone was really playing a note". That piece plays recorded
+  # samples; ours played sine and triangle oscillators, and an oscillator has no
+  # strike in it. §6.9 permits VCSL and VSCO 2 CE, both CC0, so the aircraft now play
+  # marimba, vibraphone, tubular bells, glockenspiel and harp.
+  samples:
+    base_url: /samples/
+
   voices:
     # Levels here were set against a sky that spoke 1.4 times a minute. At 20 a minute
     # their sum drove the master limiter to 0.0 dBTP — over §6.8's ceiling and audibly
@@ -156,49 +191,76 @@ audio:
     ewr_departure:
       # A rising figure (§6.4). Three notes reads as a gesture; two reads as an
       # interval and four starts to sound like a melody competing for attention.
+      #
+      # Marimba: woody and definite, with the shortest decay of the five kits. A
+      # rising figure needs each note to land and then get out of the way of the next.
+      instrument: marimba
+      # The kit's own range is MIDI 41–96, so almost nothing folds.
+      register: [41, 96]
       notes: 3
       step_degrees: 2
-      attack_s: 0.02
-      release_s: 2.4
+      # The sample's attack is the attack now. This is only a taper on the front of
+      # it, kept at §6.8's 5 ms minimum so the strike survives.
+      fade_in_s: 0.005
+      max_s: 2.0
+      fade_out_s: 0.5
       # Climb rate sets glide speed: a steep climb hurries the figure along.
       gap_beats_slow: 1.0
       gap_beats_fast: 0.4
       vrate_fast_fpm: 2500
-      gain: 0.55
+      gain: 0.5
 
     ewr_arrival:
-      # Falling, with a softer attack (§6.4) — the difference in attack is what makes
-      # the two read as opposites even when the listener is not attending.
+      # Falling (§6.4). The two read as opposites through their instruments now
+      # rather than through their attack times: a marimba is dry and a vibraphone
+      # rings, so a departure is three definite strikes and an arrival is three notes
+      # settling into each other.
+      instrument: vibraphone
+      register: [48, 90]
       notes: 3
       step_degrees: 2
-      attack_s: 0.12
-      release_s: 3.2
+      fade_in_s: 0.012
+      max_s: 3.5
+      fade_out_s: 0.9
       gap_beats_slow: 1.2
       gap_beats_fast: 0.5
       vrate_fast_fpm: 1800
-      gain: 0.5
+      gain: 0.45
 
     overflight_city:
-      # A sustained tone, not a figure: the aircraft is passing over, not arriving.
-      attack_s: 1.6
-      hold_s: 4.0
-      release_s: 5.0
-      # Two oscillators a few cents apart, which beats slowly and gives the tone the
-      # width a single oscillator cannot have.
-      detune_cents: 7
-      # A barely-there pitch drift, the Doppler hint of §6.4 — well under the ~6 cent
-      # threshold where a listener starts hearing it as being out of tune.
+      # One sound, not a figure: the aircraft is passing over, not arriving.
+      #
+      # A tubular bell is the one struck sound that reads as sustained — it rings for
+      # the length the old oscillator pair held, and its partials beat against each
+      # other the way the two detuned sines were trying to imitate.
+      instrument: chimes
+      # Two and a half octaves against a kit that spans sixteen semitones (MIDI
+      # 72–88), so a low overflight is a chime bent down an octave: slower, darker,
+      # closer to a gong. For something heavy directly overhead that is the right
+      # sound, and it is the honest consequence of a nine-file kit.
+      register: [60, 91]
+      fade_in_s: 0.01
+      max_s: 7.0
+      fade_out_s: 1.5
+      # The Doppler hint of §6.4, now a real one: the playback rate drifts across the
+      # pass, so the pitch and the timbre move together as they do on a passing
+      # aircraft. Well under the ~6 cents where a listener stops hearing "moving" and
+      # starts hearing "out of tune".
       bend_cents: 4
-      gain: 0.38
+      gain: 0.32
 
     overflight_high:
       # "Barely audible shimmer" (§6.4). It should be noticed only in its absence.
-      attack_s: 3.0
-      release_s: 6.0
-      gain: 0.13
-      # Two octaves up: present in the air without occupying any register the city
-      # voices use.
-      octave_offset: 2
+      #
+      # A glockenspiel already lives up here — MIDI 79–108 — so the old two-octave
+      # offset is gone: the register is the offset.
+      instrument: glockenspiel
+      register: [79, 108]
+      # Slower than the others. A shimmer should appear rather than strike.
+      fade_in_s: 0.02
+      max_s: 3.5
+      fade_out_s: 1.0
+      gain: 0.12
 
     helicopter:
       # A flutter, not a note. The tremolo rate is the identifying feature, and it is
@@ -215,9 +277,16 @@ audio:
     # comes from altitude like everything else, so the sky has a quiet continuous
     # activity under the named events rather than silence between them.
     sky:
-      attack_s: 0.35
-      release_s: 3.5
-      gain: 0.18
+      # A harp, and not the obvious choice of a kalimba: both of VCSL's lamellophones
+      # are tuned the way a real mbira is tuned, and one measured three semitones
+      # flat. For any other voice that is character; this is the most frequent sound
+      # in the piece, and §6.2 promises no wrong notes, ever.
+      instrument: harp
+      register: [48, 96]
+      fade_in_s: 0.008
+      max_s: 2.0
+      fade_out_s: 0.5
+      gain: 0.16
 
     # PATH trains (§6.4: "each line has its own bell or chime pitch set").
     #
@@ -254,6 +323,11 @@ audio:
       octave_offset: [-1, 0, 1]
 
     # A heavy aircraft is lower, longer and warmer (§6.4). A modifier, not a voice.
+    #
+    # The octave drop now survives only where the voice's register has room for it:
+    # the register folds by octaves, so a heavy note already at the bottom of a
+    # narrow register folds straight back up. The length always survives, and on a
+    # sampled voice length is most of what "heavy" sounds like.
     heavy:
       octave_offset: -1
       release_multiplier: 1.5

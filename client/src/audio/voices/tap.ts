@@ -22,7 +22,6 @@ import {
 
 export class TapVoice implements Voice {
   readonly name = 'tap';
-  private readonly nodes: { dispose: () => void }[] = [];
 
   constructor(private readonly audio: AudioConfig) {}
 
@@ -54,7 +53,7 @@ export class TapVoice implements Voice {
       volume: Tone.gainToDb(params.gain),
     });
     synth.connect(output.destination as Tone.InputNode);
-    this.nodes.push(synth);
+    output.own(synth);
 
     // Quantised like everything else (§6.3), so another listener's tap lands with the
     // music rather than beside it — but on the nearest half-beat rather than the next
@@ -70,7 +69,7 @@ export class TapVoice implements Voice {
   }
 
   dispose(): void {
-    for (const node of this.nodes) node.dispose();
-    this.nodes.length = 0;
+    // Nothing to release: the synth is handed to `output.own` and disposed with the
+    // event's own chain by the engine. Keeping a list here leaked one node per event.
   }
 }

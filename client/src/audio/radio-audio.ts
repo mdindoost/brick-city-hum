@@ -11,12 +11,21 @@
  *  3. **The shared clock** (§9.4): the server's `play_at` is in server milliseconds
  *     and Tone schedules in context seconds. The conversion happens here, once, so
  *     no voice is ever tempted to read a clock of its own.
+ *
+ * Starting is now two stages, because the aircraft voices play samples (§6.9). The
+ * Ground is synthesis and needs nothing, so it starts the instant the listener
+ * presses ▶ and there is sound immediately; the 3 MB of kits load behind it and the
+ * voices join when they arrive. The alternative — waiting for the download before
+ * anything sounds — makes the button feel broken on a slow connection, and the
+ * opposite, letting voices play before their kit exists, would mean the piece
+ * silently sounded like the version that lost two listening rounds.
  */
 
 import * as Tone from 'tone';
 import type { AudioConfig, PublicEvent } from '../../../shared/protocol.js';
 import { AudioEngine } from './engine.js';
 import { Ground } from './ground.js';
+import { loadSampleKits, type SampleKit, type SampleManifest } from './samples.js';
 import { aircraftVoices } from './voices/aircraft.js';
 import { RailVoice } from './voices/rail.js';
 import { TapVoice } from './voices/tap.js';
@@ -30,6 +39,8 @@ export class RadioAudio {
   private engine: AudioEngine | null = null;
   private ground: Ground | null = null;
   private started = false;
+  private loading = true;
+  private sampleError: string | null = null;
   private dropped = 0;
 
   constructor(private readonly audio: AudioConfig) {}
@@ -41,6 +52,16 @@ export class RadioAudio {
   /** Events refused by the voice budget, shown in the header so it is not invisible. */
   get droppedCount(): number {
     return this.dropped;
+  }
+
+  /** True between the gesture and the kits being ready: drone only, no voices. */
+  get loadingSamples(): boolean {
+    return this.loading;
+  }
+
+  /** Why the kits are missing, if they are. Shown rather than swallowed. */
+  get sampleFailure(): string | null {
+    return this.sampleError;
   }
 
   /** Must be called from inside a user-gesture handler. */
@@ -68,17 +89,45 @@ export class RadioAudio {
       master: this.audio.master,
       textureGain: this.audio.governor_texture_gain,
     });
-    for (const voice of aircraftVoices(this.audio)) engine.register(voice);
+    // The drone first, so the page is making sound before the kits have downloaded.
+    // Through the engine's trim rather than straight to the destination, so §6.8's
+    // true-peak ceiling covers the sum of drone and voices and not only the voices.
+    const ground = new Ground(this.audio);
+    ground.start(engine.groundDestination, Tone.now());
+    this.ground = ground;
+    this.started = true;
+
+    const kits = await this.loadKits();
+    for (const voice of aircraftVoices(this.audio, kits)) engine.register(voice);
     engine.register(new RailVoice(this.audio));
     engine.register(new TapVoice(this.audio));
     await engine.prepare({ withReverb: true });
 
-    const ground = new Ground(this.audio);
-    ground.start(Tone.getDestination(), Tone.now());
-
+    // Last, because `schedule` checks for it: an event that arrives while the kits
+    // are still downloading is counted as dropped rather than played voiceless.
     this.engine = engine;
-    this.ground = ground;
-    this.started = true;
+    this.loading = false;
+  }
+
+  /**
+   * Fetch the manifest and the kits (§6.9).
+   *
+   * A failure here is not fatal. The manifest is a generated file rather than part
+   * of the score, so a mismatch between a deployed page and its samples is a real
+   * possibility, and the answer to it is a radio of drone, bells and taps — thinner
+   * than intended, honest about every sound it makes, and still running.
+   */
+  private async loadKits(): Promise<Map<string, SampleKit>> {
+    const base = this.audio.samples.base_url;
+    try {
+      const response = await fetch(`${base.endsWith('/') ? base : `${base}/`}manifest.json`);
+      if (!response.ok) throw new Error(`manifest: HTTP ${String(response.status)}`);
+      const manifest = (await response.json()) as SampleManifest;
+      return await loadSampleKits({ baseUrl: base, manifest });
+    } catch (error) {
+      this.sampleError = error instanceof Error ? error.message : String(error);
+      return new Map();
+    }
   }
 
   /**

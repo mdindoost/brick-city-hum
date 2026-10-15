@@ -25,7 +25,6 @@ import {
 
 export class RailVoice implements Voice {
   readonly name = 'path';
-  private readonly nodes: { dispose: () => void }[] = [];
 
   constructor(private readonly audio: AudioConfig) {}
 
@@ -60,7 +59,7 @@ export class RailVoice implements Voice {
       volume: Tone.gainToDb(approaching ? params.approach_gain : params.arrival_gain),
     });
     synth.connect(output.destination as Tone.InputNode);
-    this.nodes.push(synth);
+    output.own(synth);
 
     // Struck on the beat, not on the grid's next subdivision: a bell that lands with
     // the pulse is what makes the aircraft figures feel placed rather than scattered.
@@ -71,7 +70,7 @@ export class RailVoice implements Voice {
   }
 
   dispose(): void {
-    for (const node of this.nodes) node.dispose();
-    this.nodes.length = 0;
+    // Nothing to release: the synth is handed to `output.own` and disposed with the
+    // event's own chain by the engine. Keeping a list here leaked one node per event.
   }
 }

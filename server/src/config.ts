@@ -333,15 +333,24 @@ export function loadPlaces(configDir: string = defaultConfigDir()): PlacesConfig
  * and this one is how it is *rendered*. The music director edits this one and should
  * never have to read the other.
  */
+/** A voice that plays a CC0 sample kit (§6.9). */
+const struckFields = {
+  instrument: z.string().min(1),
+  // Exactly two: the lowest and highest MIDI note this voice may play.
+  register: z.tuple([z.number().int().min(0).max(127), z.number().int().min(0).max(127)]),
+  fade_in_s: z.number().min(0),
+  max_s: z.number().positive(),
+  fade_out_s: z.number().min(0),
+  gain: z.number().min(0).max(1),
+};
+
 const figureSchema = z.object({
+  ...struckFields,
   notes: z.number().int().min(1).max(6),
   step_degrees: z.number().int(),
-  attack_s: z.number().min(0),
-  release_s: z.number().positive(),
   gap_beats_slow: z.number().positive(),
   gap_beats_fast: z.number().positive(),
   vrate_fast_fpm: z.number().positive(),
-  gain: z.number().min(0).max(1),
 });
 
 const scoreSchema = z.object({
@@ -371,6 +380,7 @@ const scoreSchema = z.object({
       compressor_ratio: z.number().positive(),
       compressor_attack_s: z.number().positive(),
       compressor_release_s: z.number().positive(),
+      voices_gain_db: z.number(),
       limiter_ceiling_db: z.number(),
       reverb_decay_s: z.number().positive(),
     }),
@@ -401,26 +411,15 @@ const scoreSchema = z.object({
       cutoff_hz: z.number().positive(),
       cutoff_sweep_hz: z.number().min(0),
     }),
+    samples: z.object({ base_url: z.string().min(1) }),
     voices: z.object({
       max_desktop: z.number().int().positive(),
       max_mobile: z.number().int().positive(),
       min_attack_s: z.number().min(0),
       ewr_departure: figureSchema,
       ewr_arrival: figureSchema,
-      overflight_city: z.object({
-        attack_s: z.number().min(0),
-        hold_s: z.number().min(0),
-        release_s: z.number().positive(),
-        detune_cents: z.number().min(0),
-        bend_cents: z.number().min(0),
-        gain: z.number().min(0).max(1),
-      }),
-      overflight_high: z.object({
-        attack_s: z.number().min(0),
-        release_s: z.number().positive(),
-        gain: z.number().min(0).max(1),
-        octave_offset: z.number().int(),
-      }),
+      overflight_city: z.object({ ...struckFields, bend_cents: z.number().min(0) }),
+      overflight_high: z.object(struckFields),
       helicopter: z.object({
         tremolo_hz: z.number().positive(),
         tremolo_depth: z.number().min(0).max(1),
@@ -429,11 +428,7 @@ const scoreSchema = z.object({
         release_s: z.number().positive(),
         gain: z.number().min(0).max(1),
       }),
-      sky: z.object({
-        attack_s: z.number().min(0),
-        release_s: z.number().positive(),
-        gain: z.number().min(0).max(1),
-      }),
+      sky: z.object(struckFields),
       path: z.object({
         harmonicity: z.number().positive(),
         modulation_index: z.number().positive(),

@@ -53,6 +53,18 @@ export interface VoiceContext {
 export interface VoiceOutput {
   /** Where audio goes. Typed loosely so the lab can substitute an offline node. */
   readonly destination: unknown;
+  /**
+   * Hand the engine a node to dispose when this gesture is released.
+   *
+   * It exists because the alternative leaked. A voice is registered once and
+   * `schedule`d thousands of times, so a voice that kept its own list of the nodes it
+   * built — which is what every voice did until this was added — held every synth it
+   * had ever made until the engine shut down. At the measured ~100 events a minute
+   * that is six thousand live audio nodes an hour, in a page meant to be left open
+   * all day. The engine already disposes each event's spatialisation chain twelve
+   * seconds after the gesture ends; this puts the voice's own nodes in the same hands.
+   */
+  own(node: { dispose: () => void }): void;
 }
 
 export interface Voice {
@@ -139,4 +151,58 @@ export function altitudeToSemitones(altFt: number | null): number {
   if (altFt === null) return 0;
   const normalised = Math.min(1, Math.max(0, altFt / 35000));
   return Math.round(normalised * 24);
+}
+
+/**
+ * Fold a note into an instrument's register, by octaves (SPEC §6.4, §6.9).
+ *
+ * Altitude maps to two octaves of pitch, and no sample kit spans that from its own
+ * recorded notes — the tubular bells are nine files across sixteen semitones. Beyond
+ * its range the nearest sample has to be bent so far that it stops sounding like the
+ * instrument: a chime pitched down a fifth is a slow, dull, obviously-stretched
+ * chime. So each voice declares in `score.yaml` the register it lives in.
+ *
+ * **By octaves rather than by clamping**, which is the whole point. Clamping was the
+ * first version and it folds every note below the register onto one note — the
+ * bottom of the altitude range becomes a single repeated pitch, which is exactly the
+ * monotony the piece is being rewritten to escape. An octave keeps the scale degree,
+ * so the note is still in the palette (§6.2's no wrong notes, ever) and the shape of
+ * the altitude mapping survives; only its absolute octave is the instrument's choice
+ * rather than the aircraft's.
+ *
+ * A register narrower than an octave has nowhere to fold to, so it clamps instead.
+ */
+export function foldToRegister(midi: number, register: readonly number[]): number {
+  const low = register[0];
+  const high = register[1];
+  if (low === undefined || high === undefined || high < low) return midi;
+  if (high - low < 12) return Math.min(high, Math.max(low, midi));
+  let folded = midi;
+  while (folded < low) folded += 12;
+  while (folded > high) folded -= 12;
+  return folded;
+}
+
+/**
+ * Which recorded note a sampler should play for `midi` (SPEC §6.9).
+ *
+ * The nearest one, and on a tie the lower — a sample bent up loses length and gains
+ * brightness, which on a struck sound is the less wrong of the two directions
+ * because it preserves the attack's sharpness. `available` need not be sorted.
+ *
+ * Returns `midi` itself when there is nothing to choose from, so a caller with an
+ * empty kit plays at the right pitch rather than at zero.
+ */
+export function nearestNote(available: readonly number[], midi: number): number {
+  let best: number | undefined;
+  for (const candidate of available) {
+    if (best === undefined) {
+      best = candidate;
+      continue;
+    }
+    const closer = Math.abs(candidate - midi) < Math.abs(best - midi);
+    const tiedAndLower = Math.abs(candidate - midi) === Math.abs(best - midi) && candidate < best;
+    if (closer || tiedAndLower) best = candidate;
+  }
+  return best ?? midi;
 }

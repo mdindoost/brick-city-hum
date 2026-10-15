@@ -1,5 +1,5 @@
 /**
- * The aircraft voices. SPEC §6.4.
+ * The aircraft voices. SPEC §6.4, §6.9.
  *
  * Five gestures, one per event type, and a modifier for heavy aircraft. Each is a
  * *gesture* rather than a note, because that is what makes a stream of events read as
@@ -7,26 +7,41 @@
  * overflight passes. Altitude sets the register, bearing sets the pan and distance
  * sets gain, colour and reverb — all three of those belong to the engine, not here.
  *
+ * **Four of the five now play CC0 samples rather than oscillators.** Two listening
+ * rounds were lost to the same verdict — background noise, no musical feeling, and
+ * about Listen to Wikipedia, "as if someone was really playing a note". That piece
+ * plays recorded samples; a sine with an envelope has no strike in it, and the
+ * attack transient of a struck bar is what the ear reads as an instrument and a
+ * person. See `../samples.ts` for the kits and the player.
+ *
+ * The helicopter is the exception and stays synthesised, because a rotor is a
+ * *flutter* and no single struck sample flutters. §6.4 names the tremolo rate as the
+ * identifying feature of that voice; a sample would lose exactly that.
+ *
  * **Every number in this file comes from `config/score.yaml`**, shipped to the browser
  * in the hello message. A tuning value written into this file would be a value the
  * music director can never reach (§1.5).
  *
  * What is deliberately *not* here: anything that reads a clock, `Math.random`, or the
  * destination. A voice schedules against `context.playAt`, draws from the seeded PRNG
- * it is handed, and connects to the node the engine gives it — which is what keeps
- * every listener in sync and offline renders reproducible.
+ * it is handed, and hands every node it builds to `output.own` — which is what keeps
+ * every listener in sync, offline renders reproducible, and a page left open all day
+ * from accumulating one audio node per event it ever played.
  */
 
 import * as Tone from 'tone';
-import type { AudioConfig, FigureParams } from '../../../../shared/protocol.js';
+import type { AudioConfig, FigureParams, StruckParams } from '../../../../shared/protocol.js';
+import { strike, type SampleKit } from '../samples.js';
 import {
   altitudeToSemitones,
+  foldToRegister,
   scaleDegreeToMidi,
   type PublicEvent,
   type Voice,
   type VoiceContext,
   type VoiceOutput,
 } from '../types.js';
+
 /**
  * Human timing, but only ever *late* (SPEC §6.7.4).
  *
@@ -48,35 +63,14 @@ function degreeFor(event: PublicEvent, context: VoiceContext): number {
   return Math.round((semitones * context.scale.length) / 12);
 }
 
-function midiFor(event: PublicEvent, context: VoiceContext, heavyOctaves: number): number {
-  const midi = scaleDegreeToMidi(context.rootMidi, context.scale, degreeFor(event, context));
-  return midi + heavyOctaves * 12;
-}
-
 /** Quantise to the shared grid, so the city falls into the music (§6.3). */
 function onGrid(playAt: number, context: VoiceContext, quantizeBeats: number): number {
   const step = context.secondsPerBeat * quantizeBeats;
   return Math.ceil(playAt / step) * step;
 }
 
-/**
- * How long after a gesture's nominal end an oscillator may be stopped.
- *
- * An `AmplitudeEnvelope` releases exponentially and never actually reaches zero, so
- * stopping the oscillator at the moment the release nominally ends cuts a waveform
- * mid-cycle — a step discontinuity, which is a click. The first dense render's
- * spectrogram showed them plainly: vertical streaks of broadband energy up to 12 kHz
- * at event times, in a piece whose loudest intended component dies by 2 kHz. A
- * listener hears them as background noise, and §6.8 forbids them outright.
- *
- * Four release constants puts the envelope roughly 35 dB down before the oscillator
- * stops, which is inaudible under the drone.
- */
-const STOP_TAIL = 4;
-
 abstract class AircraftVoice implements Voice {
   abstract readonly name: string;
-  protected readonly nodes: { dispose: () => void }[] = [];
 
   constructor(protected readonly audio: AudioConfig) {}
 
@@ -84,34 +78,45 @@ abstract class AircraftVoice implements Voice {
   abstract schedule(event: PublicEvent, context: VoiceContext, output: VoiceOutput): number;
 
   /** Heavy aircraft are lower, longer and warmer (§6.4) — a modifier, not a voice. */
-  protected heavy(event: PublicEvent): { octaves: number; release: number; cutoff: number } {
+  protected heavy(event: PublicEvent): { octaves: number; length: number } {
     const heavy = this.audio.voices.heavy;
     return event.attrs.heavy
-      ? {
-          octaves: heavy.octave_offset,
-          release: heavy.release_multiplier,
-          cutoff: heavy.cutoff_multiplier,
-        }
-      : { octaves: 0, release: 1, cutoff: 1 };
+      ? { octaves: heavy.octave_offset, length: heavy.release_multiplier }
+      : { octaves: 0, length: 1 };
   }
 
   /** §6.8: no sudden transients, whatever a config edit asks for. */
-  protected attack(seconds: number): number {
+  protected fadeIn(seconds: number): number {
     return Math.max(this.audio.voices.min_attack_s, seconds);
   }
 
+  /** The note this event plays, folded into the voice's own register (§6.9). */
+  protected noteFor(
+    event: PublicEvent,
+    context: VoiceContext,
+    params: StruckParams,
+    heavyOctaves: number,
+  ): number {
+    const midi =
+      scaleDegreeToMidi(context.rootMidi, context.scale, degreeFor(event, context)) +
+      heavyOctaves * 12;
+    return foldToRegister(midi, params.register);
+  }
+
   dispose(): void {
-    for (const node of this.nodes) node.dispose();
-    this.nodes.length = 0;
+    // Nothing to release: every node a sampled voice builds is handed to
+    // `output.own` and disposed with the event's own chain by the engine.
   }
 }
 
 /**
  * A rising or falling figure: departures and arrivals.
  *
- * One class for both because they differ only in direction, attack and tuning — and
- * writing them twice would let them drift apart, which is exactly how a pair of
- * gestures meant to be heard as opposites stops being one.
+ * One class for both because they differ only in direction, instrument and tuning —
+ * and writing them twice would let them drift apart, which is exactly how a pair of
+ * gestures meant to be heard as opposites stops being one. What makes them read as
+ * opposites now is mostly the kit: a marimba is dry and definite, a vibraphone rings
+ * and settles.
  */
 class FigureVoice extends AircraftVoice {
   constructor(
@@ -120,6 +125,7 @@ class FigureVoice extends AircraftVoice {
     private readonly type: string,
     private readonly params: FigureParams,
     private readonly direction: 1 | -1,
+    private readonly kit: SampleKit,
   ) {
     super(audio);
   }
@@ -130,18 +136,6 @@ class FigureVoice extends AircraftVoice {
 
   schedule(event: PublicEvent, context: VoiceContext, output: VoiceOutput): number {
     const heavy = this.heavy(event);
-    const synth = new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: 'triangle' },
-      envelope: {
-        attack: this.attack(this.params.attack_s),
-        decay: 0.3,
-        sustain: 0.25,
-        release: this.params.release_s * heavy.release,
-      },
-      volume: Tone.gainToDb(this.params.gain),
-    });
-    synth.connect(output.destination as Tone.InputNode);
-    this.nodes.push(synth);
 
     // Climb rate sets glide speed (§6.4). An aircraft clawing for altitude hurries
     // its figure; one easing off lets it breathe.
@@ -153,24 +147,47 @@ class FigureVoice extends AircraftVoice {
 
     const base = degreeFor(event, context);
     const start = onGrid(context.playAt, context, this.audio.transport.quantize_beats);
-    const hold = gap * 0.9;
+    const maxS = this.params.max_s * heavy.length;
 
+    let last = 0;
     for (let index = 0; index < this.params.notes; index += 1) {
       const degree = base + this.direction * index * this.params.step_degrees;
       const midi = scaleDegreeToMidi(context.rootMidi, context.scale, degree) + heavy.octaves * 12;
       // Up to 25 ms of drag (§6.7.4), from the seeded stream so every listener gets
       // the same "human" and the lab can reproduce it.
       const at = start + index * gap + drag(context.random, 25);
-      synth.triggerAttackRelease(Tone.Frequency(midi, 'midi').toFrequency(), hold, at);
+      last = strike(
+        {
+          kit: this.kit,
+          midi: foldToRegister(midi, this.params.register),
+          at,
+          gain: this.params.gain,
+          fadeInS: this.fadeIn(this.params.fade_in_s),
+          // Each note may ring until the next one, but never past the voice's own
+          // ceiling: three overlapping 3.5-second vibraphone notes is a chord, and a
+          // chord per arrival at forty arrivals a minute is a wash.
+          maxS: Math.min(maxS, gap * 2.5),
+          fadeOutS: this.params.fade_out_s,
+        },
+        output,
+      );
+      last += index * gap;
     }
 
-    return this.params.notes * gap + this.params.release_s * heavy.release;
+    return last;
   }
 }
 
-/** A sustained tone that passes overhead, with the faintest Doppler lean (§6.4). */
+/** A bell that passes overhead, with the faintest Doppler lean (§6.4). */
 class OverflightVoice extends AircraftVoice {
   readonly name = 'overflight_city';
+
+  constructor(
+    audio: AudioConfig,
+    private readonly kit: SampleKit,
+  ) {
+    super(audio);
+  }
 
   handles(event: PublicEvent): boolean {
     return event.type === 'overflight_city';
@@ -179,49 +196,37 @@ class OverflightVoice extends AircraftVoice {
   schedule(event: PublicEvent, context: VoiceContext, output: VoiceOutput): number {
     const params = this.audio.voices.overflight_city;
     const heavy = this.heavy(event);
-    const midi = midiFor(event, context, heavy.octaves);
-    const frequency = Tone.Frequency(midi, 'midi').toFrequency();
-    const start = onGrid(context.playAt, context, this.audio.transport.quantize_beats);
-    const total = this.attack(params.attack_s) + params.hold_s + params.release_s * heavy.release;
-
-    // Two oscillators a few cents apart. The slow beating between them is what gives
-    // a sustained tone width; a single oscillator at this length sounds like a test.
-    for (const cents of [-params.detune_cents / 2, params.detune_cents / 2]) {
-      const oscillator = new Tone.Oscillator({
-        frequency,
-        detune: cents,
-        type: 'sine',
-      });
-      const envelope = new Tone.AmplitudeEnvelope({
-        attack: this.attack(params.attack_s),
-        decay: 0.1,
-        sustain: 1,
-        release: params.release_s * heavy.release,
-      });
-      const level = new Tone.Gain(params.gain / 2);
-      oscillator.connect(envelope);
-      envelope.connect(level);
-      level.connect(output.destination as Tone.InputNode);
-      this.nodes.push(oscillator, envelope, level);
-
-      oscillator.start(start);
-      oscillator.stop(start + total + params.release_s * heavy.release * STOP_TAIL);
-      envelope.triggerAttack(start);
-      envelope.triggerRelease(start + this.attack(params.attack_s) + params.hold_s);
-
-      // The Doppler hint: a drift of a few cents across the pass. Kept well under the
-      // ~6 cents where a listener stops hearing "moving" and starts hearing "flat".
-      const lean = event.attrs.vrate_fpm !== null && event.attrs.vrate_fpm < 0 ? -1 : 1;
-      oscillator.detune.linearRampToValueAtTime(cents + lean * params.bend_cents, start + total);
-    }
-
-    return total + params.release_s * heavy.release * STOP_TAIL;
+    // Climbing leans the pitch up across the pass, descending leans it down — which
+    // is the wrong way round for a true Doppler and the right way round for the ear,
+    // because what a listener on the ground actually tracks is the aircraft getting
+    // away from them.
+    const lean = event.attrs.vrate_fpm !== null && event.attrs.vrate_fpm < 0 ? -1 : 1;
+    return strike(
+      {
+        kit: this.kit,
+        midi: this.noteFor(event, context, params, heavy.octaves),
+        at: onGrid(context.playAt, context, this.audio.transport.quantize_beats),
+        gain: params.gain,
+        fadeInS: this.fadeIn(params.fade_in_s),
+        maxS: params.max_s * heavy.length,
+        fadeOutS: params.fade_out_s,
+        bendCents: lean * params.bend_cents,
+      },
+      output,
+    );
   }
 }
 
-/** Barely audible shimmer, two octaves up, for something at 40,000 feet (§6.4). */
+/** Barely audible shimmer for something at 40,000 feet (§6.4). */
 class HighOverflightVoice extends AircraftVoice {
   readonly name = 'overflight_high';
+
+  constructor(
+    audio: AudioConfig,
+    private readonly kit: SampleKit,
+  ) {
+    super(audio);
+  }
 
   handles(event: PublicEvent): boolean {
     return event.type === 'overflight_high';
@@ -229,32 +234,28 @@ class HighOverflightVoice extends AircraftVoice {
 
   schedule(event: PublicEvent, context: VoiceContext, output: VoiceOutput): number {
     const params = this.audio.voices.overflight_high;
-    const midi = midiFor(event, context, 0) + params.octave_offset * 12;
-    const start = onGrid(context.playAt, context, this.audio.transport.quantize_beats);
-    const total = this.attack(params.attack_s) + params.release_s;
-
-    const synth = new Tone.Synth({
-      oscillator: { type: 'sine' },
-      envelope: {
-        attack: this.attack(params.attack_s),
-        decay: 0.2,
-        sustain: 0.8,
-        release: params.release_s,
+    return strike(
+      {
+        kit: this.kit,
+        midi: this.noteFor(event, context, params, 0),
+        at: onGrid(context.playAt, context, this.audio.transport.quantize_beats),
+        gain: params.gain,
+        fadeInS: this.fadeIn(params.fade_in_s),
+        maxS: params.max_s,
+        fadeOutS: params.fade_out_s,
       },
-      volume: Tone.gainToDb(params.gain),
-    });
-    synth.connect(output.destination as Tone.InputNode);
-    this.nodes.push(synth);
-    synth.triggerAttackRelease(
-      Tone.Frequency(midi, 'midi').toFrequency(),
-      this.attack(params.attack_s) + 0.5,
-      start,
+      output,
     );
-    return total;
   }
 }
 
-/** A flutter rather than a note: the rotor is the identifying feature (§6.4). */
+/**
+ * A flutter rather than a note: the rotor is the identifying feature (§6.4).
+ *
+ * The one aircraft voice still synthesised. A struck sample cannot flutter, and §6.4
+ * names the tremolo rate as what identifies this voice — so a sample would cost
+ * exactly the thing the voice exists for.
+ */
 class HelicopterVoice extends AircraftVoice {
   readonly name = 'helicopter';
 
@@ -264,9 +265,9 @@ class HelicopterVoice extends AircraftVoice {
 
   schedule(event: PublicEvent, context: VoiceContext, output: VoiceOutput): number {
     const params = this.audio.voices.helicopter;
-    const midi = midiFor(event, context, 0);
+    const midi = scaleDegreeToMidi(context.rootMidi, context.scale, degreeFor(event, context));
     const start = onGrid(context.playAt, context, this.audio.transport.quantize_beats);
-    const total = this.attack(params.attack_s) + params.hold_s + params.release_s;
+    const total = this.fadeIn(params.attack_s) + params.hold_s + params.release_s;
 
     const oscillator = new Tone.Oscillator({
       frequency: Tone.Frequency(midi, 'midi').toFrequency(),
@@ -278,7 +279,7 @@ class HelicopterVoice extends AircraftVoice {
       spread: 0,
     });
     const envelope = new Tone.AmplitudeEnvelope({
-      attack: this.attack(params.attack_s),
+      attack: this.fadeIn(params.attack_s),
       decay: 0.2,
       sustain: 1,
       release: params.release_s,
@@ -288,19 +289,29 @@ class HelicopterVoice extends AircraftVoice {
     tremolo.connect(envelope);
     envelope.connect(level);
     level.connect(output.destination as Tone.InputNode);
-    this.nodes.push(oscillator, tremolo, envelope, level);
+    output.own(oscillator);
+    output.own(tremolo);
+    output.own(envelope);
+    output.own(level);
 
     tremolo.start(start);
     oscillator.start(start);
-    oscillator.stop(start + total + params.release_s * STOP_TAIL);
+    // An `AmplitudeEnvelope` releases exponentially and never reaches zero, so
+    // stopping the oscillator when the release nominally ends cuts a waveform
+    // mid-cycle — a step discontinuity, which is a click. The first dense render's
+    // spectrogram showed them plainly: vertical streaks up to 12 kHz at event times,
+    // in a piece whose loudest intended component dies by 2 kHz. Four release
+    // constants puts the envelope ~35 dB down before the oscillator stops.
+    const stopTail = params.release_s * 4;
+    oscillator.stop(start + total + stopTail);
     envelope.triggerAttack(start);
-    envelope.triggerRelease(start + this.attack(params.attack_s) + params.hold_s);
-    return total;
+    envelope.triggerRelease(start + this.fadeIn(params.attack_s) + params.hold_s);
+    return total + stopTail;
   }
 }
 
 /**
- * Ring crossings: one soft tone as an aircraft comes in from the horizon.
+ * Ring crossings: one plucked note as an aircraft comes in from the horizon.
  *
  * Deliberately the plainest voice in the set. There are three or four of these for
  * every named event, so anything with a shape of its own would become the piece
@@ -310,6 +321,13 @@ class HelicopterVoice extends AircraftVoice {
 class SkyVoice extends AircraftVoice {
   readonly name = 'sky';
 
+  constructor(
+    audio: AudioConfig,
+    private readonly kit: SampleKit,
+  ) {
+    super(audio);
+  }
+
   handles(event: PublicEvent): boolean {
     return event.type === 'sky';
   }
@@ -317,34 +335,63 @@ class SkyVoice extends AircraftVoice {
   schedule(event: PublicEvent, context: VoiceContext, output: VoiceOutput): number {
     const params = this.audio.voices.sky;
     const heavy = this.heavy(event);
-    const midi = midiFor(event, context, heavy.octaves);
-    const start = onGrid(context.playAt, context, this.audio.transport.quantize_beats);
-    const release = params.release_s * heavy.release;
-
-    const synth = new Tone.Synth({
-      oscillator: { type: 'sine' },
-      envelope: { attack: this.attack(params.attack_s), decay: 0.2, sustain: 0.6, release },
-      volume: Tone.gainToDb(params.gain),
-    });
-    synth.connect(output.destination as Tone.InputNode);
-    this.nodes.push(synth);
-    synth.triggerAttackRelease(
-      Tone.Frequency(midi, 'midi').toFrequency(),
-      this.attack(params.attack_s) + 0.4,
-      start + drag(context.random, 25),
+    return strike(
+      {
+        kit: this.kit,
+        midi: this.noteFor(event, context, params, heavy.octaves),
+        at:
+          onGrid(context.playAt, context, this.audio.transport.quantize_beats) +
+          drag(context.random, 25),
+        gain: params.gain,
+        fadeInS: this.fadeIn(params.fade_in_s),
+        maxS: params.max_s * heavy.length,
+        fadeOutS: params.fade_out_s,
+      },
+      output,
     );
-    return this.attack(params.attack_s) + release;
   }
 }
 
-/** Every aircraft voice, in the order the engine should try them. */
-export function aircraftVoices(audio: AudioConfig): Voice[] {
-  return [
-    new FigureVoice('ewr_departure', audio, 'ewr_departure', audio.voices.ewr_departure, 1),
-    new FigureVoice('ewr_arrival', audio, 'ewr_arrival', audio.voices.ewr_arrival, -1),
-    new OverflightVoice(audio),
-    new HighOverflightVoice(audio),
-    new HelicopterVoice(audio),
-    new SkyVoice(audio),
-  ];
+/**
+ * Every aircraft voice, in the order the engine should try them.
+ *
+ * A voice whose kit is missing is left out rather than silently falling back to an
+ * oscillator: a fallback would mean the piece quietly sounded like the version that
+ * lost two listening rounds, and the engine already copes with an event no voice
+ * claims. `kits` is empty only before the samples have loaded.
+ */
+export function aircraftVoices(audio: AudioConfig, kits: Map<string, SampleKit>): Voice[] {
+  const voices: Voice[] = [];
+  const kitFor = (params: StruckParams): SampleKit | undefined => kits.get(params.instrument);
+
+  const departure = kitFor(audio.voices.ewr_departure);
+  if (departure !== undefined) {
+    voices.push(
+      new FigureVoice(
+        'ewr_departure',
+        audio,
+        'ewr_departure',
+        audio.voices.ewr_departure,
+        1,
+        departure,
+      ),
+    );
+  }
+  const arrival = kitFor(audio.voices.ewr_arrival);
+  if (arrival !== undefined) {
+    voices.push(
+      new FigureVoice('ewr_arrival', audio, 'ewr_arrival', audio.voices.ewr_arrival, -1, arrival),
+    );
+  }
+  const overflight = kitFor(audio.voices.overflight_city);
+  if (overflight !== undefined) voices.push(new OverflightVoice(audio, overflight));
+  const high = kitFor(audio.voices.overflight_high);
+  if (high !== undefined) voices.push(new HighOverflightVoice(audio, high));
+
+  voices.push(new HelicopterVoice(audio));
+
+  const sky = kitFor(audio.voices.sky);
+  if (sky !== undefined) voices.push(new SkyVoice(audio, sky));
+
+  return voices;
 }

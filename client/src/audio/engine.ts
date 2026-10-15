@@ -61,35 +61,62 @@ export class AudioEngine {
 
   constructor(private readonly options: EngineOptions) {
     this.palette = { rootMidi: options.rootMidi, scale: options.scale };
-    // Master chain, in order: bus → high-shelf → compressor → limiter → out.
+    // Master chain:
+    //
+    //   voices (voices_gain_db) → high-shelf → compressor ┐
+    //                                       Ground (§6.1) ┼→ trim (gain_db) → limiter → out
     //
     // §6.8's rules are enforced structurally rather than by convention:
-    //  - the limiter is the last thing before the destination, at −1 dBTP, so no
-    //    voice can produce a true-peak overshoot however badly it behaves;
-    //  - the high shelf tames energy above ~6 kHz, because harshness is the
-    //    failure mode that makes an ambient piece unlistenable for hours.
+    //  - the limiter is the last thing before the destination, so nothing can produce
+    //    a true-peak overshoot however badly it behaves;
+    //  - the high shelf tames energy above ~6 kHz, because harshness is the failure
+    //    mode that makes an ambient piece unlistenable for hours.
+    //
+    // **The Ground used to go straight to the destination, past all of this**, and
+    // that quietly broke the first of those two rules: the limiter only ever saw the
+    // voices, so the *sum* of drone and voices was unguarded. It stayed legal by
+    // luck while the voices were quiet and stopped the moment they were not — the
+    // first render at the corrected balance measured −0.0 dBTP, over spec 7% of the
+    // time, with neither band alone above −5 dB. It was the two adding up.
+    //
+    // So the Ground joins at the trim: after the dynamics, which are there to tame
+    // voice density and have no business compressing a drone, and before the limiter,
+    // which now guards what a listener actually receives. The trim moved behind the
+    // compressor in the same change, because a loudness trim that cannot reach the
+    // Ground cannot set the loudness of a piece the Ground dominates.
     const master = options.master;
     this.limiter = new Tone.Limiter(master.limiter_ceiling_db).toDestination();
+    // The trim the lab moves to reach §6.8's loudness target.
+    this.trim = new Tone.Gain(Tone.dbToGain(master.gain_db)).connect(this.limiter);
     this.compressor = new Tone.Compressor({
       threshold: master.compressor_threshold_db,
       ratio: master.compressor_ratio,
       attack: master.compressor_attack_s,
       release: master.compressor_release_s,
-    }).connect(this.limiter);
-    // The trim the lab moves to reach §6.8's loudness target, ahead of the dynamics
-    // so raising it does not change how the compressor behaves on the balance.
-    this.trim = new Tone.Gain(Tone.dbToGain(master.gain_db)).connect(this.compressor);
+    }).connect(this.trim);
     this.highShelf = new Tone.Filter({
       type: 'highshelf',
       frequency: master.high_shelf_hz,
       gain: master.high_shelf_db,
-    }).connect(this.trim);
+    }).connect(this.compressor);
+    // Every event voice, dry and reverberant alike, passes through here — and the
+    // Ground does not, because it goes straight to the destination. So this one
+    // number is "how far forward the city sits against the drone", which
+    // docs/music/decisions.md has had open as the question only ears can answer.
+    //
+    // Measured before it existed: the voice band sat 15 dB under the drone band, and
+    // 93% of the piece's tonal energy was the drone's own root and fifth. That is the
+    // Ground being the subject, the one thing §6.1 says it must never be.
+    this.busInput = new Tone.Gain(Tone.dbToGain(master.voices_gain_db)).connect(this.highShelf);
     // NOTE on determinism: Tone.Reverb generates its impulse response from noise
     // produced with Math.random, so a render including it is NOT bit-identical.
     // The lab's deterministic preset therefore omits reverb; see lab/render.ts and
     // docs/decisions.md. This is why reverb is created here but bypassable.
-    this.reverb = new Tone.Reverb({ decay: master.reverb_decay_s, wet: 1 }).connect(this.highShelf);
-    this.busInput = new Tone.Gain(1).connect(this.highShelf);
+    //
+    // Into the voices bus rather than past it: a send that skipped the bus would
+    // make every raise of the voices a drop in the wet/dry ratio, so "forward" would
+    // silently also mean "drier".
+    this.reverb = new Tone.Reverb({ decay: master.reverb_decay_s, wet: 1 }).connect(this.busInput);
   }
 
   /**
@@ -123,6 +150,17 @@ export class AudioEngine {
 
   get activeCount(): number {
     return this.active.length;
+  }
+
+  /**
+   * Where the Ground connects (§6.1, §6.8).
+   *
+   * Past the voice dynamics and into the limiter, so the drone is not compressed by
+   * a stage that exists to tame event density, but is covered by the ceiling that
+   * exists to protect the listener.
+   */
+  get groundDestination(): Tone.InputNode {
+    return this.trim;
   }
 
   /** Disable reverb, for deterministic offline renders. */
@@ -179,14 +217,22 @@ export class AudioEngine {
       rootMidi: this.palette.rootMidi,
       secondsPerBeat: this.secondsPerBeat,
     };
-    const output: VoiceOutput = { destination: panner };
+    // Whatever the voice builds is released with the chain it was built for. See
+    // `VoiceOutput.own` for the leak this replaced.
+    const nodes: { dispose: () => void }[] = [panner, tone, gain, send];
+    const output: VoiceOutput = {
+      destination: panner,
+      own: (node) => {
+        nodes.push(node);
+      },
+    };
 
     const duration = voice.schedule(event, context, output);
     this.active.push({
       event,
       endsAt: playAt + duration,
       salience: event.salience,
-      nodes: [panner, tone, gain, send],
+      nodes,
     });
     return true;
   }

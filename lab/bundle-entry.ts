@@ -11,6 +11,22 @@
 
 import { mulberry32 } from '../shared/random.js';
 import type { AudioConfig } from '../shared/protocol.js';
+import type { SampleKit, SampleManifest } from '../client/src/audio/samples.js';
+
+/**
+ * The CC0 kits, handed over as bytes rather than fetched (§6.9, §7.3).
+ *
+ * The render page is `about:blank` with a single injected script and no origin, so
+ * there is nothing for a relative `/samples/...` fetch to resolve against — and the
+ * page having no network is deliberate, because it is what makes a render depend on
+ * nothing but the bundle and the recording. So Node reads the committed files and
+ * passes them in base64, and the loader becomes a lookup.
+ */
+export interface SampleInput {
+  manifest: SampleManifest;
+  /** `"marimba/41.m4a"` → base64 of the file. */
+  files: Record<string, string>;
+}
 
 export interface RenderInput {
   replay: { offsetSeconds: number; event: unknown }[];
@@ -29,6 +45,17 @@ export interface RenderInput {
   voice: 'probe' | 'aircraft';
   /** The score, from config/score.yaml. Required for `aircraft`. */
   audio: AudioConfig | null;
+  /** The sample kits. Required for `aircraft`; `probe` is synthesis only. */
+  samples: SampleInput | null;
+}
+
+function bytesOf(base64: string): ArrayBuffer {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes.buffer;
 }
 
 /**
@@ -107,6 +134,8 @@ export async function renderOffline(input: RenderInput): Promise<{
           compressor_ratio: 2.5,
           compressor_attack_s: 0.05,
           compressor_release_s: 0.4,
+          // Zero, so the probe fixture's hash cannot move: it had no such stage.
+          voices_gain_db: 0,
           limiter_ceiling_db: -1,
           reverb_decay_s: 4,
         },
@@ -116,13 +145,31 @@ export async function renderOffline(input: RenderInput): Promise<{
         const { aircraftVoices } = await import('../client/src/audio/voices/aircraft.js');
         const { Ground } = await import('../client/src/audio/ground.js');
         const { RailVoice } = await import('../client/src/audio/voices/rail.js');
-        for (const voice of aircraftVoices(audio)) engine.register(voice);
+        const { loadSampleKits } = await import('../client/src/audio/samples.js');
+        const supplied = input.samples;
+        const kits: Map<string, SampleKit> =
+          supplied === null
+            ? new Map<string, SampleKit>()
+            : await loadSampleKits({
+                // No base: the keys are already the relative paths Node sent.
+                baseUrl: '',
+                manifest: supplied.manifest,
+                load: (url) => {
+                  const base64 = supplied.files[url];
+                  if (base64 === undefined) throw new Error(`no sample for ${url}`);
+                  return Promise.resolve(bytesOf(base64));
+                },
+              });
+        for (const voice of aircraftVoices(audio, kits)) engine.register(voice);
         engine.register(new RailVoice(audio));
         await engine.prepare({ withReverb: input.withReverb });
-        new Ground(audio).start(Tone.getDestination(), 0);
+        new Ground(audio).start(engine.groundDestination, 0);
       } else {
         engine.register(new ProbeVoice());
         await engine.prepare({ withReverb: input.withReverb });
+        // Straight to the destination, deliberately unlike the real Ground: the probe
+        // is a renderer regression fixture, and its hash must not move when the music
+        // or the master chain is restructured. That is the whole point of it.
         new ProbeDrone().start(62, Tone.getDestination(), 0);
       }
 
