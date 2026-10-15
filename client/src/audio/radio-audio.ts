@@ -65,6 +65,7 @@ export class RadioAudio {
       rootMidi: this.audio.palette.root_midi,
       bpm: this.audio.transport.bpm,
       master: this.audio.master,
+      textureGain: this.audio.governor_texture_gain,
     });
     for (const voice of aircraftVoices(this.audio)) engine.register(voice);
     engine.register(new RailVoice(this.audio));

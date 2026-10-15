@@ -20,6 +20,7 @@ function event(overrides: Partial<CityEvent> = {}): CityEvent {
     source: 'adsb.lol',
     geo: { lat: 40.69, lon: -74.17, alt_ft: 1600 },
     rel: { bearing_deg: 171.1, distance_km: 5.57 },
+    tier: 'voice',
     attrs: {
       callsign: 'UAL1810',
       operator: 'United',

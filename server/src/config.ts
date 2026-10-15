@@ -317,6 +317,14 @@ const figureSchema = z.object({
 
 const scoreSchema = z.object({
   play_lead_ms: z.number().positive(),
+  governor: z.object({
+    window_s: z.number().positive(),
+    day_from_hour: z.number().int().min(0).max(23),
+    night_from_hour: z.number().int().min(0).max(23),
+    day: z.object({ min: z.number().min(0), max: z.number().positive() }),
+    night: z.object({ min: z.number().min(0), max: z.number().positive() }),
+    texture_gain: z.number().min(0).max(1),
+  }),
   visual: z.object({
     horizon_km: z.number().positive(),
     rings_km: z.array(z.number().positive()).min(1),

@@ -199,6 +199,8 @@ export class PathDetector {
         described_as: 'a PATH train',
       },
       salience: round(salience[type], precision.salience),
+      // Placed by the governor before it leaves the server; this is the default.
+      tier: 'voice',
       caption: this.options.sources.captions[type]
         .replace('{station}', place.name)
         .replace('{toward}', platform.headSign ?? platform.label),

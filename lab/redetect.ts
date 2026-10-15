@@ -22,7 +22,8 @@ import { basename, join } from 'node:path';
 import { ulid } from 'ulid';
 import { readRecording } from '../server/src/recorder.js';
 import { Detector } from '../server/src/detector.js';
-import { loadPlaces, loadSources } from '../server/src/config.js';
+import { loadPlaces, loadScore, loadSources } from '../server/src/config.js';
+import { DensityGovernor } from '../server/src/governor.js';
 import type { Observation } from '../server/src/observation.js';
 import type { CityEvent } from '../server/src/events.js';
 
@@ -38,6 +39,9 @@ export async function redetect(observationsPath: string, outDir: string): Promis
     makeId: () => ulid(),
   });
 
+  // The governor runs here too, so a re-derived recording holds the piece as it would
+  // have been heard rather than every event the detector could find (§6.5).
+  const governor = new DensityGovernor({ score: loadScore() });
   const lines = (await readRecording(observationsPath)) as ObservationLine[];
   // Two observations are all the detector needs, so the history is capped rather than
   // accumulated: a day of traffic is otherwise several hundred megabytes of track.
@@ -56,7 +60,7 @@ export async function redetect(observationsPath: string, outDir: string): Promis
       history.set(observation.icao, track);
       events.push(...detector.detect(track));
     }
-    if (events.length > 0) out.push({ t: line.t, events });
+    if (events.length > 0) out.push({ t: line.t, events: governor.admit(events, line.t) });
   }
 
   mkdirSync(outDir, { recursive: true });
@@ -75,9 +79,14 @@ export async function redetect(observationsPath: string, outDir: string): Promis
   const total = out.reduce((sum, line) => sum + line.events.length, 0);
   const spanMinutes =
     out.length > 1 ? ((out[out.length - 1]?.t ?? 0) - (out[0]?.t ?? 0)) / 60000 : 0;
+  const voices = out.reduce(
+    (sum, line) => sum + line.events.filter((e) => e.tier === 'voice').length,
+    0,
+  );
   console.log(
     `${String(total)} events over ${spanMinutes.toFixed(0)} min = ` +
-      `${(total / Math.max(1, spanMinutes)).toFixed(2)} per minute`,
+      `${(total / Math.max(1, spanMinutes)).toFixed(2)} per minute ` +
+      `(${(voices / Math.max(1, spanMinutes)).toFixed(2)} foreground, the rest texture)`,
   );
   console.log(path);
   return path;

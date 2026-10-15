@@ -71,6 +71,8 @@ export const eventSchema = z.object({
   }),
   /** 0..1, used by the density governor (SPEC §6.5). */
   salience: z.number().min(0).max(1),
+  /** The governor's placement (§6.5). Defaults for recordings written before it. */
+  tier: z.enum(['voice', 'texture']).default('voice'),
   caption: z.string().min(1),
   sim: z.boolean(),
   scheduled: z.boolean(),
@@ -103,6 +105,7 @@ export function toPublicEvent(event: CityEvent): PublicEvent {
       track_deg: event.attrs.track_deg,
     },
     salience: event.salience,
+    tier: event.tier,
     caption: event.caption,
     sim: event.sim,
     scheduled: event.scheduled,

@@ -33,6 +33,8 @@ export interface AircraftCollectorOptions {
   readonly places: PlacesConfig;
   readonly health: HealthRegistry;
   readonly recorder: Recorder;
+  /** §6.5. Optional so tests can exercise detection without a density policy. */
+  readonly governor?: { admit: (events: readonly CityEvent[], now: number) => CityEvent[] };
   readonly userAgent: string;
   readonly deps?: AircraftCollectorDeps;
   /** Called with each poll's observations. */
@@ -134,10 +136,16 @@ export class AircraftCollector {
     this.detector.retainOnly(this.tracks.icaos());
     this.eventsEmitted += events.length;
     if (events.length > 0) {
-      this.options.recorder.recordEvents(events, receivedAt);
-      this.options.onEvents?.(events, receivedAt);
-      for (const event of events) {
-        console.log(`[event] ${event.type} salience=${event.salience.toFixed(2)} ${event.caption}`);
+      // §6.5 places every event before it is recorded or published, so a recording
+      // holds the piece as it was actually heard — which is what makes a replay a
+      // replay rather than an approximation.
+      const placed = this.options.governor?.admit(events, receivedAt) ?? events;
+      this.options.recorder.recordEvents(placed, receivedAt);
+      this.options.onEvents?.(placed, receivedAt);
+      for (const event of placed) {
+        console.log(
+          `[event] ${event.type} ${event.tier} salience=${event.salience.toFixed(2)} ${event.caption}`,
+        );
       }
     }
 

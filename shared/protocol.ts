@@ -51,6 +51,14 @@ export interface PublicEvent {
   /** 0..1 — the density governor's priority (§6.5). */
   readonly salience: number;
   readonly caption: string;
+  /**
+   * How the governor placed this event (§6.5).
+   *
+   * `texture` is not a quieter kind of event — it is the same event, demoted because
+   * the city was busier than the comfortable band. It still happened and it is still
+   * drawn and captioned; it is simply not competing for the foreground.
+   */
+  readonly tier: 'voice' | 'texture';
   /** True for simulated or replayed events, which are captioned as such (§1.2). */
   readonly sim: boolean;
   readonly scheduled: boolean;
@@ -74,6 +82,8 @@ export interface VisualConfig {
  * aesthetic is tuned forever after launch.
  */
 export interface AudioConfig {
+  /** What the governor's demoted events are played at, relative to their voice. */
+  readonly governor_texture_gain: number;
   readonly master: {
     readonly gain_db: number;
     readonly high_shelf_hz: number;

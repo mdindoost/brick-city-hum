@@ -11,9 +11,10 @@ import { createServer } from 'node:http';
 import { existsSync } from 'node:fs';
 import { AircraftCollector } from './collectors/aircraft.js';
 import { PathCollector } from './collectors/path.js';
-import { loadPlaces, loadSources } from './config.js';
+import { loadPlaces, loadScore, loadSources } from './config.js';
 import { HealthRegistry } from './health.js';
 import { Recorder } from './recorder.js';
+import { DensityGovernor } from './governor.js';
 import { SimulatorFallback } from './sim/fallback.js';
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -64,6 +65,10 @@ function main(): void {
   const sources = loadSources();
   const health = new HealthRegistry(sources.aircraft.backoff.failures_before_degraded);
   const recorder = new Recorder({ directory: RECORDINGS_DIR });
+  // §6.5 runs here and not in the browser: a client-side decision would make a busy
+  // minute sound different in two tabs, which breaks the one promise this project
+  // makes about being shared.
+  const governor = new DensityGovernor({ score: loadScore() });
 
   // SPEC §3.5's labelled last resort. Built from recorded days, so it redistributes
   // real traffic rather than inventing any (§1.2), and everything it emits says
@@ -79,6 +84,7 @@ function main(): void {
     places,
     health,
     recorder,
+    governor,
     userAgent: userAgent(),
   });
 
@@ -91,8 +97,9 @@ function main(): void {
     health,
     userAgent: userAgent(),
     onEvents: (events, receivedAt) => {
-      recorder.recordEvents(events, receivedAt);
-      for (const event of events) console.log(`[path] ${event.caption}`);
+      const placed = governor.admit(events, receivedAt);
+      recorder.recordEvents(placed, receivedAt);
+      for (const event of placed) console.log(`[path] ${event.caption}`);
     },
   });
 

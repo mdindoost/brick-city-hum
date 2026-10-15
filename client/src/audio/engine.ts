@@ -33,6 +33,8 @@ export interface EngineOptions {
   readonly bpm: number;
   /** The master chain, from score.yaml (§6.8). */
   readonly master: AudioConfig['master'];
+  /** Level for events the governor demoted to texture (§6.5). */
+  readonly textureGain: number;
 }
 
 interface ScheduledVoice {
@@ -140,7 +142,11 @@ export class AudioEngine {
     const mix = distanceToMix(event.rel.distance_km);
     const panner = new Tone.Panner(bearingToPan(event.rel.bearing_deg));
     const tone = new Tone.Filter({ type: 'lowpass', frequency: mix.cutoffHz });
-    const gain = new Tone.Gain(mix.gain * (0.4 + 0.6 * event.salience));
+    // §6.5: a demoted event is the same event, played as texture rather than voice.
+    // The reduction is config, because how far back "back" is, is an aesthetic
+    // question the music director has to be able to answer.
+    const tier = event.tier === 'texture' ? this.options.textureGain : 1;
+    const gain = new Tone.Gain(mix.gain * (0.4 + 0.6 * event.salience) * tier);
     // Farther is quieter, darker AND wetter (§6.4) — the third of those was built
     // and then never connected, so distance read as "quiet and muffled" rather than
     // "far away". The send is per event because the reverb is shared.
@@ -210,7 +216,10 @@ export class AudioEngine {
     for (let i = 0; i < this.active.length; i += 1) {
       const candidate = this.active[i];
       if (candidate === undefined) continue;
-      const score = candidate.salience - (now - candidate.endsAt) * 0.001;
+      // A demoted event is always a better victim than a promoted one, whatever its
+      // raw salience: the governor has already decided it is not the subject.
+      const tierPenalty = candidate.event.tier === 'texture' ? 1 : 0;
+      const score = candidate.salience - tierPenalty - (now - candidate.endsAt) * 0.001;
       if (score < worstScore) {
         worstScore = score;
         worstIndex = i;

@@ -96,6 +96,7 @@ export async function renderOffline(input: RenderInput): Promise<{
         scale: audio?.palette.scale ?? [0, 3, 5, 7, 10],
         rootMidi: audio?.palette.root_midi ?? 62,
         bpm: input.bpm,
+        textureGain: 0.35,
         master: audio?.master ?? {
           // The fixture's historical chain, kept literal so the probe's hash cannot
           // move when the score is tuned. See lab/fixtures/probe-voice.ts.

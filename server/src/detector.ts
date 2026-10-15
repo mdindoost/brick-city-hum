@@ -419,6 +419,8 @@ export class Detector {
         described_as: describedAs,
       },
       salience: round(this.salienceFor(type, distanceToOrigin, heavy), precision.salience),
+      // The governor places every event before it leaves the server (§6.5).
+      tier: 'voice',
       caption: this.captionFor(type, describedAs, operator, bearing),
       sim: false,
       scheduled: false,
