@@ -31,8 +31,17 @@ governor:
   # city. These are high for an ambient piece and will stay high only while the
   # voices are sustained tones; the next musical round is struck sounds, which carry
   # a far higher rate without turning into a wash.
-  day: { min: 10, max: 45 }
-  night: { min: 4, max: 18 }
+  #
+  # Raised again, and this time because the rhythm changed under it. 45 a minute was
+  # tuned when a poll's worth of events all played at the same instant — at that
+  # shape 45 really was the edge of chaos. Spread out (see `spread:`), 114 a minute
+  # is a note every half second, and the old ceiling was demoting **64% of the city
+  # to texture**: 440 of 684 events in the measured slice, each one 7 dB down. That
+  # is most of why the carpet could not be heard under the bed, and raising this is
+  # the one change that makes the events already there audible without adding a
+  # single new one.
+  day: { min: 10, max: 120 }
+  night: { min: 4, max: 60 }
   # What a demoted event is played at, relative to its own voice.
   texture_gain: 0.45
 
@@ -137,7 +146,7 @@ audio:
     # [HUMAN] this is the single number to A/B by ear. Round 3 offers +5, where the
     # drone sits 5 dB over the city, against +9, where the two are within a decibel
     # of each other.
-    voices_gain_db: 5
+    voices_gain_db: 3.5
     # Last thing before the output. Set below §6.8's −1 dBTP on purpose: a limiter
     # works on samples, and reconstruction between them overshoots. Measured: with
     # the ceiling at −1 the render came back at −0.8 dBTP, i.e. over the spec.
@@ -163,25 +172,25 @@ audio:
       # Minor pentatonic, low and dark. The fifth is left bare in the ground.
       root_midi: 55
       scale: [0, 3, 5, 7, 10]
-      ground_cutoff_hz: 300
-      ground_gain: 0.22
+      ground_cutoff_hz: 240
+      ground_gain: 0.34
     twilight:
       root_midi: 60
       scale: [0, 2, 3, 5, 7, 10]
-      ground_cutoff_hz: 380
-      ground_gain: 0.24
+      ground_cutoff_hz: 280
+      ground_gain: 0.37
     low_sun:
       root_midi: 62
       scale: [0, 2, 4, 7, 9]
-      ground_cutoff_hz: 480
-      ground_gain: 0.26
+      ground_cutoff_hz: 320
+      ground_gain: 0.40
     day:
       # Major pentatonic, a fourth higher and twice as open. Nothing here can make a
       # wrong note; what changes is where the light is.
       root_midi: 67
       scale: [0, 2, 4, 7, 9]
-      ground_cutoff_hz: 620
-      ground_gain: 0.26
+      ground_cutoff_hz: 360
+      ground_gain: 0.40
 
   palette:
     name: afternoon
@@ -219,6 +228,15 @@ audio:
     # seconds — §6.7.1's loop, rebuilt out of samples. The offset walks by the golden
     # ratio, which is the least periodic step there is and the same for every listener.
     rotate_s: 2
+    # How far a note falls at the bottom of its breath, as a fraction of full level.
+    #
+    # Round 5's verdict on the bowed bed: not background noise any more, but too loud
+    # and too unvarying, and three named moments of irritation — 3:10, 3:35, 4:20 —
+    # which all measured as this breath at the top of its swing with the filter open.
+    # A quarter rather than a half, so the bed properly steps aside; and because the
+    # two notes breathe on 17 and 23 seconds, the troughs sometimes coincide and it
+    # nearly disappears.
+    breath_min: 0.25
     # Root and fifth, two octaves down. A bare fifth leaves the third undefined, so
     # event notes may colour the harmony either way without ever contradicting it.
     #
@@ -227,15 +245,15 @@ audio:
     # is bent, which matters more here than anywhere else — a stretched sample sounds
     # stretched, and this one plays for hours.
     midi: [38, 45]
-    gain: 0.68
+    gain: 0.4
     attack_s: 8
     # Mutually prime loop lengths (§6.7.1 — the Music for Airports technique). Their
     # combination repeats once every 17 × 23 × 31 ≈ 3.4 hours.
     loop_s: [17, 23, 31]
     # Slow filter and level movement, also on prime periods (§6.7.2).
     lfo_s: [43, 61, 79]
-    cutoff_hz: 420
-    cutoff_sweep_hz: 180
+    cutoff_hz: 300
+    cutoff_sweep_hz: 80
 
   # The CC0 sample kits (§6.9, §12). Built by `npm run samples`; every file's VCSL
   # source, dynamic layer and gain is listed in client/public/samples/LICENSE.md.
@@ -278,7 +296,7 @@ audio:
       gap_beats_slow: 1.0
       gap_beats_fast: 0.4
       vrate_fast_fpm: 2500
-      gain: 0.5
+      gain: 0.3
 
     ewr_arrival:
       # Falling (§6.4). The two read as opposites through their instruments now
@@ -295,7 +313,7 @@ audio:
       gap_beats_slow: 1.2
       gap_beats_fast: 0.5
       vrate_fast_fpm: 1800
-      gain: 0.45
+      gain: 0.27
 
     overflight_city:
       # One sound, not a figure: the aircraft is passing over, not arriving.
@@ -317,7 +335,7 @@ audio:
       # aircraft. Well under the ~6 cents where a listener stops hearing "moving" and
       # starts hearing "out of tune".
       bend_cents: 4
-      gain: 0.32
+      gain: 0.28
 
     overflight_high:
       # "Barely audible shimmer" (§6.4). It should be noticed only in its absence.

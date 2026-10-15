@@ -295,4 +295,36 @@ exactly the question.
 4. Does it want more weight at the bottom? A quiet sine under it is one line of
    config, but it is synthesis, so it goes to your ears first.
 
-**Result:** _pending._
+**Result: B, with a precise complaint.** Mohammad, 2026-10-15, listening to each in
+turn.
+
+On **A**: _"still background noise. Let me explain what background noise is — a nearly
+constant sound that wears on the ear. In music there is either silence or a beautiful
+musical sound; here there is a permanent noise-like thing, and in the absolute silence
+between the notes it is irritating."_ That is the clearest statement of the problem
+anyone has made in five rounds, and it names the mechanism: **constancy**, and the
+gaps between events where nothing else is happening.
+
+On **B**: _"it is not background noise any more… on the whole a much prettier
+combination."_ The hypothesis was his and it was right. But: _"it is a little loud,
+and because it changes so little it becomes irritating in its own way. It has come and
+sat on top of the notes — it is heard more than they are. When it draws back near the
+notes I get a better feeling. Around 3:10 where it got loud, or 3:35, it is irritating.
+And know that this sound is slightly anxiety-inducing."_ Later: _"around 4:20 the sound
+reaches a peak and becomes irritating."_
+
+**All three moments measure the same.** 3:10, 3:35 and 4:20 are 190 s, 215 s and 258 s;
+each is a local maximum of both the full mix and the 300–900 Hz band:
+
+| window    | full     | 300–900 Hz       |
+| --------- | -------- | ---------------- |
+| 185–195 s | −21.5 dB | —                |
+| 200–205 s | −26.5    | −30.4 (trough)   |
+| 210–220 s | −21.8    | —                |
+| 255–260 s | −21.9    | **−26.0** (peak) |
+| 265–270 s | −25.4    | −29.9            |
+
+The bed swells about 5 dB on its breath LFO and the filter sweep opens to 600 Hz on a
+43-second period; where the two coincide the bed is both loudest and brightest, and
+that is exactly where he stopped and wrote the time down. Three irritations, one cause,
+and it is a number rather than a rebuild.

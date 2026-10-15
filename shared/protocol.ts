@@ -137,6 +137,8 @@ export interface AudioConfig {
     readonly swell_s: number;
     /** Held back from each recording so entries can start at different points. */
     readonly rotate_s: number;
+    /** How far a note recedes at the bottom of its breath, as a fraction of full. */
+    readonly breath_min: number;
     readonly midi: readonly number[];
     readonly gain: number;
     readonly attack_s: number;

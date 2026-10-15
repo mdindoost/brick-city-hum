@@ -104,6 +104,8 @@ export class Ground {
 
       // Breath: a slow sine between half and full level, never silent, so the layer
       // moves without ever drawing attention to a beginning or an end.
+      // Unchanged at half: this is the control in round 5's A/B and its sound
+      // must not move under the comparison.
       const breath = new Tone.LFO({
         frequency: 1 / loopSeconds,
         min: 0.5 / ground.midi.length,
@@ -170,9 +172,15 @@ export class Ground {
       const filter = new Tone.Filter({ type: 'lowpass', frequency: ground.cutoff_hz, Q: 0.7 });
       const level = new Tone.Gain(1 / ground.midi.length);
 
+      // How far each note recedes at the bottom of its breath. A sampled bed needs
+      // this deeper than a synthesised one did: Mohammad's note on round 5 was that
+      // the bed has too little variation and is therefore tiring in its own way, and
+      // the three moments he named were all this LFO at the top of its swing with
+      // the filter open. Because the two notes breathe on different primes, a deep
+      // trough sometimes lands on both at once and the bed nearly steps aside.
       const breath = new Tone.LFO({
         frequency: 1 / loopSeconds,
-        min: 0.5 / ground.midi.length,
+        min: ground.breath_min / ground.midi.length,
         max: 1 / ground.midi.length,
       });
       breath.connect(level.gain);
