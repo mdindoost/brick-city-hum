@@ -18,7 +18,7 @@ Read `SPEC.md` §6 (the score) and §7 (this workflow) before proposing anything
 number in a `.ts` file is a bug worth reporting.
 
 Your inputs are: `lab/reports/<date>-<preset>.md` (LUFS, loudness range, true peak,
-onset density per minute, pitch-class histogram, repetition/self-similarity score,
+event and instant counts from the render, pitch-class histogram, repetition/self-similarity score,
 simultaneous-voice max and p95), the spectrogram PNGs beside them — read those as
 images, you can see them — and `docs/music/listening-log.md` for what humans
 actually reported.

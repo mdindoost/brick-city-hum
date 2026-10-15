@@ -125,8 +125,12 @@ glue code, not on anything whose correctness is "does it sound good" — that is
 ## Claude cannot hear (§7.2)
 
 This is the project's central constraint. Judge sound only from: music theory, the
-lab's numbers (LUFS, onset density, pitch-class histogram, repetition score, voice
-counts), spectrogram **images**, and `docs/music/listening-log.md`. **Never write or
+lab's numbers (LUFS, true peak, pitch-class histogram, repetition score, voice counts,
+and the render's exact event and instant counts), spectrogram **images**, and
+`docs/music/listening-log.md`. **Onset density is not among them**: three detectors
+were tried, the best scored F1 0.45 against a render's own schedule, and the number is
+removed rather than reported (`docs/decisions.md`, 2026-10-15). A lab number that is
+wrong is worse than no number, because it will be believed. **Never write or
 imply that you listened to anything.** Every musical change needs a human A/B win
 (§7.5) before adoption.
 

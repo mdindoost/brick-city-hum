@@ -72,16 +72,52 @@ describe('Spreader', () => {
     expect(spreader.waiting).toBe(0);
   });
 
-  it('holds nothing past max_delay_s', () => {
+  it('never exceeds the cap, however far behind it falls', () => {
+    // The defect this replaces: the forced release for overdue events ignored the
+    // cap, so one 500-event batch put 142 events inside a single 250 ms tick — nine
+    // times the chord the file exists to prevent. The old version of this test
+    // asserted `toBeGreaterThan(1)` on those ticks and passed with 180.
     const score = withSpread({ max_delay_s: 5, max_per_tick: 1 });
     const spreader = new Spreader<Note>({ score });
-    const ticks = run(spreader, score, 30, [{ at: 0, events: batch(200) }]);
-    const total = ticks.reduce((sum, tick) => sum + tick.events.length, 0);
-    expect(total).toBe(200);
-    // Past the limit the cap stops applying, which is the point: late and audible
-    // beats silently discarded.
-    const late = ticks.filter((tick) => tick.ms >= 5000);
-    expect(Math.max(...late.map((tick) => tick.events.length))).toBeGreaterThan(1);
+    const ticks = run(spreader, score, 200, [{ at: 0, events: batch(500) }]);
+    expect(Math.max(...ticks.map((tick) => tick.events.length))).toBe(1);
+    expect(ticks.reduce((sum, tick) => sum + tick.events.length, 0)).toBe(500);
+  });
+
+  it('caps a batch too big for the window too', () => {
+    const score = withSpread();
+    const spreader = new Spreader<Note>({ score });
+    const ticks = run(spreader, score, 300, [{ at: 0, events: batch(500) }]);
+    expect(Math.max(...ticks.map((tick) => tick.events.length))).toBeLessThanOrEqual(
+      score.spread.max_per_tick,
+    );
+    expect(ticks.reduce((sum, tick) => sum + tick.events.length, 0)).toBe(500);
+  });
+
+  it('releases an overdue event before a fresher one', () => {
+    // The queue is ordered by when a slot falls due, and a later batch can hold
+    // slots earlier than an overdue event's — so without this the oldest events are
+    // walked past indefinitely under steady pressure.
+    const score = withSpread({ max_delay_s: 2, max_per_tick: 1 });
+    const spreader = new Spreader<Note>({ score });
+    // Twenty quiet events, then a flood of loud ones a second later. Under the cap
+    // the flood's slots interleave with the stragglers' and would walk past them.
+    const first = Array.from({ length: 20 }, (_, index) => ({ salience: 0.1, id: index }));
+    const flood = Array.from({ length: 200 }, (_, index) => ({ salience: 0.9, id: 100 + index }));
+    const ticks = run(spreader, score, 90, [
+      { at: 0, events: first },
+      { at: 1000, events: flood },
+    ]);
+    const lastOld = Math.max(
+      ...ticks.filter((tick) => tick.events.some((note) => note.id < 100)).map((tick) => tick.ms),
+    );
+    // The guarantee is its own slot — at most one window after it arrived — plus
+    // whatever the cap costs, not "the deadline". Before the overdue path existed
+    // and before `late` was sorted by arrival, the last straggler came out at 47 s.
+    expect(lastOld).toBeLessThan((score.spread.window_s + 1) * 1000);
+    // And once it has caught up, nothing is reported as behind.
+    expect(spreader.waiting).toBe(0);
+    expect(spreader.overdue).toBe(0);
   });
 
   it('releases a small batch rather than sitting on it for ever', () => {

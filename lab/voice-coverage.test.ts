@@ -13,6 +13,7 @@
  * found by listening (§7.2) — the piece just has less in it than it should.
  */
 
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import * as Tone from 'tone';
 import { loadScore } from '../server/src/config.js';
@@ -80,9 +81,22 @@ describe('voice coverage', () => {
     new TapVoice(audio),
   ];
 
+  it('ships a kit for every instrument the score asks for', () => {
+    // The actual guard against the manifest failure, and the one the test below is
+    // not: `stubKits` builds its kits from `requiredInstruments`, so that test would
+    // have passed with the one-kit manifest that caused the bug. This one reads the
+    // committed manifest — the only file the browser ever sees.
+    const manifest = JSON.parse(
+      readFileSync('client/public/samples/manifest.json', 'utf8'),
+    ) as Record<string, number[]>;
+    for (const instrument of new Set(requiredInstruments(audio))) {
+      const notes = manifest[instrument];
+      expect(notes, `score.yaml asks for the ${instrument} kit`).toBeDefined();
+      expect(notes?.length ?? 0).toBeGreaterThan(2);
+    }
+  });
+
   it('builds every aircraft voice when the kits are present', () => {
-    // The guard against the other half of the same failure: a manifest that lists
-    // too few kits silently removes voices, so the count is pinned.
     expect(voices.map((voice) => voice.name).sort()).toEqual([
       'altitude_band',
       'ewr_arrival',

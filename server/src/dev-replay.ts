@@ -139,9 +139,11 @@ async function main(): Promise<void> {
 
   // The recording's own rhythm is a poll rhythm: every event in one poll shares one
   // timestamp, so `due` returns sixteen events at once and then nothing for eleven
-  // seconds. The spreader turns that back into a stream before it is broadcast —
-  // the same object the live server uses, so the demo page hears what a listener
-  // will (see server/src/spreader.ts).
+  // seconds. The spreader turns that back into a stream before it is broadcast.
+  //
+  // This page and the lab are its only callers today — `index.ts` records and does
+  // not yet fan out, so when it grows a hub it must use this too or the live radio
+  // will have the pulse this page does not (see server/src/spreader.ts).
   const spreader = new Spreader<CityEvent>({ score });
   const startedAt = Date.now();
   let since = -1;

@@ -10,8 +10,9 @@ is worse than a simpler one.
 Outputs, per SPEC §7.3:
   - integrated loudness (LUFS), loudness range, true peak        [ffmpeg ebur128]
   - a spectrogram PNG, which Claude can actually look at         [ffmpeg showspectrumpic]
-  - onset density per minute: the event rate actually HEARD, as
-    opposed to the rate the governor thinks it emitted
+  - (removed) onset density. Three detectors were scored against a render's own
+    schedule and the best managed F1 0.45, so the lab no longer reports a number
+    for it; `lab/render.ts` counts the schedule exactly. See docs/decisions.md.
   - pitch-class histogram: is the piece stuck on the same notes?
   - self-similarity / repetition score over 10-minute windows:
     catches loop fatigue, the §6.7 failure mode
@@ -34,6 +35,7 @@ import wave
 from pathlib import Path
 
 A4_HZ = 440.0
+
 PITCH_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
 
@@ -112,100 +114,6 @@ def spectrogram(path: Path, out: Path) -> Path | None:
         str(out),
     ])
     return out if out.exists() else None
-
-
-def highpass(samples: list[float], rate: int, hz: float, stages: int = 2) -> list[float]:
-    """A first-order high-pass, applied `stages` times.
-
-    Not a nice filter, and it does not need to be: its whole job is to get the Ground
-    out of the way before looking for note attacks. The drone is lowpassed at 300-620
-    Hz by `ground.ts`, so two stages at 700 Hz put it ~22 dB down while leaving the
-    struck voices' attack transients, which are broadband, essentially untouched.
-    """
-    out = list(samples)
-    dt = 1.0 / rate
-    rc = 1.0 / (2 * math.pi * hz)
-    alpha = rc / (rc + dt)
-    for _ in range(stages):
-        previous_in = out[0] if out else 0.0
-        previous_out = 0.0
-        for index in range(1, len(out)):
-            current = out[index]
-            previous_out = alpha * (previous_out + current - previous_in)
-            previous_in = current
-            out[index] = previous_out
-    return out
-
-
-def onsets(samples: list[float], rate: int) -> dict[str, float | list[float]]:
-    """Onset detection by a local energy rise in the band above the Ground.
-
-    This measures the event rate actually AUDIBLE, which is not the same as the rate
-    the governor emitted: voice stealing, masking and the density governor all sit in
-    between. §6.5's comfortable band is about what a listener hears, so this is the
-    number that matters.
-
-    **The first version of this function could not see the piece.** It thresholded
-    full-band frame energy against 2.5x the file's own median and required an 80%
-    rise in one 10 ms frame. Under a continuous drone the median IS the drone, a
-    struck note adds a fraction of its energy, and the measured rate came out at
-    0.17 per minute against roughly 80 events a minute actually playing. A number
-    that wrong is worse than no number: it reported "0.17 onsets/min" through the
-    round in which four of five voices were missing from the render, and that is
-    exactly the fact it existed to catch (see docs/music/decisions.md, round 3).
-
-    Two changes. **High-pass first**, so the measurement happens in the band the
-    voices own and the Ground does not. **A local threshold** - each frame against
-    the median of the two seconds around it - because a drone, a passing overflight
-    and a quiet night are all slow changes in the floor, and an onset is by
-    definition a fast one.
-    """
-    hop = max(1, rate // 100)  # 10 ms
-    band = highpass(samples, rate, 700.0)
-    energies = []
-    for start in range(0, len(band) - hop, hop):
-        window = band[start : start + hop]
-        energies.append(math.sqrt(sum(v * v for v in window) / len(window)))
-    if not energies:
-        return {"count": 0, "per_minute": 0.0, "per_minute_series": []}
-
-    # +-1 s of context. Long enough that one note cannot raise its own threshold,
-    # short enough to follow the night getting quieter.
-    half = min(100, len(energies) // 2)
-    absolute_floor = max(1e-5, sum(energies) / len(energies) * 0.05)
-
-    # The local median is recomputed every 100 ms rather than every frame: the floor
-    # it tracks moves over seconds, and this is the difference between an analysis
-    # that takes half a minute and one that takes five.
-    local = absolute_floor
-    times = []
-    previous = 0.0
-    refractory = 0
-    for index, energy in enumerate(energies):
-        if index % 10 == 0:
-            low = max(0, index - half)
-            context = sorted(energies[low : index + half + 1])
-            local = context[len(context) // 2]
-        if refractory > 0:
-            refractory -= 1
-            previous = energy
-            continue
-        if energy > max(local * 2.0, absolute_floor) and energy > previous:
-            times.append(index * hop / rate)
-            refractory = 12  # 120 ms, so one note is not counted several times
-        previous = energy
-
-    duration_minutes = len(samples) / rate / 60
-    per_minute = []
-    if duration_minutes >= 1:
-        for minute in range(int(duration_minutes)):
-            per_minute.append(float(sum(1 for t in times if minute * 60 <= t < (minute + 1) * 60)))
-    return {
-        "count": len(times),
-        "per_minute": round(len(times) / duration_minutes, 2) if duration_minutes else 0.0,
-        "per_minute_series": per_minute,
-        "times": [round(t, 3) for t in times],
-    }
 
 
 def pitch_classes(samples: list[float], rate: int) -> dict[str, object]:
@@ -343,7 +251,6 @@ def main() -> int:
         "duration_seconds": round(duration, 1),
         "sample_rate": rate,
         "loudness": loudness(args.wav),
-        "onsets": onsets(coarse, coarse_rate),
         "pitch_classes": pitch_classes(coarse, coarse_rate),
         "repetition": repetition(coarse, coarse_rate),
         "voices": voice_estimate(coarse, coarse_rate),
@@ -364,7 +271,6 @@ def main() -> int:
 def write_report(path: Path, data: dict, meta: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     loud = data["loudness"]
-    onset = data["onsets"]
     pitch = data["pitch_classes"]
 
     def verdict(value, low, high, unit=""):
@@ -411,9 +317,12 @@ def write_report(path: Path, data: dict, meta: dict) -> None:
         "",
         "## Density (SPEC §6.5)",
         "",
-        f"- Onsets heard: **{onset['count']}** → **{onset['per_minute']} per minute**",
-        f"- Target band: night 2–6, day 6–14 per minute",
-        f"- Per-minute series: {onset['per_minute_series']}",
+        "Not measured here. Three onset detectors were tried against the render\'s own",
+        "schedule as ground truth and the best scored F1 0.45 — more than half its",
+        "detections were not events and half the events were missed. A number that",
+        "wrong is worse than no number, and two musical rounds were read partly through",
+        "one. `lab/render.ts` reports the exact count instead: events scheduled, and",
+        "how many distinct instants they land on after the client\'s quantisation.",
         "",
     ]
     if meta:

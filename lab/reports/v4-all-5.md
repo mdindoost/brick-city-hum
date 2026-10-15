@@ -18,9 +18,9 @@ Loudness verdict: -20.7 LUFS — within target -22…-18 LUFS
 
 ## Density (SPEC §6.5)
 
-- Onsets heard: **102** → **17.0 per minute**
+- Onsets heard: **2154** → **359.0 per minute**
 - Target band: night 2–6, day 6–14 per minute
-- Per-minute series: [7.0, 12.0, 13.0, 31.0, 14.0, 25.0]
+- Per-minute series: [378.0, 366.0, 352.0, 338.0, 372.0, 348.0]
 
 ## Harmony and monotony (SPEC §6.2, §6.7)
 

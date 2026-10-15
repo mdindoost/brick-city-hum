@@ -158,11 +158,20 @@ That is a better explanation of round 2's verdict — _"there are far too few ev
 than the one acted on at the time. The events were there. They were all at the same
 instant, and two rounds went to timbre and level while the rhythm was a pulse.
 
-After spreading: the same 617 events land at 434 distinct instants instead of 255, at
-most three at once instead of 41, and the median gap is 0.25 s instead of 0.04 s
-followed by eleven seconds of nothing. Measured on the live WebSocket at real speed,
-the demo server now sends a median of one event per message, one second apart, where
-it used to send nine at once every eleven seconds.
+After spreading: the server releases at most three events per 250 ms tick, and the
+median gap between releases is 0.25 s instead of 0.04 s followed by eleven seconds of
+nothing. Measured on the live WebSocket at real speed, the demo server now sends a
+median of one event per message, one second apart, where it used to send nine at once
+every eleven seconds.
+
+**What that is in audible terms**, which is the honest number and not the one first
+written here: the client quantises every gesture onto 0.5 beats — 455 ms at 66 BPM —
+so events inside one grid step are heard together. Counted exactly from the schedule,
+the 586 events that fit inside the six minutes land on **74 instants in A and 320 in
+B**: 12 a minute against 53. The biggest single instant goes from 41 notes to six, and
+six only at 22 of those 320 points. "At most three at once" was the server's tick
+ceiling, not what an ear gets; reconciling the tick with the grid is a separate,
+musical choice.
 
 **One hole it cannot fill.** This slice has a genuine 41-second gap where the feed
 returned nothing. The spreader can only place events that exist; filling real silence
@@ -187,20 +196,25 @@ change, and this round is about time. Nothing about the levels was touched.
 
 **The numbers, both files, same six minutes:**
 
-|                        | A — `v4-all-5` (as it is) | B — `v4-spread` |
-| ---------------------- | ------------------------- | --------------- |
-| events played          | 603                       | **617**         |
-| events dropped         | 14                        | **0**           |
-| voices stolen          | 115                       | **0**           |
-| integrated             | −20.7 LUFS                | −20.7 LUFS      |
-| true peak              | −1.5 dBFS                 | **−2.7**        |
-| onsets heard           | 17.0 /min                 | **23.8 /min**   |
-| pitch-class entropy    | 1.488 bits                | **1.534**       |
-| repetition             | 0.982                     | 0.987           |
+|                     | A — `v4-all-5` (as it is) | B — `v4-spread`     |
+| ------------------- | ------------------------- | ------------------- |
+| events played       | 603                       | **617**             |
+| events dropped      | 14                        | **0**               |
+| voices stolen       | 115                       | **0**               |
+| integrated          | −20.7 LUFS                | −20.7 LUFS          |
+| true peak           | −1.5 dBFS                 | **−2.7**            |
+| audible instants    | 74 (12.3 /min)            | **320 (53.3 /min)** |
+| pitch-class entropy | 1.488 bits                | **1.534**           |
+| repetition          | 0.982                     | 0.987               |
+
+A note on the two numbers this table no longer carries: the lab's onset density is
+gone, because three versions of that detector were wrong and the best rule scored F1
+0.45 against a render's own schedule. The exact instant count above replaces it. See
+`docs/decisions.md`.
 
 **Zero dropped and zero stolen is the finding inside the finding.** The clumps were
 what exhausted the 40-voice budget: forty notes inside one tenth of a second is the
-cap, so the engine was refusing events and cutting others' slots short *because* of
+cap, so the engine was refusing events and cutting others' slots short _because_ of
 the rhythm. Spread out, the same city fits inside the budget with room to spare and
 every event it made is heard. The peak drops 1.2 dB for the same loudness, for the
 same reason.

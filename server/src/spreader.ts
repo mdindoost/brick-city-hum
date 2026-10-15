@@ -22,7 +22,10 @@
  * is the limit past which an event is released whatever the queue looks like, so
  * nothing is ever held back long enough to stop being true. Captions are unchanged.
  *
- * It holds events; it never invents, reorders by worth alone, or discards them.
+ * It holds events and it never invents or discards one. It does reorder them: a
+ * batch is dealt out strongest first (see `offer`), so within one poll the order
+ * played is not the order detected. Every event still carries its own `t` and its own
+ * caption, and the events in a batch are at most one poll apart.
  */
 
 import type { ScoreConfig } from './config.js';
@@ -53,6 +56,7 @@ export interface SpreaderOptions {
 
 export class Spreader<T extends Spreadable> {
   private queue: Queued<T>[] = [];
+  private overdueCount = 0;
 
   constructor(private readonly options: SpreaderOptions) {}
 
@@ -88,24 +92,62 @@ export class Spreader<T extends Spreadable> {
   }
 
   /**
-   * The events to play at this instant: everything whose slot has come.
+   * The events to play at this instant: everything whose slot has come, capped.
    *
-   * Two rules sit on top of the schedule. The **per-tick cap** is what stops a
-   * 161-event batch from becoming a chord again — three notes inside 250 ms is a
-   * gesture, sixteen is a wash. And **nothing is held past `max_delay_s`**, cap or no
-   * cap: an event that is no longer about the last few minutes is no longer true
-   * (§1.3), and late and audible beats silently discarded.
+   * **The cap is absolute.** An earlier version let an overdue backlog ignore it so
+   * that `max_delay_s` could be a hard deadline; measured, a single 500-event batch
+   * then released 142 events inside one 250 ms tick — nine times the chord this file
+   * exists to prevent, and reached by any sustained rate above about twelve events a
+   * second. Between a late note and a wall of notes, §1.4 is unambiguous: the cap
+   * wins, and `max_delay_s` is a priority, not a promise.
+   *
+   * What it does promise: an event is released no later than its own slot — at most
+   * one window after it arrived — plus whatever the cap costs; and once it is past
+   * both its slot and the deadline it goes **before anything fresher**. Neither held
+   * before: the queue is ordered by when a slot falls due, and an overlapping later
+   * batch holds slots earlier than an earlier batch's stragglers, so the last of
+   * twenty stragglers measured 47 seconds late behind a flood that arrived one second
+   * after it. `max_delay_s` is what promotes them, not a deadline it can enforce.
+   *
+   * `overdue` counts what the cap could not keep up with, so a city busier than the
+   * queue can carry is visible rather than silently late.
    */
   drain(now: number): T[] {
-    if (this.queue.length === 0) return [];
+    if (this.queue.length === 0) {
+      this.overdueCount = 0;
+      return [];
+    }
     const spread = this.options.score.spread;
 
     let count = 0;
     while (count < this.queue.length && (this.queue[count]?.due ?? Infinity) <= now) count += 1;
-    const stale = this.queue.filter((item) => now - item.at >= spread.max_delay_s * 1000).length;
-    count = Math.max(Math.min(count, spread.max_per_tick), stale);
-
+    count = Math.min(count, spread.max_per_tick);
     if (count === 0) return [];
+
+    // Oldest by arrival first when anything has waited too long; otherwise the slot
+    // order, which is what spreads a batch evenly in the first place.
+    // Late means past its own slot *and* older than the deadline. An event whose
+    // slot is still in the future is not late, it is scheduled — counting those made
+    // `overdue` read as a backlog during every ordinary nine-second window.
+    const deadline = now - spread.max_delay_s * 1000;
+    const late = this.queue
+      .filter((item) => item.at <= deadline && item.due <= now)
+      // Oldest arrival first. Filtering alone keeps slot order, and under sustained
+      // pressure a later batch's slots interleave with an earlier batch's stragglers
+      // — measured, the last of twenty stragglers came out 47 seconds late behind a
+      // flood that arrived one second after it.
+      .sort((a, b) => a.at - b.at || a.due - b.due);
+    this.overdueCount = late.length;
+    if (late.length > 0) {
+      const release = late.slice(0, count);
+      this.queue = this.queue.filter((item) => !release.includes(item));
+      return release.map((item) => item.event);
+    }
     return this.queue.splice(0, count).map((item) => item.event);
+  }
+
+  /** How many events have waited longer than `max_delay_s` — see `drain`. */
+  get overdue(): number {
+    return this.overdueCount;
   }
 }

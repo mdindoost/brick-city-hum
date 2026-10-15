@@ -60,6 +60,14 @@ export interface RenderResult {
   readonly eventsReplayed: number;
   readonly eventsDropped: number;
   readonly stolenVoices: number;
+  /** Spread past the end of the render, so never sounded. See `render`. */
+  readonly eventsBeyondEnd: number;
+  /**
+   * Distinct instants the events land on after the client's grid quantisation — the
+   * piece's real density, and the measurement the onset detector was removed in
+   * favour of.
+   */
+  readonly audibleInstants: number;
   readonly durationSeconds: number;
   readonly reproducible: boolean;
   /** Which voice produced the audio. `probe` means a measurement fixture, not music. */
@@ -114,10 +122,11 @@ export function spreadReplay(
     if (batch.length > 0) spreader.offer(batch, ms);
     for (const event of spreader.drain(ms)) out.push({ offsetSeconds: ms / 1000, event });
   }
-  // Anything the queue is still holding would be silence that is not in the city's
-  // record, so it is appended at the end rather than dropped. With `max_delay_s` in
-  // force this is empty in practice; it is here so a configuration mistake cannot
-  // quietly lose events.
+  // Whatever the queue is still holding is released at the end of the virtual clock.
+  // These land past the render's own length, where they are scheduled but never
+  // sounded, so `render` counts them separately rather than reporting them as played
+  // — the earlier version appended them here with a comment claiming they were "not
+  // dropped", which was exactly backwards.
   let tail = endMs / 1000;
   for (const event of spreader.drain(endMs + spread.max_delay_s * 1000)) {
     out.push({ offsetSeconds: tail, event });
@@ -190,8 +199,24 @@ function wavHeader(dataBytes: number, channelCount: number, sampleRate: number):
 
 export async function render(options: RenderOptions): Promise<RenderResult> {
   const recorded = await loadEvents(options.eventsPath, options.minutes);
-  const replay = options.spread ? spreadReplay(recorded, loadScore()) : recorded;
   const durationSeconds = Math.max(10, options.minutes * 60);
+  const score = loadScore();
+  const spreadAll = options.spread ? spreadReplay(recorded, score) : recorded;
+  // Spreading moves events later, so the last poll of the slice can fall past the end
+  // of the render. `AudioEngine.schedule` accepts a time beyond the offline context's
+  // length and the note simply never sounds, which counted it as played: a render
+  // reporting 617 events replayed while rendering 505 of them.
+  const replay = spreadAll.filter((item) => item.offsetSeconds < durationSeconds);
+  const beyondEnd = spreadAll.length - replay.length;
+  // How many distinct instants the piece actually has, which is not how many events
+  // it has: the client quantises every gesture onto `quantize_beats` (§6.3), so
+  // events inside one grid step are heard as one chord. This is the density number
+  // the lab used to try to measure with an onset detector and could not — three were
+  // scored against this very figure and the best managed F1 0.45 (docs/decisions.md).
+  // Counted here instead, exactly, from the schedule.
+  const gridSeconds = (60 / score.audio.transport.bpm) * score.audio.transport.quantize_beats;
+  const audibleInstants = new Set(replay.map((item) => Math.ceil(item.offsetSeconds / gridSeconds)))
+    .size;
   const seedNumber = seedFromString(options.seed);
 
   mkdirSync(options.outDir, { recursive: true });
@@ -242,7 +267,7 @@ export async function render(options: RenderOptions): Promise<RenderResult> {
         maxVoices: options.maxVoices,
         withReverb: options.preset === 'with-reverb',
         voice: options.voice,
-        audio: options.voice === 'aircraft' ? loadScore().audio : null,
+        audio: options.voice === 'aircraft' ? score.audio : null,
         samples: options.voice === 'aircraft' ? readSamples(options.samplesDir) : null,
       },
     );
@@ -283,6 +308,8 @@ export async function render(options: RenderOptions): Promise<RenderResult> {
       eventsReplayed: replay.length - meta.dropped,
       eventsDropped: meta.dropped,
       stolenVoices: meta.stolen,
+      eventsBeyondEnd: beyondEnd,
+      audibleInstants,
       durationSeconds,
       reproducible: options.preset === 'deterministic',
       voice: options.voice,

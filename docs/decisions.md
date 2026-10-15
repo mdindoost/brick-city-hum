@@ -944,3 +944,86 @@ The voice is in `score.yaml` (a vibraphone; the reasoning is in
 day, and what a sunrise sounds like is a [HUMAN] question for §15 rather than something
 to invent here. The test lists them, so the next event type added forces an answer
 either way.
+
+## 2026-10-15 · The release queue (§1.4) — proposed addition to §5.1 and §6.5
+
+**Measured first.** The six-minute slice both listening rounds use holds 684 events,
+about 114 a minute. They arrive in **25 batches**: one poll of the ADS-B feed is one
+batch, `Hub.broadcast` stamps one `play_at` per message, and the median gap between
+batches is 11.3 seconds — one batch held 161 events. After the client's grid
+quantisation those 617 renderable events land on **74 distinct instants in six
+minutes**, which is 12 a minute. The piece was a chord every eleven seconds.
+
+So "83–113 events a minute" was an arithmetic average over clumps, and round 2's "far
+too few events" was right in a way nothing in the lab could see.
+
+**`server/src/spreader.ts`** gives every event in a batch its own slot in a nine-second
+window, caps a 250 ms tick at three, and promotes anything past `max_delay_s`. Spread,
+the same 617 events land on **320 instants** — 53 a minute.
+
+Three things about it are worth keeping in writing:
+
+- **The cap is absolute.** The first version let an overdue backlog ignore it so that
+  `max_delay_s` could be a hard deadline; measured, one 500-event batch then released
+  142 events in a single tick. Between a late note and a wall of notes §1.4 is not
+  ambiguous. `max_delay_s` promotes an event ahead of fresher ones; it does not
+  guarantee a time.
+- **The schedule is decided at `offer`, not metered per tick.** A rate computed from
+  the queue's current length decays with the queue, so a sixteen-note batch drains on
+  a curve that never reaches zero — the first version left a 4.5-second gap.
+- **It reorders within a batch**, strongest first, so the departure leads and the ring
+  crossings follow. Every event still carries its own `t` and caption, and a batch
+  spans one poll.
+
+**Why it is in spec rather than a change to it:** §1.4 asks for never silent and never
+chaotic, and a chord every eleven seconds is both; §1.3 allows a note to trace to an
+event "in the last seconds or minutes", which is exactly the delay. **But the pipeline
+in §5.1 has no such stage and §6.5 describes the governor as the only thing between the
+bus and the fan-out.** Both should name it — proposed, not edited.
+
+Unreconciled, deliberately: `tick_ms` 250 is finer than the client's quantisation
+(0.5 beats = 455 ms at 66 BPM), so two ticks can collapse onto one instant. Measured,
+22 of 320 grid points carry six notes. Aligning them is a musical choice and waits for
+a verdict on the pacing as it stands.
+
+## 2026-10-15 · The lab cannot detect onsets in this material, so it no longer reports a number
+
+Onset density was one of the few numbers §7.2 allows a musical decision to rest on. It
+is now removed from `lab/analyze.py`, because three versions of it were wrong and the
+third was wrong in a way the second's test could not see.
+
+1. The original thresholded full-band frame energy against 2.5× the file's own median
+   and required an 80% rise in one 10 ms frame. Under a continuous drone the median
+   **is** the drone: it reported 0.17 onsets a minute while about eighty events a
+   minute played, and that figure sat in the round-3 log — the one number that would
+   have revealed four missing voices.
+2. The replacement measured a relative rise in the band above 700 Hz, where the Ground
+   is 22 dB down. A band with almost nothing in it is mostly noise, so relative rises
+   there are large and constant. Against synthetic signals of known density it
+   over-counted 1.7× at six notes a minute and under-counted 0.6× at a hundred and
+   twenty: **non-monotonic**.
+3. The third thresholded a 2 dB rise over a ±1 s median, which was clean on synthetic
+   signals (0 false positives on a bare drone, monotonic 0/8/16/42/61/89 against
+   0/6/12/30/60/120) and reported **359 onsets a minute** on the real renders — one
+   per refractory period. The synthetic bed was stationary and the real one is not.
+
+Then the measurement that settled it: a render's own schedule is ground truth, so
+precision and recall are computable. Nine rules across three families (local-median
+rise, fast-rise-above-recent-minimum, spectral flux with a distribution threshold), on
+two real renders, full-band and above 700 Hz:
+
+| best of each family             | precision | recall | F1       |
+| ------------------------------- | --------- | ------ | -------- |
+| local median, >700 Hz, 3 dB     | 0.38      | 0.57   | **0.45** |
+| fast rise, >700 Hz, 9 dB/200 ms | 0.45      | 0.35   | 0.39     |
+| spectral flux, >700 Hz          | 0.30      | 0.30   | 0.30     |
+
+More than half of the best rule's detections are not events, and it misses half the
+events. **A number that wrong is worse than no number**, which is the lesson of items
+1 and 3 twice over, so the report now says that this is not measured and `lab/render.ts`
+reports the exact figure instead: events scheduled, events spread past the end of the
+render, and distinct instants after quantisation. Those are counts, not estimates.
+
+What is lost: a check on _masking_ — whether an event that plays is loud enough to be
+heard. That is answered better analytically anyway, by the per-event level table in
+`docs/music/listening-log.md`, which needs no render at all.
