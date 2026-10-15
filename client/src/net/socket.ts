@@ -7,7 +7,7 @@
  * is indistinguishable from an attack (§9.1).
  */
 
-import type { ClientMessage, ServerMessage } from '../../../shared/protocol.js';
+import type { ClientMessage, ServerMessage, TapMessage } from '../../../shared/protocol.js';
 import { ClockSync } from './clocksync.js';
 
 export interface RadioHandlers {
@@ -78,6 +78,11 @@ export class Radio {
     };
     socket.addEventListener('close', retry);
     socket.addEventListener('error', () => socket.close());
+  }
+
+  /** Send a tap (§8). Dropped silently when offline: the tapper already heard it. */
+  tap(tap: Omit<TapMessage, 'type'>): void {
+    this.send({ type: 'tap', ...tap });
   }
 
   private ping(): void {

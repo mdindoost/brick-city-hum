@@ -241,6 +241,33 @@ sky:
     sunrise: true
     sunset: true
 
+# Listener taps (SPEC §8). The people layer.
+#
+# The only events in this project that come from a person rather than a machine, and
+# the only ones a listener can cause. They are rate-limited on the **server** because
+# a client-side limit is a suggestion: the ceilings below are what stop one tab, or
+# one bored person, from becoming the whole piece.
+#
+# Nothing about a tap is stored with any identifier (§8, §3.7). The department is a
+# colour and travels no further than that.
+taps:
+  enabled: true
+  # Per connection. Slow enough to be a gesture rather than a drum roll.
+  min_interval_ms: 2000
+  # Everyone together. Excess is dropped by recency, newest first, so a burst cannot
+  # starve the listener who tapped once.
+  global_per_second: 8
+  # A tap off the end of this list is treated as no department at all.
+  departments:
+    [
+      'Computer Science',
+      'Engineering',
+      'Science & Liberal Arts',
+      'Architecture & Design',
+      'Management',
+      'Newark / Guest',
+    ]
+
 # How precisely an event reports itself, in decimal places.
 #
 # Accuracy beyond what a listener can perceive is not a goal, and reporting it is a
@@ -268,6 +295,8 @@ salience:
   altitude_band: 0.26
   # A moment, not a note: rare, and the piece should make room for it (§6.1).
   sunrise: 0.95
+  # A person is always worth hearing: §8's whole point is that a tap is answered.
+  tap: 0.8
   sunset: 0.95
   # A train is a near, certain, human-scale event: more salient than a distant
   # aircraft, less than a departure overhead.
@@ -493,6 +522,9 @@ captions:
     - { within_km: 999, text: '✈ {aircraft} far to the {direction}' }
   altitude_band: '✈ {aircraft} {vertical} {altitude} ft to the {direction}'
   sunrise: '☀ sunrise over Newark'
+  # Never names the person or the department: §8 keeps taps anonymous and the
+  # department is a colour, not a label.
+  tap: '👆 someone listening'
   sunset: '☀ sunset over Newark'
   # Filled from the sign of the vertical rate.
   climbing: climbing through

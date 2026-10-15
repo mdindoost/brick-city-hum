@@ -19,6 +19,7 @@ import { AudioEngine } from './engine.js';
 import { Ground } from './ground.js';
 import { aircraftVoices } from './voices/aircraft.js';
 import { RailVoice } from './voices/rail.js';
+import { TapVoice } from './voices/tap.js';
 
 /** Mobile gets half the voices (§6.8), decided once at start. */
 function isMobile(): boolean {
@@ -69,6 +70,7 @@ export class RadioAudio {
     });
     for (const voice of aircraftVoices(this.audio)) engine.register(voice);
     engine.register(new RailVoice(this.audio));
+    engine.register(new TapVoice(this.audio));
     await engine.prepare({ withReverb: true });
 
     const ground = new Ground(this.audio);
@@ -116,6 +118,18 @@ export class RadioAudio {
       Tone.now(),
       crossfadeSeconds,
     );
+  }
+
+  /**
+   * Play a tap immediately, before the server has seen it (§8).
+   *
+   * The person who tapped must hear themselves at once; everyone else hears it on the
+   * next grid step when it comes back round. A tap that waited for a round trip would
+   * feel broken even at 20 ms, and if the server refuses it under the rate limit the
+   * tapper still heard their own note — which is the honest outcome, not a bug.
+   */
+  playLocalTap(event: PublicEvent): void {
+    this.engine?.schedule(event, Tone.now() + 0.02);
   }
 
   stop(): void {

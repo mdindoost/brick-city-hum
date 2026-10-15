@@ -37,6 +37,15 @@ export interface HubOptions {
   readonly replaySpeed: number | null;
   /** The current sky, read fresh for each hello (§6.2). */
   readonly sky?: () => Omit<SkyMessage, 'type'> | null;
+  /**
+   * A tap arrived (§8). The hub does not decide whether to accept it — the limiter
+   * and the governor do — it only carries the socket, which is the limiter's key and
+   * the only thing resembling an identity anywhere in this path.
+   */
+  readonly onTap?: (
+    connection: object,
+    tap: { x: number; y: number; department: string | null },
+  ) => void;
 }
 
 export class Hub {
@@ -119,13 +128,25 @@ export class Hub {
     } catch {
       return;
     }
+    if (typeof parsed !== 'object' || parsed === null) return;
+    const message = parsed as Record<string, unknown>;
+
+    if (message['type'] === 'ping' && typeof message['t0'] === 'number') {
+      this.send(socket, timeReply(message['t0'], Date.now()));
+      return;
+    }
+
     if (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      (parsed as { type?: unknown }).type === 'ping' &&
-      typeof (parsed as { t0?: unknown }).t0 === 'number'
+      message['type'] === 'tap' &&
+      typeof message['x'] === 'number' &&
+      typeof message['y'] === 'number'
     ) {
-      this.send(socket, timeReply((parsed as { t0: number }).t0, Date.now()));
+      const department = message['department'];
+      this.options.onTap?.(socket, {
+        x: message['x'],
+        y: message['y'],
+        department: typeof department === 'string' ? department : null,
+      });
     }
   }
 

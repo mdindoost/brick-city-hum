@@ -20,8 +20,10 @@ import { createServer } from 'node:http';
 import { extname, join, normalize, resolve } from 'node:path';
 import { loadPlaces, loadScore, loadSources } from './config.js';
 import { SkyCollector } from './collectors/sky.js';
+import { TapLimiter } from './taps.js';
 import { Hub } from './ws.js';
 import { Replayer } from './sim/replay.js';
+import type { CityEvent } from './events.js';
 
 const PORT = Number(process.env.PORT ?? 8090);
 const HOST = process.env.HOST ?? '127.0.0.1';
@@ -74,7 +76,9 @@ function latestRecording(): string {
 async function main(): Promise<void> {
   const places = loadPlaces();
   const score = loadScore();
-  const sky = new SkyCollector({ sources: loadSources(), places });
+  const sources = loadSources();
+  const sky = new SkyCollector({ sources, places });
+  const taps = new TapLimiter({ sources, places });
 
   const path = latestRecording();
   const replayer = new Replayer({ path, speed: SPEED, loop: true });
@@ -101,6 +105,11 @@ async function main(): Promise<void> {
     createReadStream(file).pipe(response);
   });
 
+  // A tap arrives on the hub and goes straight back out through the same hub, so the
+  // handler needs a reference to something that does not exist yet. The indirection
+  // is one object rather than a mutable binding.
+  const out: { broadcast: (events: CityEvent[]) => void } = { broadcast: () => undefined };
+
   const hub = new Hub({
     server,
     origin: { lat: places.origin.lat, lon: places.origin.lon, name: places.origin.name },
@@ -109,6 +118,10 @@ async function main(): Promise<void> {
     playLeadMs: score.play_lead_ms,
     replay: true,
     replaySpeed: SPEED,
+    onTap: (connection, tap) => {
+      const event = taps.accept(connection, tap, Date.now());
+      if (event !== null) out.broadcast([event]);
+    },
     sky: () => {
       const state = sky.state(Date.now());
       return {
@@ -121,6 +134,8 @@ async function main(): Promise<void> {
       };
     },
   });
+
+  out.broadcast = (events) => hub.broadcast(events);
 
   const startedAt = Date.now();
   let since = -1;

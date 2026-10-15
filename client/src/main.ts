@@ -25,6 +25,41 @@ function text(selector: string, value: string): void {
   if (el !== null) el.textContent = value;
 }
 
+/**
+ * The tap the tapper hears, built locally so it does not wait for a round trip.
+ *
+ * Deliberately the same arithmetic as the server's (`server/src/taps.ts`), because
+ * the two must agree: the tapper hears this one and everyone else hears the server's,
+ * and a listener comparing them in the same room would notice a different note.
+ */
+function localTap(x: number, y: number, department: string | null, now: number): PublicEvent {
+  const degree = Math.round(x * 9) - 4;
+  const register = y < 0.34 ? 2 : y < 0.67 ? 1 : 0;
+  const bearing = ((Math.atan2(x - 0.5, 0.5 - y) * 180) / Math.PI + 360) % 360;
+  const spread = Math.hypot(x - 0.5, y - 0.5) * 2;
+  return {
+    id: `local_${String(now)}`,
+    t: now,
+    type: 'tap',
+    geo: { lat: 0, lon: 0, alt_ft: null },
+    rel: { bearing_deg: Number(bearing.toFixed(0)), distance_km: Number((spread * 2).toFixed(2)) },
+    attrs: {
+      category: null,
+      heavy: false,
+      described_as: 'a listener',
+      operator: null,
+      vrate_fpm: null,
+      track_deg: null,
+    },
+    tap: { degree, register, department },
+    salience: 0.8,
+    tier: 'voice',
+    caption: '',
+    sim: false,
+    scheduled: false,
+  };
+}
+
 function main(): void {
   const canvas = document.querySelector<HTMLCanvasElement>('#map');
   const ticker = document.querySelector<HTMLElement>('#captions');
@@ -71,6 +106,26 @@ function main(): void {
       play.textContent = '■ stop';
       play.setAttribute('aria-pressed', 'true');
     })();
+  });
+
+  // §8: tapping the map is the only thing a listener can do, and it needs no login.
+  // The department is a colour, kept in localStorage and never sent anywhere else.
+  let department: string | null = null;
+  try {
+    department = localStorage.getItem('bch.department');
+  } catch {
+    // Private windows and blocked storage are ordinary; the tap works without it.
+  }
+
+  canvas.addEventListener('pointerdown', (pointer: PointerEvent) => {
+    const box = canvas.getBoundingClientRect();
+    const x = (pointer.clientX - box.left) / box.width;
+    const y = (pointer.clientY - box.top) / box.height;
+    radio.tap({ x, y, department });
+    // Heard at once, before the server has seen it. See `playLocalTap`.
+    if (audio !== null && audioConfig !== null) {
+      audio.playLocalTap(localTap(x, y, department, radio.clock.serverNow()));
+    }
   });
 
   const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;

@@ -70,6 +70,14 @@ export const eventSchema = z.object({
     described_as: z.string().min(1),
   }),
   /** 0..1, used by the density governor (SPEC §6.5). */
+  /** Present only on a tap (§8). No identifier, here or anywhere. */
+  tap: z
+    .object({
+      degree: z.number().int(),
+      register: z.number().int(),
+      department: z.string().nullable(),
+    })
+    .optional(),
   salience: z.number().min(0).max(1),
   /** The governor's placement (§6.5). Defaults for recordings written before it. */
   tier: z.enum(['voice', 'texture']).default('voice'),

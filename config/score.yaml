@@ -239,6 +239,20 @@ audio:
       approach_gain: 0.14
       arrival_gain: 0.32
 
+    # Listener taps (§8). Three instrument families by where the screen was touched:
+    # top = bells, middle = mallet, bottom = soft piano. All struck, because a tap is
+    # a gesture a person made at an instant and anything with a slow attack would
+    # arrive after the finger left.
+    tap:
+      attack_s: 0.002
+      decay_s: 0.6
+      release_s: 2.2
+      gain: 0.55
+      # Harmonicity per register: higher is more bell-like, lower is woodier.
+      harmonicity: [1.4, 2.2, 3.6]
+      modulation_index: [3, 6, 11]
+      octave_offset: [-1, 0, 1]
+
     # A heavy aircraft is lower, longer and warmer (§6.4). A modifier, not a voice.
     heavy:
       octave_offset: -1

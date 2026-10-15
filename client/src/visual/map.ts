@@ -40,6 +40,9 @@ const COLOURS: Record<PublicEvent['type'], string> = {
   // The only warm light on the page, for the only events that are not traffic.
   sunrise: '#f0c674',
   sunset: '#e09b5a',
+  // A person. The only green on the page, and the only colour that is not weather,
+  // traffic or sky — §8's people layer should look like itself.
+  tap: '#7fc08a',
   // Rail is warm where the sky is cool, so a train is distinguishable from an
   // aircraft at a glance and without reading the caption.
   path_approaching: '#9c8f5a',
@@ -60,6 +63,7 @@ const GLYPHS: Record<PublicEvent['type'], GlyphKind> = {
   altitude_band: 'plane',
   sunrise: 'dot',
   sunset: 'dot',
+  tap: 'dot',
   helicopter: 'helicopter',
   path_approaching: 'train',
   path_arrival: 'train',

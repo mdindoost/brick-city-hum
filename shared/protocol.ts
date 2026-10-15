@@ -28,6 +28,8 @@ export const EVENT_TYPES = [
   // Moments (§6.1): rare, and the piece makes room for them.
   'sunrise',
   'sunset',
+  // A person (§8). The only event here that someone chose to make.
+  'tap',
   // Rail (§3.3). A train is not an aircraft and must not borrow its voice: §6.4 gives
   // each line a struck bell against the aircraft's sustained tones.
   'path_approaching',
@@ -53,6 +55,18 @@ export interface PublicEvent {
     readonly vrate_fpm: number | null;
     /** Ground track in degrees, or null: where the aircraft is actually going. */
     readonly track_deg: number | null;
+  };
+  /**
+   * Present only on a tap (§8).
+   *
+   * `degree` is an index into the current scale, so a tap can never be a wrong note;
+   * `register` chooses the instrument family. `department` is a colour and nothing
+   * else — there is no identifier here and there is none on the server either.
+   */
+  readonly tap?: {
+    readonly degree: number;
+    readonly register: number;
+    readonly department: string | null;
   };
   /** 0..1 — the density governor's priority (§6.5). */
   readonly salience: number;
@@ -161,6 +175,15 @@ export interface AudioConfig {
       readonly approach_gain: number;
       readonly arrival_gain: number;
     };
+    readonly tap: {
+      readonly attack_s: number;
+      readonly decay_s: number;
+      readonly release_s: number;
+      readonly gain: number;
+      readonly harmonicity: readonly number[];
+      readonly modulation_index: readonly number[];
+      readonly octave_offset: readonly number[];
+    };
     readonly heavy: {
       readonly octave_offset: number;
       readonly release_multiplier: number;
@@ -234,10 +257,21 @@ export interface TimeMessage {
 
 export type ServerMessage = HelloMessage | EventsMessage | TimeMessage | SkyMessage;
 
-/** The only thing a client may send: a clock probe. */
+/** A clock probe. */
 export interface PingMessage {
   readonly type: 'ping';
   readonly t0: number;
 }
 
-export type ClientMessage = PingMessage;
+/**
+ * A tap (§8). Coordinates are normalised 0..1 from the top-left of the map, so the
+ * server never learns anything about the listener's screen, let alone the listener.
+ */
+export interface TapMessage {
+  readonly type: 'tap';
+  readonly x: number;
+  readonly y: number;
+  readonly department: string | null;
+}
+
+export type ClientMessage = PingMessage | TapMessage;
