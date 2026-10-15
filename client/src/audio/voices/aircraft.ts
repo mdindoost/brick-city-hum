@@ -353,6 +353,53 @@ class SkyVoice extends AircraftVoice {
 }
 
 /**
+ * A threshold crossed: one ringing note per altitude band (§6.5).
+ *
+ * The plainest voice in the file, and the one that was missing. `altitude_band` is
+ * 9% of the city's events and no voice claimed it, so every crossing was captioned
+ * and silent — the engine counts an unclaimed event as dropped, which is why the
+ * number looked like governor pressure rather than a gap.
+ *
+ * It needs no pitch logic of its own. `noteFor` reads the altitude, and the seven
+ * thresholds in sources.yaml land on seven different scale degrees, so a climb plays
+ * an ascending line over several minutes and a descent plays it falling — the shape
+ * comes from the flight, not from a rule here.
+ */
+class AltitudeBandVoice extends AircraftVoice {
+  readonly name = 'altitude_band';
+
+  constructor(
+    audio: AudioConfig,
+    private readonly kit: SampleKit,
+  ) {
+    super(audio);
+  }
+
+  handles(event: PublicEvent): boolean {
+    return event.type === 'altitude_band';
+  }
+
+  schedule(event: PublicEvent, context: VoiceContext, output: VoiceOutput): number {
+    const params = this.audio.voices.altitude_band;
+    const heavy = this.heavy(event);
+    return strike(
+      {
+        kit: this.kit,
+        midi: this.noteFor(event, context, params, heavy.octaves),
+        at:
+          onGrid(context.playAt, context, this.audio.transport.quantize_beats) +
+          drag(context.random, 25),
+        gain: params.gain,
+        fadeInS: this.fadeIn(params.fade_in_s),
+        maxS: params.max_s * heavy.length,
+        fadeOutS: params.fade_out_s,
+      },
+      output,
+    );
+  }
+}
+
+/**
  * Every aircraft voice, in the order the engine should try them.
  *
  * A voice whose kit is missing is left out rather than silently falling back to an
@@ -373,6 +420,7 @@ export function requiredInstruments(audio: AudioConfig): string[] {
     audio.voices.overflight_city.instrument,
     audio.voices.overflight_high.instrument,
     audio.voices.sky.instrument,
+    audio.voices.altitude_band.instrument,
   ];
 }
 
@@ -408,6 +456,8 @@ export function aircraftVoices(audio: AudioConfig, kits: Map<string, SampleKit>)
 
   const sky = kitFor(audio.voices.sky);
   if (sky !== undefined) voices.push(new SkyVoice(audio, sky));
+  const band = kitFor(audio.voices.altitude_band);
+  if (band !== undefined) voices.push(new AltitudeBandVoice(audio, band));
 
   return voices;
 }

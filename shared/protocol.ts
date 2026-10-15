@@ -156,6 +156,12 @@ export interface AudioConfig {
       readonly gain: number;
     };
     readonly sky: StruckParams;
+    /**
+     * Crossing an altitude threshold (§6.5) — 9% of every event the city makes, and
+     * for two weeks the only event type with no voice at all: captioned, drawn on
+     * the map, and perfectly silent.
+     */
+    readonly altitude_band: StruckParams;
     readonly path: {
       readonly harmonicity: number;
       readonly modulation_index: number;

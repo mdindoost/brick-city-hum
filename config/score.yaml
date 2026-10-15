@@ -298,6 +298,32 @@ audio:
       fade_out_s: 0.5
       gain: 0.16
 
+    # Crossing an altitude threshold, either way (§6.5).
+    #
+    # This event type had no voice. It is 9% of everything the city makes — a hundred
+    # and sixty crossings an hour — and every one of them was captioned on the page,
+    # drawn on the map, and silent, because no voice's `handles` ever claimed it.
+    #
+    # A vibraphone rather than the glockenspiel, which would have been the obvious
+    # neighbour: `overflight_high` is "noticed only in its absence" at a rare event's
+    # gain, and a high ping every few seconds is a tick, not a sound. The vibraphone
+    # rings lower and rounder and sits under the harp.
+    #
+    # The pitch needs nothing new. Altitude already chooses the scale degree (§6.4),
+    # and the seven thresholds land on seven different degrees — so an aircraft
+    # climbing out of EWR plays an ascending line across its whole climb, one note per
+    # threshold, and a descent plays the same line falling. No field was added to the
+    # event for this: the recordings are history and cannot be migrated.
+    altitude_band:
+      instrument: vibraphone
+      # The kit is MIDI 53–88, so the window bends almost nothing.
+      register: [60, 84]
+      fade_in_s: 0.01
+      max_s: 2.5
+      fade_out_s: 0.8
+      # Against the harp's 0.16 at nine times the frequency.
+      gain: 0.14
+
     # PATH trains (§6.4: "each line has its own bell or chime pitch set").
     #
     # A struck sound against the aircraft's sustained ones. That contrast is the

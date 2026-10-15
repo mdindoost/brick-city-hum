@@ -429,6 +429,7 @@ const scoreSchema = z.object({
         gain: z.number().min(0).max(1),
       }),
       sky: z.object(struckFields),
+      altitude_band: z.object(struckFields),
       path: z.object({
         harmonicity: z.number().positive(),
         modulation_index: z.number().positive(),
