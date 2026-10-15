@@ -42,6 +42,8 @@ const aircraftSchema = z.object({
   lat: z.number().optional(),
   lon: z.number().optional(),
   gs: z.number().optional(),
+  /** Ground track in degrees. Not identifying; it is where the aircraft is going. */
+  track: z.number().optional(),
   /**
    * Seconds since this aircraft's position was last updated. Live data shows up to
    * ~50 s for parked aircraft and under 1 s airborne, so a poll's aircraft were not
@@ -197,6 +199,7 @@ export function toObservation(
     onGround,
     verticalRateFpm: verticalRate(aircraft),
     groundSpeedKt: aircraft.gs ?? null,
+    trackDeg: aircraft.track ?? null,
     category: aircraft.category ?? null,
     identity,
     callsign,

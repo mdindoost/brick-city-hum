@@ -72,7 +72,9 @@ function main(): void {
   const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
   const radio = new Radio(url, {
     onHello: (hello) => {
-      visual = hello.visual;
+      // Three lines on a phone, not eight: measured at 390 px, eight captions wrapped
+      // to two lines each and covered half the map.
+      visual = window.innerWidth <= 640 ? { ...hello.visual, caption_lines: 3 } : hello.visual;
       // Version skew is the normal case, not an edge case: a server restarted with a
       // new protocol while a page sits open for hours, or — as happened on
       // 2026-10-14 — a page rebuilt against a server that was started before the

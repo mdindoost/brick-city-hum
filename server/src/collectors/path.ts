@@ -194,6 +194,7 @@ export class PathDetector {
         category: null,
         type_code: null,
         vrate_fpm: null,
+        track_deg: null,
         heavy: false,
         described_as: 'a PATH train',
       },

@@ -19,6 +19,7 @@ function observation(overrides: Partial<Observation> = {}): Observation {
     altFt: 1600,
     onGround: false,
     verticalRateFpm: 2200,
+    trackDeg: null,
     groundSpeedKt: 210,
     category: 'A3',
     identity: 'airline',

@@ -10,6 +10,7 @@ function observation(overrides: Partial<Observation> = {}): Observation {
     t: T0,
     lat: 40.69,
     lon: -74.17,
+    trackDeg: null,
     altFt: 1600,
     onGround: false,
     verticalRateFpm: 2200,

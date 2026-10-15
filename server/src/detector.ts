@@ -414,6 +414,7 @@ export class Detector {
         category: observation.category,
         type_code: observation.typeCode,
         vrate_fpm: observation.verticalRateFpm,
+        track_deg: observation.trackDeg,
         heavy,
         described_as: describedAs,
       },

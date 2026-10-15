@@ -184,3 +184,58 @@ footer {
   border-color: #6fbf73;
   color: #6fbf73;
 }
+
+/* Phones. Measured at 390 × 844: the header wrapped to three lines, the caption list
+   covered half the map and printed on top of the footer, and a 40 km circle sat in a
+   tall empty canvas. The page has to work here — most people will open a link on a
+   phone, and §2.1's whole promise is that there is nothing to install. */
+@media (max-width: 640px) {
+  header {
+    gap: 8px 12px;
+    padding: 10px 16px;
+  }
+
+  h1 {
+    font-size: 14px;
+  }
+
+  /* The clock offset and the running count are for me, not for a listener standing
+     on a corner. The mode line stays: it is the one that says "not live". */
+  #clock,
+  #count,
+  .origin {
+    display: none;
+  }
+
+  #mode {
+    font-size: 11px;
+  }
+
+  footer {
+    display: none;
+  }
+
+  #captions {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-width: none;
+    padding: 28px 16px 14px;
+    /* A scrim, so a caption over a bright part of the map is still readable without
+       putting a hard box on top of the picture. */
+    background: linear-gradient(to top, rgba(13, 15, 18, 0.95) 55%, rgba(13, 15, 18, 0));
+  }
+
+  .caption {
+    font-size: 13px;
+    gap: 8px;
+  }
+
+  .caption time {
+    font-size: 10px;
+  }
+
+  #play {
+    padding: 6px 14px;
+  }
+}

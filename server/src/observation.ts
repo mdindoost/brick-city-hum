@@ -68,6 +68,12 @@ export const observationSchema = z.object({
   verticalRateFpm: z.number().nullable(),
   /** Ground speed in knots. `null` when not reported. */
   groundSpeedKt: z.number().nullable(),
+  /**
+   * Ground track in degrees, or null. The direction the aircraft is actually going,
+   * which is not the bearing from the listener to it — drawing a silhouette without
+   * this would point every aircraft at a direction it is not travelling.
+   */
+  trackDeg: z.number().nullable().default(null),
   category: z.string().nullable(),
   identity: z.enum(['airline', 'private']),
   /**

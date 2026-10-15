@@ -45,6 +45,8 @@ export interface PublicEvent {
     /** Scheduled airline only, or null. Never a private operator (§3.2). */
     readonly operator: string | null;
     readonly vrate_fpm: number | null;
+    /** Ground track in degrees, or null: where the aircraft is actually going. */
+    readonly track_deg: number | null;
   };
   /** 0..1 — the density governor's priority (§6.5). */
   readonly salience: number;

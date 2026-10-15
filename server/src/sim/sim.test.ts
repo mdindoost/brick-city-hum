@@ -26,6 +26,7 @@ function event(overrides: Partial<CityEvent> = {}): CityEvent {
       category: 'A3',
       type_code: 'B738',
       vrate_fpm: 2200,
+      track_deg: 171,
       heavy: false,
       described_as: 'an airliner',
     },

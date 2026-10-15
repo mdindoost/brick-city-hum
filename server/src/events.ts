@@ -58,6 +58,12 @@ export const eventSchema = z.object({
     category: z.string().nullable(),
     type_code: z.string().nullable(),
     vrate_fpm: z.number().nullable(),
+    /**
+     * Ground track in degrees, or null. Published: the map draws each aircraft
+     * pointing where it is actually going, which a bearing from the listener cannot
+     * express. Added 2026-10-15, so it defaults for recordings written before it.
+     */
+    track_deg: z.number().nullable().default(null),
     /** True for ADS-B emitter category A5. Modifier, not a type (SPEC §3.2). */
     heavy: z.boolean(),
     /** How the aircraft may be described to a listener, already privacy-filtered. */
@@ -94,6 +100,7 @@ export function toPublicEvent(event: CityEvent): PublicEvent {
       // §6.4: "climb rate sets glide speed" for the departure figure, so the client
       // genuinely needs this. It identifies nothing.
       vrate_fpm: event.attrs.vrate_fpm,
+      track_deg: event.attrs.track_deg,
     },
     salience: event.salience,
     caption: event.caption,
@@ -130,6 +137,7 @@ export function toRecordedEvent(event: CityEvent): Record<string, unknown> {
       category: event.attrs.category,
       type_code: event.attrs.type_code,
       vrate_fpm: event.attrs.vrate_fpm,
+      track_deg: event.attrs.track_deg,
       heavy: event.attrs.heavy,
       described_as: event.attrs.described_as,
     },

@@ -16,6 +16,7 @@
  */
 
 import type { PublicEvent, VisualConfig } from '../../../shared/protocol.js';
+import { drawGlyph, type GlyphKind } from './glyphs.js';
 
 export interface Drawn {
   readonly event: PublicEvent;
@@ -37,6 +38,22 @@ const COLOURS: Record<PublicEvent['type'], string> = {
   // aircraft at a glance and without reading the caption.
   path_approaching: '#9c8f5a',
   path_arrival: '#d6c178',
+};
+
+/**
+ * What each event type looks like. A plane is a plane and a train is a train: the
+ * question "can we show an aircraft instead of a triangle?" had a good answer, since
+ * the ground track needed for it was already in the feed and simply not kept.
+ */
+const GLYPHS: Record<PublicEvent['type'], GlyphKind> = {
+  ewr_departure: 'plane',
+  ewr_arrival: 'plane',
+  overflight_city: 'plane',
+  overflight_high: 'plane',
+  sky: 'plane',
+  helicopter: 'helicopter',
+  path_approaching: 'train',
+  path_arrival: 'train',
 };
 
 export class CityMap {
@@ -82,8 +99,11 @@ export class CityMap {
   render(serverNow: number): void {
     const { width, height } = this.canvas.getBoundingClientRect();
     const centreX = width / 2;
-    const centreY = height / 2;
     const radius = Math.min(width, height) / 2 - 28;
+    // On a phone the canvas is far taller than it is wide, so a centred circle leaves
+    // a band of nothing above it and the captions sit over a second band below. The
+    // circle moves up instead and the captions get the space they were overlapping.
+    const centreY = Math.min(height / 2, radius + 44);
     const context = this.context;
 
     context.clearRect(0, 0, width, height);
@@ -111,23 +131,47 @@ export class CityMap {
     const context = this.context;
     context.save();
     context.strokeStyle = 'rgba(255,255,255,0.08)';
-    context.fillStyle = 'rgba(255,255,255,0.28)';
     context.font = '11px ui-monospace, monospace';
     context.lineWidth = 1;
+
+    // Ring labels sit on the north-east diagonal. Straight up is where the compass
+    // goes, and the two were printing on top of each other.
+    const diagonal = Math.SQRT1_2;
+    context.fillStyle = 'rgba(255,255,255,0.26)';
     for (const km of this.visual.rings_km) {
       const r = this.pixelsFor(km, radius);
       context.beginPath();
       context.arc(cx, cy, r, 0, Math.PI * 2);
       context.stroke();
-      context.fillText(`${String(km)} km`, cx + 4, cy - r - 4);
+      context.fillText(`${String(km)} km`, cx + r * diagonal + 5, cy - r * diagonal - 3);
     }
+
+    // The compass. §1.1's whole claim is that this picture is drawn from where the
+    // listener is standing, and a bearing is unreadable without it.
+    const marks: [string, number, number][] = [
+      ['N', 0, -1],
+      ['E', 1, 0],
+      ['S', 0, 1],
+      ['W', -1, 0],
+    ];
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    for (const [label, dx, dy] of marks) {
+      // North is brighter than the rest: it is the one that orients the other three.
+      context.fillStyle = label === 'N' ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.3)';
+      context.fillText(label, cx + dx * (radius + 14), cy + dy * (radius + 14));
+      context.strokeStyle = 'rgba(255,255,255,0.14)';
+      context.beginPath();
+      context.moveTo(cx + dx * (radius - 5), cy + dy * (radius - 5));
+      context.lineTo(cx + dx * (radius + 3), cy + dy * (radius + 3));
+      context.stroke();
+    }
+
     // The listener. Everything else is placed relative to this dot.
     context.fillStyle = 'rgba(255,255,255,0.75)';
     context.beginPath();
     context.arc(cx, cy, 3, 0, Math.PI * 2);
     context.fill();
-    context.fillStyle = 'rgba(255,255,255,0.45)';
-    context.fillText('N', cx - 4, cy - radius - 10);
     context.restore();
   }
 
@@ -146,7 +190,7 @@ export class CityMap {
     const y = cy + Math.sin(angle) * r;
     // Salience is the governor's own priority, so the eye and the ear agree about
     // which events matter (§6.5).
-    const size = (4 + event.salience * 9) * grow;
+    const size = (3 + event.salience * 7) * grow;
 
     const context = this.context;
     context.save();
@@ -154,66 +198,15 @@ export class CityMap {
     context.strokeStyle = COLOURS[event.type];
     context.fillStyle = COLOURS[event.type];
     context.lineWidth = 1.5;
-    context.translate(x, y);
 
-    switch (event.type) {
-      case 'ewr_departure':
-        this.triangle(size, 'up');
-        break;
-      case 'ewr_arrival':
-        this.triangle(size, 'down');
-        break;
-      case 'helicopter':
-        // Rotor: two crossed strokes, which reads as a helicopter at any size.
-        context.beginPath();
-        context.moveTo(-size, -size);
-        context.lineTo(size, size);
-        context.moveTo(size, -size);
-        context.lineTo(-size, size);
-        context.stroke();
-        break;
-      case 'path_approaching':
-      case 'path_arrival':
-        // A square: a station is a fixed point on the ground, not something flying.
-        context.strokeRect(-size * 0.7, -size * 0.7, size * 1.4, size * 1.4);
-        break;
-      case 'sky':
-        // A filled dot, not an outline: at this size an outline reads as noise.
-        context.beginPath();
-        context.arc(0, 0, size * 0.45, 0, Math.PI * 2);
-        context.fill();
-        break;
-      default:
-        context.beginPath();
-        context.arc(0, 0, size * 0.6, 0, Math.PI * 2);
-        context.stroke();
-    }
+    drawGlyph(context, GLYPHS[event.type], x, y, size, event.attrs.track_deg);
 
     // A ring that opens outwards as the event ages: the visual equivalent of a note
     // decaying, and slow enough to be restful.
-    context.globalAlpha = Math.max(0, fade * 0.35);
+    context.globalAlpha = Math.max(0, fade * 0.3);
     context.beginPath();
-    context.arc(0, 0, size + (1 - fade) * 26, 0, Math.PI * 2);
+    context.arc(x, y, size + (1 - fade) * 24, 0, Math.PI * 2);
     context.stroke();
     context.restore();
-  }
-
-  /**
-   * A triangle pointing the way the aircraft is going.
-   *
-   * Canvas y grows downward, so 'up' needs the apex at a negative y. Getting this
-   * backwards is invisible in a test and obvious on screen: the first render had
-   * every arrival pointing skyward.
-   */
-  private triangle(size: number, facing: 'up' | 'down'): void {
-    const apex = facing === 'up' ? -size : size;
-    const base = facing === 'up' ? size * 0.7 : -size * 0.7;
-    const context = this.context;
-    context.beginPath();
-    context.moveTo(0, apex);
-    context.lineTo(-size * 0.85, base);
-    context.lineTo(size * 0.85, base);
-    context.closePath();
-    context.fill();
   }
 }
