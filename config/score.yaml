@@ -137,7 +137,7 @@ audio:
     # [HUMAN] this is the single number to A/B by ear. Round 3 offers +5, where the
     # drone sits 5 dB over the city, against +9, where the two are within a decibel
     # of each other.
-    voices_gain_db: -40
+    voices_gain_db: 5
     # Last thing before the output. Set below §6.8's −1 dBTP on purpose: a limiter
     # works on samples, and reconstruction between them overshoots. Measured: with
     # the ceiling at −1 the render came back at −0.8 dBTP, i.e. over the spec.

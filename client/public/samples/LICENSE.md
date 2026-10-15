@@ -1,19 +1,27 @@
 # Sample provenance and licence
 
-Every file in this directory was produced by `tools/fetch-samples.py` from the
-**Versilian Community Sample Library (VCSL)**, released by Versilian Studios under
-**CC0 1.0 Universal (public domain dedication)**.
+Every file in this directory was produced by `tools/fetch-samples.py` from one of the
+two libraries SPEC §6.9 allows, both released by Versilian Studios under **CC0 1.0
+Universal (public domain dedication)**:
 
-- Source: https://github.com/sgossner/VCSL
-- Licence: https://creativecommons.org/publicdomain/zero/1.0/
-- Licence text as shipped with VCSL: https://github.com/sgossner/VCSL/blob/master/LICENSE
+- **VCSL**, the Versilian Community Sample Library — the struck and plucked
+  instruments. https://github.com/sgossner/VCSL
+  (licence as shipped: https://github.com/sgossner/VCSL/blob/master/LICENSE)
+- **VSCO 2 CE**, Versilian Studios Chamber Orchestra 2, Community Edition — the
+  sustained contrabass the Ground is built from, because VCSL has no bowed note that
+  low. https://github.com/sgossner/VSCO-2-CE
+  (licence as shipped: https://github.com/sgossner/VSCO-2-CE/blob/master/LICENSE)
+- CC0: https://creativecommons.org/publicdomain/zero/1.0/
 
 CC0 waives copyright entirely: no attribution is required. This note exists anyway,
 because SPEC §12 asks for zero licensing exposure, and a reader of a public
 repository should be able to see at a glance where the audio came from.
 
-Files are named by **MIDI note number** — `72.m4a` is middle C. VCSL's own pitch
-names put middle C at C3; the conversion is in the script, with a test that pins it.
+Files are named by **MIDI note number** — `72.m4a` is middle C. Both libraries mostly
+put middle C at C3 in their own file names, but not always: the Concert Harp is
+scientific and Tubular Bells 1 is named two octaves below where it sounds. The
+conversion is per kit in the script, and `tools/test-sample-pitch.py` decodes every
+committed file and fails if a kit's median pitch is off by so much as a semitone.
 
 Nothing else may be added here. SPEC §6.9 allows samples from VCSL and VSCO 2 CE
 only, both CC0; anything else is a licence this project cannot carry.
@@ -26,6 +34,7 @@ only, both CC0; anything else is a licence this project cannot carry.
 | `vibraphone/` | Vibraphone, soft mallets | EWR arrivals — rounder, and it keeps ringing as it settles |
 | `chimes/` | Tubular Bells 1 | overflights across the city — the one struck sound that reads as sustained |
 | `glockenspiel/` | Glockenspiel | high overflights — barely audible shimmer, already in the right register |
+| `contrabass/` | Solo Contrabass, sustained non-vibrato | the Ground — a bowed string instead of an oscillator |
 | `harp/` | Concert Harp | distance-ring crossings — the quietest voice in the set, three or four per named event |
 
 ## Files
@@ -70,6 +79,9 @@ Peak is the source's **mono** peak in dBFS; gain is the lift applied to reach a 
 | `glockenspiel/96.m4a` | `glock_soft_C6_01.wav` | soft | -37.8 | +34.8 | 4.00 |
 | `glockenspiel/103.m4a` | `glock_soft_G6_01.wav` | soft | -38.5 | +35.5 | 3.32 |
 | `glockenspiel/108.m4a` | `glock_soft_C7_03.wav` | soft | -38.3 | +35.3 | 4.00 |
+| `contrabass/38.m4a` | `BKCtbss_SusNV_D1_v3_rr1.wav` | v3 | -19.4 | +16.4 | 14.00 |
+| `contrabass/40.m4a` | `BKCtbss_SusNV_E1_v1_rr1.wav` | v1 | -40.7 | +37.7 | 14.00 |
+| `contrabass/45.m4a` | `BKCtbss_SusNV_A1_v3_rr1.wav` | v3 | -16.2 | +13.2 | 13.51 |
 | `harp/45.m4a` | `KSHarp_A2_mf1.wav` | mf | -30.4 | +27.4 | 3.00 |
 | `harp/52.m4a` | `KSHarp_E3_mf1.wav` | mf | -30.0 | +27.0 | 3.00 |
 | `harp/59.m4a` | `KSHarp_B3_mf1.wav` | mf | -25.4 | +22.4 | 3.00 |
