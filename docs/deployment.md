@@ -88,12 +88,38 @@ later:
 own browser and owes nothing to the socket, so a dropped connection thins the event
 stream for a few seconds and the bed plays through it. There is no seam to cross-fade.
 
-Two things make that true and must not be "optimised" away:
+### The failure that test did **not** cover, and the bug it hid
 
-- the client's **5-second clock probe** (§9.4), which also keeps the connection well
-  inside Cloudflare's reported ~100 s WebSocket idle timeout — a quiet 4 a.m. stretch
-  would otherwise look exactly like a dead connection;
-- **reconnect with exponential backoff**, which is why the test above recovered at all.
+The pishkar session read the result and pointed out that killing a server is the
+_wrong_ failure. A kill sends FIN; the browser fires `close` and the reconnect runs.
+**A tunnel flap sends nothing.** The connection is severed at Cloudflare's edge, the
+server stays up and healthy, and the socket sits half-open: `readyState` stays OPEN,
+`close` and `error` never fire, `send()` succeeds into nothing, and the page looks
+connected while no event will ever arrive again.
+
+Tested the way they suggested — traffic that _vanishes_ rather than being refused, by
+`SIGSTOP`ing the server so the socket stays open and the kernel keeps acknowledging:
+
+| Attempt                                          | What happened                                                                                                                       |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| No watchdog                                      | Nothing. 55 s frozen, no reconnect, `close` finally fired **4 ms after the server was thawed**.                                     |
+| Watchdog calling `socket.close()`                | Still nothing. `close()` sends a closing handshake and the browser holds the event until the peer answers — a dead peer never does. |
+| Watchdog that abandons the socket and reconnects | **New connection attempted 16.4 s after the freeze**, without waiting for anything.                                                 |
+
+Three missed 5-second probes is the trigger, and the reconnect is driven from the
+watchdog rather than from the `close` event, with a generation counter so a late
+`close` from the abandoned socket cannot start a second connection.
+
+So the real recovery time from a tunnel flap is about **16–20 seconds**, during which
+the bed plays on and no aircraft arrive. Without the watchdog it was unbounded.
+
+Two things make the audio continuous and must not be "optimised" away:
+
+- the client's **5-second clock probe** (§9.4), which does three jobs: it measures the
+  clock offset, it keeps the connection inside Cloudflare's reported ~100 s WebSocket
+  idle timeout, and its unanswered replies are what the watchdog counts;
+- **reconnect with exponential backoff**, driven from the watchdog as well as from
+  `close`.
 
 ## Boundaries agreed with the pishkar session
 
