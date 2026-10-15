@@ -139,6 +139,17 @@ export interface AudioConfig {
     readonly rotate_s: number;
     /** How far a note recedes at the bottom of its breath, as a fraction of full. */
     readonly breath_min: number;
+    /** How the bed's level follows the city's event rate (§6.1, §6.5). */
+    readonly duck: {
+      /** How far down the bed goes when the city is silent. Negative; 0 disables. */
+      readonly db: number;
+      /** The rate, per minute, at which the bed is at full level. */
+      readonly full_per_minute: number;
+      readonly rise_s: number;
+      readonly fall_s: number;
+      /** How long a stretch the rate is measured over. */
+      readonly window_s: number;
+    };
     readonly midi: readonly number[];
     readonly gain: number;
     readonly attack_s: number;

@@ -49,6 +49,17 @@ export class RadioAudio {
     return this.started;
   }
 
+  /**
+   * Keep the bed's level moving when nothing is arriving (§6.1).
+   *
+   * `AudioEngine.schedule` advances it on every event, which is all an offline
+   * render needs — but a quiet city schedules nothing, and a gap is exactly when the
+   * bed has to come down. The page calls this from its frame loop.
+   */
+  tick(): void {
+    this.engine?.tickDensity(Tone.now());
+  }
+
   /** Events refused by the voice budget, shown in the header so it is not invisible. */
   get droppedCount(): number {
     return this.dropped;
@@ -88,6 +99,7 @@ export class RadioAudio {
       bpm: this.audio.transport.bpm,
       master: this.audio.master,
       textureGain: this.audio.governor_texture_gain,
+      duck: this.audio.ground.duck,
     });
     // The drone first, so the page is making sound before the kits have downloaded.
     // Through the engine's trim rather than straight to the destination, so §6.8's

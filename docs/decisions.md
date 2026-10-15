@@ -1027,3 +1027,47 @@ render, and distinct instants after quantisation. Those are counts, not estimate
 What is lost: a check on _masking_ — whether an event that plays is loud enough to be
 heard. That is answered better analytically anyway, by the per-event level table in
 `docs/music/listening-log.md`, which needs no render at all.
+
+## 2026-10-15 · [HUMAN, proposed] §6.5's "let the Ground carry more" is backwards, measured
+
+SPEC §6.5 on a quiet city: _"**Too few** (3 a.m.): use **memory fill** (§6.6) and let
+the Ground and Color layers carry more."_
+
+Round 6's listening says the opposite about the Ground's **level**. Mohammad wrote
+timestamps while listening and the correlation against the piece's own schedule is
+plain: every moment he called alive sits in a stretch of 54–108 events a minute, every
+complaint about the bed sits in one of 12–48. His own words: _"in general, when there
+are a lot of events the feeling of being alive is stronger"_, and at 2:18, _"when we
+had no events it was a bit loud."_
+
+A bed at a fixed level cannot be right in both halves of that. It now follows the rate:
+full at 60 events a minute, 6 dB down when the city is silent, rising over three
+seconds and falling over eight on a rolling twenty-second window
+(`ground.duck` in score.yaml, implemented in `AudioEngine.tickDensity` because that is
+where every event is already seen and because it must behave the same in an offline
+render, where nothing but `schedule` runs).
+
+**What should change in §6.5, if he agrees:** the Ground carries more _attention_ when
+the city is thin — it is the only thing left — but it must not carry more _level_. The
+second sentence is the one that was implemented and it is the one his ears rejected.
+
+**And the half of §6.5 that is right and not built: memory fill (§6.6).** Five
+ten-second windows of the measured slice contain no events at all. A quieter bed makes
+those windows less irritating; it does not make them music. That is the next build.
+
+## 2026-10-15 · The engine owns the Ground's trim
+
+`AudioEngine.groundDestination` now returns a dedicated `groundTrim` ahead of the
+master trim, and the engine writes its automation.
+
+It would read better in `Ground`, which is where every other decision about the bed
+lives. It is here because of the offline render: in the lab nothing runs but
+`schedule`, so the only place that reliably sees the passage of time _and_ the event
+rate is the engine. `tickDensity` steps the automation forward in half-second
+increments from wherever it last wrote, so one call per event is enough for a render,
+and the page calls it from its frame loop as well — which is what brings the bed down
+during a gap, when by definition no events are being scheduled.
+
+The steps are what keep an `AudioParam`'s timeline monotonic. Scheduling a ramp that
+ends before an already-scheduled one is how automation quietly comes out wrong in an
+offline context, and there is no way to hear that it has.

@@ -328,3 +328,56 @@ The bed swells about 5 dB on its breath LFO and the filter sweep opens to 600 Hz
 43-second period; where the two coincide the bed is both loudest and brightest, and
 that is exactly where he stopped and wrote the time down. Three irritations, one cause,
 and it is a number rather than a rebuild.
+
+### Round 6 — 2026-10-15 — the bed steps back, and the city stops being texture
+
+`v6-soft` and `v6-softer`, differing only in how loud the bed is. Both carry round 5's
+fixes: the bed 4.6 dB down, its filter sweep closed from 240–600 Hz to 220–380, its
+breath floor halved so it properly recedes, and the governor's ceiling raised so the
+city is 15% texture instead of 64%.
+
+**Result: the softer bed wins.** _"So far this version is better… I'm not a musician
+but I like the second one more."_ He also listened on laptop speakers as well as
+headphones this time, and noted that the bed is far more present on headphones — which
+is what a bed carried by its bottom octaves does.
+
+**And he found the real rule, which no measurement here had looked for.** He wrote
+timestamps while listening, so they are approximate, and still the correlation is
+plain. Against the piece's own schedule, events a minute in the ten seconds around
+each moment he named:
+
+| he said                                 | at   | events/min |
+| --------------------------------------- | ---- | ---------- |
+| bed too loud                            | 0:05 | 30         |
+| **real music, beautiful, alive**        | 0:56 | **96**     |
+| bed a bit loud                          | 1:59 | 30         |
+| no events, bed a bit loud               | 2:18 | 48         |
+| **good**                                | 2:45 | **66**     |
+| **bed peaked beautifully** (a bit loud) | 3:10 | **102**    |
+| **that note was perfect**               | 4:09 | 54         |
+| **a note with feeling**                 | 4:18 | **72**     |
+| **busy — I enjoyed it**                 | 4:56 | **66**     |
+| the noise bothered me                   | 5:08 | **12**     |
+| **busy — it felt like music**           | 5:17 | **108**    |
+
+His own summary: _"in general, when there are a lot of events the feeling of being
+alive is stronger"_, and at 2:18, _"when we had no events it was a bit loud — but it
+showed the start of the events well."_ Every complaint about the bed lands between 12
+and 48 events a minute; every moment he called music lands between 54 and 108. Two of
+fourteen do not fit (0:44, 5:26), which for approximate timestamps written while
+listening is a strong result.
+
+**So the bed is not too loud. It is too loud when nothing else is playing** — and a
+fixed level cannot be right in both halves of that sentence. It now follows the event
+rate: full at 60 a minute and 6 dB down when the city is silent, rising over three
+seconds and falling over eight, measured on a rolling twenty.
+
+This contradicts one line of §6.5 — _"too few: let the Ground and Color layers carry
+more"_ — and his ears are the authority §7.2 names. Logged for amendment in
+`docs/decisions.md`; not edited into SPEC.
+
+The other half of the same finding is **§6.6 memory fill**, which is specified and not
+built: five ten-second windows of this slice contain no events at all, and the fix for
+those is not a quieter bed but something true to play.
+
+**Result:** round 7 pending — the same mix with the bed following the city.

@@ -124,6 +124,15 @@ export async function renderOffline(input: RenderInput): Promise<{
         rootMidi: audio?.palette.root_midi ?? 62,
         bpm: input.bpm,
         textureGain: 0.35,
+        // The probe fixture predates the Ground following the city; zero keeps its
+        // hash where it is (see lab/fixtures/probe-voice.ts).
+        duck: audio?.ground.duck ?? {
+          db: 0,
+          full_per_minute: 60,
+          rise_s: 3,
+          fall_s: 8,
+          window_s: 20,
+        },
         master: audio?.master ?? {
           // The fixture's historical chain, kept literal so the probe's hash cannot
           // move when the score is tuned. See lab/fixtures/probe-voice.ts.

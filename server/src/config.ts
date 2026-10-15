@@ -414,6 +414,13 @@ const scoreSchema = z.object({
       swell_s: z.number().positive(),
       rotate_s: z.number().min(0),
       breath_min: z.number().min(0).max(1),
+      duck: z.object({
+        db: z.number().max(0),
+        full_per_minute: z.number().positive(),
+        rise_s: z.number().positive(),
+        fall_s: z.number().positive(),
+        window_s: z.number().positive(),
+      }),
       midi: z.array(z.number().int().min(0).max(127)).min(1),
       gain: z.number().min(0).max(1),
       attack_s: z.number().positive(),

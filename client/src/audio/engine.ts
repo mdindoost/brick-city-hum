@@ -35,6 +35,16 @@ export interface EngineOptions {
   readonly master: AudioConfig['master'];
   /** Level for events the governor demoted to texture (§6.5). */
   readonly textureGain: number;
+  /**
+   * How the Ground follows the city (§6.1, §6.5).
+   *
+   * Round 6's listening produced the clearest correlation this project has: every
+   * moment Mohammad called alive sat in a dense stretch (51–108 events a minute) and
+   * every moment the bed bothered him sat in a thin one (12–30). A bed at a fixed
+   * level is too loud whenever the city goes quiet and right when it is busy, and no
+   * single number fixes both — so the level follows the rate.
+   */
+  readonly duck: AudioConfig['ground']['duck'];
 }
 
 interface ScheduledVoice {
@@ -57,6 +67,11 @@ export class AudioEngine {
   /** Finished or stolen gestures, awaiting release once the context has passed them. */
   private retired: ScheduledVoice[] = [];
   private stolen = 0;
+  /** When the Ground's trim was last written, and to what. See `tickDensity`. */
+  private duckAt = 0;
+  private duckLevel = 1;
+  private recentEvents: number[] = [];
+  private readonly groundTrim: Tone.Gain;
   private palette: { rootMidi: number; scale: readonly number[] };
 
   constructor(private readonly options: EngineOptions) {
@@ -88,6 +103,9 @@ export class AudioEngine {
     this.limiter = new Tone.Limiter(master.limiter_ceiling_db).toDestination();
     // The trim the lab moves to reach §6.8's loudness target.
     this.trim = new Tone.Gain(Tone.dbToGain(master.gain_db)).connect(this.limiter);
+    // The Ground's own trim, between it and the master trim, so the bed can follow
+    // the event rate without the voices moving with it (see `tickDensity`).
+    this.groundTrim = new Tone.Gain(1).connect(this.trim);
     this.compressor = new Tone.Compressor({
       threshold: master.compressor_threshold_db,
       ratio: master.compressor_ratio,
@@ -159,8 +177,47 @@ export class AudioEngine {
    * a stage that exists to tame event density, but is covered by the ceiling that
    * exists to protect the listener.
    */
+  /**
+   * Where the Ground connects: through its own trim, which follows the event rate.
+   *
+   * The automation lives here rather than in `Ground` because this is where every
+   * event is already seen, and because it has to behave identically in an offline
+   * render — where nothing but `schedule` ever runs — and on a page, where the frame
+   * loop calls `tickDensity`.
+   */
   get groundDestination(): Tone.InputNode {
-    return this.trim;
+    return this.groundTrim;
+  }
+
+  /**
+   * Move the Ground's trim up to `at`, in half-second steps.
+   *
+   * Called from `schedule` so a render needs nothing else, and from the client's
+   * frame loop so that a long gap with no events still brings the bed down. Stepping
+   * rather than jumping keeps the automation monotonic in time, which is what an
+   * offline AudioParam requires.
+   */
+  tickDensity(at: number): void {
+    const duck = this.options.duck;
+    if (duck.db >= 0) return;
+    const step = 0.5;
+    // A page left open all night must not walk a thousand steps on its first event.
+    if (at - this.duckAt > 120) this.duckAt = at - step;
+    while (this.duckAt + step <= at) {
+      const now = this.duckAt + step;
+      const cutoff = now - duck.window_s;
+      this.recentEvents = this.recentEvents.filter((time) => time > cutoff);
+      const rate = (this.recentEvents.length * 60) / duck.window_s;
+      const reach = Math.min(1, rate / duck.full_per_minute);
+      const target = 10 ** ((duck.db * (1 - reach)) / 20);
+      const seconds = target > this.duckLevel ? duck.rise_s : duck.fall_s;
+      // One ramp per step, each starting where the last ended: the param's timeline
+      // stays in order, which `linearRampToValueAtTime` needs and an offline context
+      // does not forgive.
+      this.groundTrim.gain.linearRampToValueAtTime(target, now + seconds);
+      this.duckLevel = target;
+      this.duckAt = now;
+    }
   }
 
   /** Disable reverb, for deterministic offline renders. */
@@ -177,6 +234,11 @@ export class AudioEngine {
    */
   schedule(event: PublicEvent, playAt: number): boolean {
     this.releaseFinished();
+    // Before anything else, so the bed is already where it should be when this
+    // event sounds — and so a render, which calls nothing else, still gets the
+    // whole envelope.
+    this.recentEvents.push(playAt);
+    this.tickDensity(playAt);
     // The voice budget is about overlap at the moment the gesture sounds, so it is
     // counted against `playAt` — not against the context clock.
     for (const scheduled of this.active) {

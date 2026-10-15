@@ -185,6 +185,9 @@ function main(): void {
       audio?.schedule(due.events, due.playAt, serverNow);
       seen += due.events.length;
     }
+    // The bed follows the event rate, and a gap schedules nothing — so it is moved
+    // from here rather than only from `schedule` (§6.1).
+    audio?.tick();
     map.render(serverNow);
     captions.trim(serverNow);
     const rtt = radio.clock.roundTripMs;

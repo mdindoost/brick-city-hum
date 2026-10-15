@@ -120,7 +120,7 @@ audio:
     # filter, and the city rose about 3 dB where it had been texture — so the whole
     # mix landed at −25.6 LUFS, five decibels under spec. +3.5 brings it back to
     # −21.1 LUFS and −2.3 dBTP with the limiter still untouched.
-    gain_db: 3.5
+    gain_db: 4.5
     # Harshness is what makes an ambient piece unlistenable over hours (§6.8).
     high_shelf_hz: 6000
     high_shelf_db: -6
@@ -209,7 +209,7 @@ audio:
 
   # The Ground layer (§6.1): the air of the city, always there, never the subject.
   ground:
-    # A recording of a bowed contrabass, not three oscillators.
+    # A recording of a bowed cello section, not three oscillators.
     #
     # Mohammad's diagnosis after four rounds, and it was right: "I think that
     # background noise is there because you are synthesising it." The bed was three
@@ -242,15 +242,39 @@ audio:
     # two notes breathe on 17 and 23 seconds, the troughs sometimes coincide and it
     # nearly disappears.
     breath_min: 0.25
+    # The bed follows the city.
+    #
+    # Round 6 produced the clearest correlation in this project. Every moment
+    # Mohammad called alive — 0:56, 2:45, 3:10, 4:18, 4:56, 5:17 — sits in a stretch
+    # running 51 to 108 events a minute. Every moment the bed bothered him — 0:05,
+    # 1:59, 2:18, 5:08 — sits in one running 12 to 30. He found it himself: "when
+    # there are a lot of events the feeling of being alive is stronger", and "at 2:18
+    # when we had no events it was a bit loud".
+    #
+    # A fixed level cannot satisfy both: it is right when the city is busy and too
+    # loud the moment it goes quiet. So it moves. Rising faster than it falls, because
+    # he liked the bed swelling with an arriving wave of events — "with the events
+    # increasing, the background peaked beautifully" — and because a fall that is too
+    # quick would pump.
+    #
+    # NOTE: §6.5 says the opposite in one line — "too few: let the Ground and Color
+    # layers carry more". Proposed for amendment, logged in docs/decisions.md; his
+    # ears are the authority §7.2 names.
+    duck:
+      db: -6
+      full_per_minute: 60
+      rise_s: 3
+      fall_s: 8
+      window_s: 20
     # Root and fifth, two octaves down. A bare fifth leaves the third undefined, so
     # event notes may colour the harmony either way without ever contradicting it.
     #
-    # The contrabass kit has both notes at pitch: VSCO 2 CE names them D1 and A1, and
-    # that library counts middle C as C3, so they are MIDI 38 and 45 exactly. Nothing
-    # is bent, which matters more here than anywhere else — a stretched sample sounds
-    # stretched, and this one plays for hours.
+    # A cello section is sampled in thirds, so these two come from neighbours bent by
+    # at most a whole tone — ordinary sampler behaviour, and inaudible as a stretch on
+    # a bowed note. The solo contrabass, which had both notes at pitch, turned out not
+    # to be sustained at all: its takes are separate bow strokes with silence between.
     midi: [38, 45]
-    gain: 0.4
+    gain: 0.28
     attack_s: 8
     # Mutually prime loop lengths (§6.7.1 — the Music for Airports technique). Their
     # combination repeats once every 17 × 23 × 31 ≈ 3.4 hours.
