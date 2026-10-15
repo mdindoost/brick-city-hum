@@ -34,6 +34,9 @@ const COLOURS: Record<PublicEvent['type'], string> = {
   // follows salience, which already follows distance, so one colour covers a 30 km
   // whisper and a 5 km one (§6.5).
   sky: '#6b8099',
+  // An altitude crossing belongs to the same aircraft family as the rings, one step
+  // warmer so a climb reads differently from a position.
+  altitude_band: '#7e8fa6',
   // Rail is warm where the sky is cool, so a train is distinguishable from an
   // aircraft at a glance and without reading the caption.
   path_approaching: '#9c8f5a',
@@ -51,6 +54,7 @@ const GLYPHS: Record<PublicEvent['type'], GlyphKind> = {
   overflight_city: 'plane',
   overflight_high: 'plane',
   sky: 'plane',
+  altitude_band: 'plane',
   helicopter: 'helicopter',
   path_approaching: 'train',
   path_arrival: 'train',

@@ -239,3 +239,11 @@ footer {
     padding: 6px 14px;
   }
 }
+
+.tally {
+  color: var(--faint);
+  font:
+    11px ui-monospace,
+    monospace;
+  padding-top: 2px;
+}

@@ -205,10 +205,40 @@ export class Detector {
         radiusKm * detection.ring_hysteresis_fraction,
       );
       const left = current.onGround || distanceToOrigin > radiusKm + band;
-      // The zone key carries the radius, so six rings keep six independent states
-      // while producing one kind of event.
-      if (this.crossedInto(`sky:${String(radiusKm)}`, state, inside, left)) {
+      // The zone key carries the radius, so fourteen rings keep fourteen independent
+      // states while producing one kind of event.
+      const key = `sky:${String(radiusKm)}`;
+      const wasInside = state.inside.has(key);
+      if (inside && !wasInside) {
+        state.inside.add(key);
         events.push(this.buildEvent('sky', current, distanceToOrigin, heavy));
+      } else if (wasInside && left) {
+        state.inside.delete(key);
+        // Outward crossings are events too: a departure climbing away narrates its
+        // leaving exactly as an arrival narrates its approach.
+        if (detection.rings_on_exit) {
+          events.push(this.buildEvent('sky', current, distanceToOrigin, heavy));
+        }
+      }
+    }
+
+    // --- Altitude bands ------------------------------------------------------
+    // Crossed in either direction, and only while the aircraft is in our sky. The
+    // previous altitude comes from the track rather than from stored state, so an
+    // aircraft first seen above a band does not announce a crossing it never made.
+    if (
+      previous !== undefined &&
+      current.altFt !== null &&
+      previous.altFt !== null &&
+      distanceToOrigin <= detection.altitude_band_within_km &&
+      !current.onGround
+    ) {
+      const low = Math.min(previous.altFt, current.altFt);
+      const high = Math.max(previous.altFt, current.altFt);
+      for (const band of detection.altitude_bands_ft) {
+        if (band > low && band <= high) {
+          events.push(this.buildEvent('altitude_band', current, distanceToOrigin, heavy, band));
+        }
       }
     }
 
@@ -377,12 +407,25 @@ export class Detector {
     describedAs: string,
     operator: string | null,
     bearingDegrees: number,
+    observation: Observation,
+    distanceKm: number,
+    bandFt?: number,
   ): string {
     const templates = this.options.sources.captions;
-    const caption = fillCaption(templates[type], {
+    const climbing = (observation.verticalRateFpm ?? 0) >= 0;
+    // A ring crossing picks its wording by distance, so one aircraft's passage reads
+    // as an approach rather than as the same sentence repeated.
+    const template =
+      type === 'sky'
+        ? (templates.sky_by_distance.find((band) => distanceKm <= band.within_km)?.text ??
+          templates.sky_by_distance[templates.sky_by_distance.length - 1]!.text)
+        : templates[type];
+    const caption = fillCaption(template, {
       aircraft: describedAs,
       place: templates.place,
       direction: compassPoint(templates.compass, bearingDegrees),
+      vertical: climbing ? templates.climbing : templates.descending,
+      altitude: bandFt === undefined ? '' : bandFt.toLocaleString('en-GB'),
     });
     if (operator === null) return caption;
     return caption + templates.operator_suffix.replace('{operator}', operator);
@@ -393,6 +436,8 @@ export class Detector {
     observation: Observation,
     distanceToOrigin: number,
     heavy: boolean,
+    /** The threshold just crossed, for an `altitude_band` caption. */
+    bandFt?: number,
   ): CityEvent {
     const describedAs = this.describe(observation);
     const operator = this.operatorFor(observation);
@@ -421,7 +466,15 @@ export class Detector {
       salience: round(this.salienceFor(type, distanceToOrigin, heavy), precision.salience),
       // The governor places every event before it leaves the server (§6.5).
       tier: 'voice',
-      caption: this.captionFor(type, describedAs, operator, bearing),
+      caption: this.captionFor(
+        type,
+        describedAs,
+        operator,
+        bearing,
+        observation,
+        distanceToOrigin,
+        bandFt,
+      ),
       sim: false,
       scheduled: false,
     };
@@ -431,12 +484,20 @@ export class Detector {
 /** Fill a caption template from config. */
 export function fillCaption(
   template: string,
-  values: { aircraft: string; place: string; direction?: string },
+  values: {
+    aircraft: string;
+    place: string;
+    direction?: string;
+    vertical?: string;
+    altitude?: string;
+  },
 ): string {
   return template
     .replace('{aircraft}', values.aircraft)
     .replace('{place}', values.place)
-    .replace('{direction}', values.direction ?? '');
+    .replace('{direction}', values.direction ?? '')
+    .replace('{vertical}', values.vertical ?? '')
+    .replace('{altitude}', values.altitude ?? '');
 }
 
 /**

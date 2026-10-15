@@ -684,11 +684,15 @@ describe('captions come from config, not from code', () => {
       // the station in hand; the aircraft detector never sees them.
       path_approaching,
       path_arrival,
+      // Words the altitude-band caption is built from, not templates themselves.
+      climbing,
+      descending,
       ...eventTemplates
     } = sources.captions;
     expect(compass).toHaveLength(8);
+    expect(climbing).not.toBe(descending);
     for (const template of Object.values(eventTemplates)) {
-      expect(template).not.toMatch(/\{(?!aircraft|place|direction)\w+\}/);
+      expect(template).not.toMatch(/\{(?!aircraft|place|direction|vertical|altitude)\w+\}/);
     }
     for (const template of [path_approaching, path_arrival]) {
       expect(template).not.toMatch(/\{(?!station|toward)\w+\}/);

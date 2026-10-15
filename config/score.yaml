@@ -25,10 +25,16 @@ governor:
   # become a loud one.
   day_from_hour: 7
   night_from_hour: 22
-  day: { min: 6, max: 14 }
-  night: { min: 2, max: 6 }
+  # §6.5's "e.g. night 2–6, day 6–14; tune" — and tuned. At 14 a minute a listener
+  # described the result as too sparse to follow, and the raw rate the rings now
+  # produce is 83 a minute, so the ceiling was the binding constraint rather than the
+  # city. These are high for an ambient piece and will stay high only while the
+  # voices are sustained tones; the next musical round is struck sounds, which carry
+  # a far higher rate without turning into a wash.
+  day: { min: 10, max: 45 }
+  night: { min: 4, max: 18 }
   # What a demoted event is played at, relative to its own voice.
-  texture_gain: 0.35
+  texture_gain: 0.45
 
 visual:
   # The map is centred on the listener, not on the airport — SPEC §1.1, you are
@@ -90,7 +96,7 @@ audio:
     # Modes with semitones (Dorian, Aeolian) arrive in Phase 2 with the palettes,
     # when a harmonic walk exists to resolve them.
     root_midi: 62 # D4
-    scale: [0, 3, 5, 7, 10]
+    scale: [0, 2, 4, 7, 9]
 
   # The Ground layer (§6.1): the air of the city, always there, never the subject.
   ground:
@@ -111,8 +117,8 @@ audio:
     # Levels here were set against a sky that spoke 1.4 times a minute. At 20 a minute
     # their sum drove the master limiter to 0.0 dBTP — over §6.8's ceiling and audibly
     # squashed. Density is loudness; adding events means taking level away.
-    max_desktop: 24
-    max_mobile: 12
+    max_desktop: 40
+    max_mobile: 20
     # §6.8: no sudden transients. Every voice's attack is clamped to at least this.
     min_attack_s: 0.005
 

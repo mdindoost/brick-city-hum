@@ -22,6 +22,9 @@ export const EVENT_TYPES = [
   // every ring — distance already makes a far crossing quiet, dark and wet, so the
   // same event is texture at 30 km and the subject at 5 km without a second rule.
   'sky',
+  // Crossing an altitude threshold, either way (§6.5). Climbing through ten thousand
+  // feet is a real moment in a flight, and it is one the data reports precisely.
+  'altitude_band',
   // Rail (§3.3). A train is not an aircraft and must not borrow its voice: §6.4 gives
   // each line a struck bell against the aircraft's sustained tones.
   'path_approaching',

@@ -14,7 +14,7 @@
 import type { PublicEvent, VisualConfig } from '../../../shared/protocol.js';
 
 export class Captions {
-  private readonly lines: { el: HTMLElement; at: number }[] = [];
+  private readonly lines: { el: HTMLElement; at: number; text: string; count: number }[] = [];
 
   constructor(
     private readonly host: HTMLElement,
@@ -27,6 +27,21 @@ export class Captions {
 
   add(events: readonly PublicEvent[], serverNow: number): void {
     for (const event of events) {
+      // One aircraft crosses many rings, so the same sentence can arrive several times
+      // in a row. Repeating it is true and unreadable; counting it is both.
+      const top = this.lines[0];
+      if (top !== undefined && top.text === event.caption) {
+        top.count += 1;
+        let badge = top.el.querySelector<HTMLElement>('.tally');
+        if (badge === null) {
+          badge = document.createElement('span');
+          badge.className = 'tally';
+          top.el.append(badge);
+        }
+        badge.textContent = `×${String(top.count)}`;
+        top.at = serverNow;
+        continue;
+      }
       const line = document.createElement('li');
       line.className = event.sim ? 'caption caption--sim' : 'caption';
       const time = document.createElement('time');
@@ -39,7 +54,7 @@ export class Captions {
       text.textContent = event.caption;
       line.append(time, text);
       this.host.prepend(line);
-      this.lines.unshift({ el: line, at: serverNow });
+      this.lines.unshift({ el: line, at: serverNow, text: event.caption, count: 1 });
     }
     this.trim(serverNow);
   }

@@ -160,12 +160,27 @@ detection:
   # plane announced twice from the same direction, which is a small lie. The band
   # scales with the ring instead.
   ring_hysteresis_fraction: 0.08
-  # Six radii, outermost first. One event per ring per track, so an aircraft coming
-  # in from the horizon announces itself six times, each one nearer, louder and
-  # brighter than the last — the distance mapping in §6.4 turns a list of numbers into
-  # an approach. Measured on 14/10: the original rules heard 1.4 events a minute from
-  # a sky that delivers 331 aircraft an hour.
-  rings: [30, 20, 14, 10, 7, 5]
+  # Fourteen radii, outermost first, crossed in both directions.
+  #
+  # Measured on 14/10: 331 aircraft an hour come within 46 km of campus. Six rings
+  # inward gave 20 events a minute and a listener still described the result as too
+  # sparse to follow, so the sky is sampled more finely and on the way out as well as
+  # the way in. An aircraft crossing the city now narrates its whole passage.
+  #
+  # The spacing tightens as it comes closer, which is not arbitrary: §6.4 ties
+  # distance to loudness, so even spacing would spend most of the events where they
+  # are least audible.
+  rings: [34, 28, 23, 19, 16, 13, 11, 9, 7.5, 6, 5, 4, 3, 2]
+  # An aircraft leaving is as real as one arriving, and this is the cheapest honest
+  # doubling of the event rate available to us.
+  rings_on_exit: true
+
+  # Altitude thresholds in feet, crossed either way. §3.2's gates are starting values
+  # and this is the same idea applied vertically: climbing through ten thousand feet
+  # is a real moment in a flight, and one a listener under the departure path can
+  # watch happen.
+  altitude_bands_ft: [2000, 4000, 7000, 10000, 15000, 20000, 28000]
+  altitude_band_within_km: 34
 
 # PATH trains (SPEC §3.1 R3, §3.3).
 #
@@ -223,6 +238,7 @@ salience:
   # 30 km crossing a sixth as salient as a 5 km one, so a per-ring number would be
   # the same decision written twice.
   sky: 0.34
+  altitude_band: 0.26
   # A train is a near, certain, human-scale event: more salient than a distant
   # aircraft, less than a departure overhead.
   path_approaching: 0.3
@@ -437,7 +453,18 @@ captions:
   # Ring crossings name a direction rather than a place: it is what a person standing
   # on campus would actually say, and it gives the ticker the variety that "an airliner
   # arriving at Newark", twenty times an hour, does not.
-  sky: '✈ {aircraft} to the {direction}'
+  # A ring crossing names how near it is, not just where. One aircraft crosses
+  # fourteen rings on its way across the city, and without this the ticker prints the
+  # same seven words fourteen times — which reads as noise however true each line is.
+  sky_by_distance:
+    - { within_km: 5, text: '✈ {aircraft} right overhead, to the {direction}' }
+    - { within_km: 10, text: '✈ {aircraft} close by, to the {direction}' }
+    - { within_km: 20, text: '✈ {aircraft} to the {direction}' }
+    - { within_km: 999, text: '✈ {aircraft} far to the {direction}' }
+  altitude_band: '✈ {aircraft} {vertical} {altitude} ft to the {direction}'
+  # Filled from the sign of the vertical rate.
+  climbing: climbing through
+  descending: descending through
   # Naming where it is going distinguishes the two platforms at one station, which
   # otherwise produce the same sentence twice in the ticker, and it is what the feed
   # actually tells us.

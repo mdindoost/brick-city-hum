@@ -196,8 +196,13 @@ const sourcesSchema = z.object({
     heavy: z.object({ emitter_category: z.string().min(1) }),
     /** Exit band as a fraction of each ring's radius. See sources.yaml. */
     ring_hysteresis_fraction: z.number().min(0).max(1),
-    /** Ring radii in km, crossed inward. See sources.yaml. */
+    /** Ring radii in km. See sources.yaml. */
     rings: z.array(z.number().positive()).min(1),
+    /** Fire when an aircraft crosses a ring outward as well as inward. */
+    rings_on_exit: z.boolean(),
+    /** Altitude thresholds in feet, crossed in either direction. */
+    altitude_bands_ft: z.array(z.number().positive()).min(1),
+    altitude_band_within_km: z.number().positive(),
   }),
   precision: z.object({
     bearing_deg: z.number().int().min(0).max(6),
@@ -220,6 +225,7 @@ const sourcesSchema = z.object({
   }),
   salience: z.object({
     sky: z.number().min(0).max(1),
+    altitude_band: z.number().min(0).max(1),
     path_approaching: z.number().min(0).max(1),
     path_arrival: z.number().min(0).max(1),
     ewr_departure: z.number().min(0).max(1),
@@ -254,7 +260,12 @@ const sourcesSchema = z.object({
     overflight_city: z.string().min(1),
     overflight_high: z.string().min(1),
     helicopter: z.string().min(1),
-    sky: z.string().min(1),
+    sky_by_distance: z
+      .array(z.object({ within_km: z.number().positive(), text: z.string().min(1) }))
+      .min(1),
+    altitude_band: z.string().min(1),
+    climbing: z.string().min(1),
+    descending: z.string().min(1),
     path_approaching: z.string().min(1),
     path_arrival: z.string().min(1),
     compass: z.array(z.string().min(1)).length(8),

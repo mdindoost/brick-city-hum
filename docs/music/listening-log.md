@@ -8,6 +8,39 @@ that win are adopted.
 | ---------- | ------------------------------------- | ------------------------------------- | --------- | -------- | ----- | -------- | ----------- | --------- | ---------------------------------------------------------------------------------- |
 | 2026-10-14 | `aircraft-with-reverb-ground-forward` | `aircraft-with-reverb-voices-forward` | _pending_ |          |       |          |             | _pending_ | First round. One variable: how far forward the city voices sit against the Ground. |
 
+### Round 2 — 2026-10-15 — density, no clicks, minor vs major
+
+Same six minutes of real traffic through the distance rings and the governor;
+`v2-minor` and `v2-major` differ only in the palette's scale, at matched loudness.
+
+**Result: both lost again**, and the verdict names the real problem.
+
+> "Neither. It still has something like background noise and no musical feeling. I
+> don't see much difference between them. Around 2:30 when the number of events went
+> up it became a little bearable; 3:36 a bit better; 3:57 the sounds had changes. What
+> I heard on Wikipedia wasn't like this — **it was as if someone was really playing a
+> note**."
+
+Three things follow, and only the third is about taste.
+
+1. **The clicks are gone and it still sounds like noise**, so the noise was never only
+   the clicks. Our voices are sine and triangle oscillators with slow attacks and long
+   releases; several of them overlapping is a wash by construction. A wash is what a
+   listener calls background noise no matter how in-tune it is.
+2. **"Someone really playing a note" is the whole brief for the next musical round.**
+   What that describes is a struck or plucked attack with a decaying body — a
+   transient the ear can locate in time — rather than a tone that fades in. The PATH
+   bell is already the right shape; the aircraft voices are not. §6.9's "synthesis
+   first" does not require that synthesis be sine waves, and VCSL and VSCO 2 CE are
+   CC0 and full of struck instruments.
+3. **The moments he could name were the busy ones** (2:30, 3:36, 3:57). More events
+   made it more bearable, which is the same direction as his earlier note and the
+   reason the next work is density rather than timbre.
+
+**Direction, from Mohammad:** stop tuning the notes for now. Push the event count as
+far as it will honestly go, leave the page's beauty for later, and come back to the
+sound with a better idea.
+
 ### Round 1 — 2026-10-14 — the first aircraft voices
 
 The same 10 minutes of real Newark traffic (14 Oct, 15 events), the same seed, the
