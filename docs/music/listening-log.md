@@ -243,3 +243,56 @@ out one at a time instead of sixteen at once. `spread` stays on by default.
 like someone striking a note. His next observation went straight past the voices to
 the bed — _"I think that background noise is there because you are synthesising it"_ —
 which is round 5.
+
+### Round 5 — 2026-10-15 — the bed, which nobody had touched
+
+`v5-osc` and `v5-cello`. Same events, same voices, same spread, same loudness. The
+only difference is what the bed is made of.
+
+**The hypothesis is Mohammad's**, straight after round 4: _"I think that background
+noise is there because you are synthesising it."_ Four rounds had gone to the voices
+while the one layer nobody had changed was the loudest and most continuous thing in
+the piece — three triangle oscillators at 73 and 110 Hz behind a 420 Hz lowpass.
+A filtered triangle that low is not a drone, it is the sound of a transformer, and
+nothing in it was ever bowed, blown or struck.
+
+_Music for Airports_, which §6.7.1 cites for the loop technique, is tape loops of
+recorded voices and piano. The oscillators were never the faithful reading.
+
+**B is a cello section**, bowed, from VSCO 2 CE (CC0, §6.9), built the way those tapes
+were: one recording per note, re-entered before the last entry has gone, so the sound
+is continuous and has no loop point. Three things had to be measured rather than
+guessed, and each one was visible on a bed-only spectrogram:
+
+1. A linear crossfade drops two uncorrelated copies by 3 dB where they meet — a dark
+   stripe every ten seconds, §6.7.1's pulse arriving through the back door. Equal
+   power fixes it.
+2. The solo contrabass tried first was not sustained at all: its "SusNV" takes are
+   two or three separate bow strokes with silence between them.
+3. Without rotating the entry's start point, the bed is one five-second phrase
+   repeating. The offset now walks by the golden ratio — fixed, so every listener
+   hears the same bed (§5).
+
+| bed alone, two minutes | A — oscillators | B — cello section |
+| ---------------------- | --------------- | ----------------- |
+| integrated             | −21.7 LUFS      | −21.6 LUFS        |
+| below 200 Hz           | −22.0           | −25.7             |
+| above 300 Hz           | −38.5           | **−26.1**         |
+
+Level-matched on purpose, or the round would be a test of loudness. The two numbers
+that differ are the point: B has less weight at the bottom and **12 dB more above
+300 Hz**, which is the bow — and also the half of the spectrum the harp and vibraphone
+live in. Whether that reads as an instrument or as something covering the city is
+exactly the question.
+
+**What to listen for, in order:**
+
+1. **Is it still background noise?** That is the whole round, and it is your own test.
+2. Does the bed cover the city? In A the band above 300 Hz was empty and the events
+   had it to themselves.
+3. Does the bed repeat? If you can hear a phrase coming back, `rotate_s` is too small
+   and that is a number, not a rebuild.
+4. Does it want more weight at the bottom? A quiet sine under it is one line of
+   config, but it is synthesis, so it goes to your ears first.
+
+**Result:** _pending._

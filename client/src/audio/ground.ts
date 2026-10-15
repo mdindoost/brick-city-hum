@@ -70,7 +70,8 @@ export class Ground {
   private readonly nodes: { dispose: () => void }[] = [];
   private readonly filters: Tone.Filter[] = [];
   private master: Tone.Gain | null = null;
-  private refillTimer: ReturnType<typeof setInterval> | null = null;
+  /** One per note: `forEach` means a single field would leak all but the last. */
+  private readonly refillTimers: ReturnType<typeof setInterval>[] = [];
 
   constructor(private readonly audio: AudioConfig) {}
 
@@ -239,7 +240,7 @@ export class Ground {
         // `setInterval` decides only *when to think about it*, never when a note
         // sounds (§9.4).
         let scheduled = at + horizon;
-        this.refillTimer = setInterval(
+        const timer = setInterval(
           () => {
             const until = Tone.now() + horizon;
             if (until <= scheduled) return;
@@ -250,6 +251,7 @@ export class Ground {
           },
           Math.max(5, horizon / 3) * 1000,
         );
+        this.refillTimers.push(timer);
       }
     });
 
@@ -279,8 +281,8 @@ export class Ground {
   }
 
   dispose(): void {
-    if (this.refillTimer !== null) clearInterval(this.refillTimer);
-    this.refillTimer = null;
+    for (const timer of this.refillTimers) clearInterval(timer);
+    this.refillTimers.length = 0;
     for (const node of this.nodes) node.dispose();
     this.nodes.length = 0;
     this.filters.length = 0;

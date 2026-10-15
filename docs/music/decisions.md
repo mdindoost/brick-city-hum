@@ -333,3 +333,58 @@ being known-broken under a drone is what made it ignorable. **When the lab's num
 are the only witness, a number that is already known to be unreliable cannot also be
 the thing that would have caught the mistake.** Round 4 re-renders everything and the
 voice list is now pinned by a test.
+
+## 2026-10-15 · The Ground is a recording now, and three things that had to be measured
+
+Mohammad's diagnosis, immediately after round 4 chose the spread version: _"I think
+that background noise is there because you are synthesising it."_
+
+He was right, and the specific reason is worth keeping. The bed was three triangle
+oscillators at MIDI 38 and 45 — 73 and 110 Hz — behind a 420 Hz lowpass. What survives
+that filter is a fundamental and two or three harmonics with no attack, no noise and
+no variation: not a drone, a mains hum. It was also the loudest and most continuous
+thing in the piece, 5 dB above the whole city, and the only layer that had not been
+touched in four rounds of work on the voices.
+
+_Music for Airports_ is tape loops of recorded voices and piano. §6.7.1 cites it for
+the incommensurate-loop technique and we had taken the technique without the tape.
+
+**The instrument.** VSCO 2 CE's **Cello Section**, sustained (§6.9 names the library;
+CC0). Three candidates were measured first:
+
+- _VCSL bowed psaltery_, the only long bowed note VCSL has: `test-sample-pitch.py`
+  measured it at A#4–C6, two octaves above where the bed lives.
+- _VSCO solo contrabass, SusNV_: the right register, and not sustained at all — each
+  take is two or three separate bow strokes with silence between them. A bed built
+  from one had a hole in it every ten seconds, plainly visible on the spectrogram.
+- _VSCO cello section_: continuous takes, and several players, so the vibrato and bow
+  noise average into a shimmer rather than one audible wobble. A section is also the
+  right idea for "the air of the city" — nobody in it can be picked out.
+
+**The construction**, which is the tape technique rather than a loop: each entry plays
+one recording once with an equal-power swell at each end, and the next begins
+`body − swell` later, so one is always rising while another falls. There is no loop
+point anywhere, which matters because a seam in a bowed note is a click (§6.8).
+
+Three measurements decided three details, all of them visible on a bed-only
+spectrogram and none of them audible to me:
+
+1. **Equal power, not linear.** Two entries of the same recording at different offsets
+   are uncorrelated, so their powers add; a linear crossfade dropped the bed 3 dB at
+   every handover — a dark stripe every ten seconds, which is a pulse, which is the
+   one thing §6.7.1 exists to prevent.
+2. **Cut to the sustain.** `sustain_window` in the fetch script keeps the longest
+   stretch within 9 dB of a take's own peak, allowing a quarter-second dip.
+3. **Rotate the entry point.** Without it the bed is one phrase repeating every five
+   seconds. The offset walks by the golden ratio — fixed and index-derived, because §5
+   says every listener hears the same piece.
+
+**What the numbers say, bed alone:** −21.6 LUFS against the oscillator bed's −21.7
+(matched on purpose, or round 5 would be a test of loudness), 3.7 dB less below 200 Hz
+and **12.4 dB more above 300 Hz**. The second figure is the bow, and it is also the
+band the harp and the vibraphone live in. Whether that is an instrument or a blanket
+over the city is round 5's question.
+
+Open, and his to answer: whether the bed wants its bottom octave back. A quiet sine
+under the cellos is one line of config — and it is synthesis, so it goes to his ears
+before it goes in.
