@@ -145,6 +145,10 @@ export function toRecordedEvent(event: CityEvent): Record<string, unknown> {
       described_as: event.attrs.described_as,
     },
     salience: event.salience,
+    // The governor's placement is part of the recording, not an incidental: a replay
+    // that forgot which events were foreground would play back a different piece from
+    // the one that was heard.
+    tier: event.tier,
     caption: event.caption,
     sim: event.sim,
     scheduled: event.scheduled,

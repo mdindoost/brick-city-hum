@@ -5,7 +5,7 @@ import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { dayStamp, readRecording, Recorder } from './recorder.js';
 import type { Observation } from './observation.js';
-import { eventSchema } from './events.js';
+import { eventSchema, toRecordedEvent } from './events.js';
 
 /** The timestamp from SPEC §4's sample event. Note it resolves to 2025-10-14. */
 const SAMPLE_T = 1760458800123;
@@ -230,5 +230,34 @@ describe('a recording outlives the schema that wrote it', () => {
     const parsed = eventSchema.safeParse(before);
     expect(parsed.success).toBe(true);
     expect(parsed.data?.attrs.operator).toBeNull();
+  });
+});
+
+describe('the recorded event keeps what a replay needs', () => {
+  it('writes the governor tier, not only the console line', () => {
+    // The tier was being logged and dropped: a replay of that recording would have
+    // played every event in the foreground and been a different piece.
+    const event = eventSchema.parse({
+      id: '01M4XYYYM5KGPEWRD4MKC3XWCM',
+      t: 1792006912116,
+      type: 'sky',
+      source: 'adsb.lol',
+      geo: { lat: 40.75, lon: -74.15, alt_ft: 3000 },
+      rel: { bearing_deg: 67, distance_km: 2.81 },
+      attrs: {
+        callsign: null,
+        category: 'A3',
+        type_code: 'B738',
+        vrate_fpm: 128,
+        heavy: false,
+        described_as: 'an airliner',
+      },
+      salience: 0.2,
+      tier: 'texture',
+      caption: 'test',
+      sim: false,
+      scheduled: false,
+    });
+    expect(toRecordedEvent(event)['tier']).toBe('texture');
   });
 });
